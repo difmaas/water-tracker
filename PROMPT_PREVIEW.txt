@@ -50,4 +50,92 @@ Generate a plan artifact showing:
 
 Wait for my approval before executing anything.
 
-#Prompt for each feature`
+#Refactor Profile Data and Hydration Recommendation
+
+Read before doing anything:
+- AGENTS.md
+- FEATURES.md
+- ARCHITECTURE.md
+GOAL:
+Refactor the profile setup flow and hydration recommendation logic to support the updated Indonesian-first research requirements.
+IMPORTANT:
+This is a refactor and domain model improvement task.
+Do not redesign unrelated architecture.
+Do not implement unrelated features.
+NEW PRODUCT DIRECTION:
+- Entire application language should be Indonesian
+- Profile data must reflect realistic long-term hydration research needs
+- Hydration recommendation must become modifier/rules-based instead of simplistic hardcoded formulas
+STRICT CONSTRAINTS:
+- Do not add packages not listed in AGENTS.md
+- Do not modify folder structure without approval
+- Do not implement features beyond this scope
+- Do not overengineer with unnecessary layers or abstractions
+- Do not introduce AI/ML systems
+- Keep logic deterministic and maintainable
+REQUIRED PROFILE DATA CHANGES:
+Replace:
+- umur
+With:
+- nama
+- tanggal lahir
+- jenis kelamin
+- berat badan
+- level aktivitas
+- riwayat penyakit
+- letak geografis
+MEDICAL CONDITIONS (multi-select):
+- Diabetes Mellitus
+- Gagal Ginjal
+- Penyakit Jantung / Gagal Jantung
+- Penyakit Hati (Sirosis)
+GEOGRAPHIC OPTIONS:
+- Dataran Rendah
+- Dataran Tinggi
+IMPORTANT DOMAIN RULES:
+- Age must be derived from tanggal lahir
+- Medical conditions must support multiple selections
+- Hydration recommendation must support rule/modifier-based calculation
+- Avoid giant nested if/else logic
+- Keep recommendation logic readable and extensible
+HYDRATION CALCULATION DIRECTION:
+Base formula may still use weight-based calculation,
+but recommendation must support modifiers such as:
+- gender
+- activity level
+- geographic location
+- medical conditions
+Examples:
+- Diabetes may increase hydration recommendation
+- Heart failure or kidney disease may reduce hydration recommendation
+- High altitude may slightly increase hydration recommendation
+IMPORTANT:
+Do not present recommendations as absolute medical facts.
+Use wording similar to:
+- "Rekomendasi kebutuhan cairan harian"
+- "Estimasi berdasarkan data profil pengguna"
+Avoid definitive medical claims.
+LANGUAGE REQUIREMENTS:
+- All new UI text must use Bahasa Indonesia
+- Maintain terminology consistency
+- Avoid mixed English/Indonesian labels
+DATA MODEL REQUIREMENTS:
+- Separate:
+  - raw profile data
+  - calculated hydration recommendation
+- Avoid storing derived values as permanent source-of-truth when possible
+TECHNICAL REQUIREMENTS:
+- Preserve compatibility with future Isar migration
+- Avoid locking architecture deeper into SharedPreferences persistence
+- If persistence workaround remains necessary, isolate it cleanly
+BEFORE ANY CODE:
+Generate:
+1. commands to run
+2. files to create/modify
+3. schema/model changes
+4. calculation logic changes
+5. UI/form flow changes
+6. migration impact notes
+7. execution order
+8. architectural risks or technical debt notes
+Wait for approval before executing anything.

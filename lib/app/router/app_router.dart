@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/onboarding/presentation/splash_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
+import '../../features/dashboard/presentation/dashboard_screen.dart';
 
 // Route constants
 class AppRoutes {
@@ -31,7 +32,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.dashboard,
-        builder: (context, state) => const Scaffold(body: Center(child: Text('Dashboard'))),
+        builder: (context, state) => const DashboardScreen(),
       ),
     ],
   );

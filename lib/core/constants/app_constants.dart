@@ -72,3 +72,63 @@ class HydrationArticle {
 /// the actual articles.
 // TODO(researcher): Add 10–15 HydrationArticle entries before implementing F-09.
 const List<HydrationArticle> kHydrationArticles = [];
+
+// ── Profile Form Constants ────────────────────────────────────────────────────
+
+/// Riwayat penyakit — multi-select research variable.
+/// These values are stored as List<String> in UserProfile.riwayatPenyakit.
+/// NOT used in hydration calculation — research data only.
+const List<String> kMedicalConditions = [
+  'diabetes_mellitus',
+  'gagal_ginjal',
+  'penyakit_jantung',
+  'penyakit_hati_sirosis',
+];
+
+/// Display labels for each medical condition in kMedicalConditions.
+const Map<String, String> kMedicalConditionLabels = {
+  'diabetes_mellitus': 'Diabetes Mellitus',
+  'gagal_ginjal': 'Gagal Ginjal',
+  'penyakit_jantung': 'Penyakit Jantung / Gagal Jantung',
+  'penyakit_hati_sirosis': 'Penyakit Hati (Sirosis)',
+};
+
+/// Level aktivitas — ordered from rendah to sangat_aktif.
+const List<Map<String, String>> kActivityLevels = [
+  {
+    'value': 'rendah',
+    'label': 'Rendah',
+    'description': 'Duduk sepanjang hari, tidak berolahraga',
+  },
+  {
+    'value': 'ringan',
+    'label': 'Ringan',
+    'description': 'Jalan kaki ringan, olahraga 1–2x/minggu',
+  },
+  {
+    'value': 'sedang',
+    'label': 'Sedang',
+    'description': 'Olahraga 3–5x/minggu',
+  },
+  {
+    'value': 'aktif',
+    'label': 'Aktif',
+    'description': 'Olahraga intensif setiap hari',
+  },
+  {
+    'value': 'sangat_aktif',
+    'label': 'Sangat Aktif',
+    'description': 'Latihan berat / pekerjaan fisik berat',
+  },
+];
+
+/// Letak geografis — dropdown options.
+const List<Map<String, String>> kGeographicOptions = [
+  {'value': 'dataran_rendah', 'label': 'Dataran Rendah'},
+  {'value': 'dataran_tinggi', 'label': 'Dataran Tinggi'},
+];
+
+/// Disclaimer wording required on all hydration recommendation screens.
+const String kHydrationDisclaimer =
+    'Estimasi kebutuhan cairan harian berdasarkan data profil.\n'
+    'Bukan penggantian saran medis profesional.';

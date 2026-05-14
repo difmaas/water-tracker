@@ -5,7 +5,7 @@
 You are building "Personal Hydration Tracker", an Android Flutter app.
 Read @contextScopeItemMention @contextScopeItemMention@contextScopeItemMention before anything else.
 
-GOAL for this session: Implement F-01 (Project Setup & Theme) only.
+GOAL for this session: Implement F-0 (Project Setup & Theme) only.
 
 CONSTRAINTS:
 - Do not implement any feature beyond F-01
@@ -21,3 +21,33 @@ Generate a plan artifact showing:
 
 Wait for my approval before executing anything.
 Note : Don't plan to low level thinking when planning, just make a big picture of what you want to do.
+
+#F-00
+You are building "Personal Hydration Tracker", an Android Flutter app.
+Read 
+
+AGENTS.md
+ 
+
+FEATURES.md
+
+ARCHITECTURE.md
+before anything else.
+
+GOAL for this session: Implement F-00 (Splash Screen & Navigation Guard) only.
+
+CONSTRAINTS:
+- Do not implement any feature beyond F-00
+- Do not add packages not listed in AGENTS.md
+- Do not modify folder structure without approval
+
+BEFORE ANY CODE OR COMMAND:
+Generate a plan artifact showing:
+1. Exact commands you will run
+2. Files you will create with their paths
+3. Dependencies to add in pubspec.yaml
+4. Estimated completion order
+
+Wait for my approval before executing anything.
+
+#Prompt for each feature`

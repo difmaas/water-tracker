@@ -30,3 +30,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/onboarding_welcome.png
+    - assets/images/onboarding_research.png
+    - assets/images/onboarding_reminders.png
+
+dependency_overrides:

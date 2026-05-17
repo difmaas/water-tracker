@@ -5,6 +5,14 @@ import '../../features/onboarding/presentation/splash_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/education/presentation/education_screen.dart';
+import '../../features/education/presentation/article_detail_screen.dart';
+import '../../features/settings/presentation/settings_screen.dart';
+import '../../features/progress/presentation/progress_screen.dart';
+import '../presentation/main_scaffold.dart';
+
+final _rootNavigatorKey = GlobalKey<NavigatorState>();
+final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
 // Route constants
 class AppRoutes {
@@ -12,10 +20,15 @@ class AppRoutes {
   static const String onboarding = '/onboarding';
   static const String profileSetup = '/profile-setup';
   static const String dashboard = '/dashboard';
+  static const String education = '/education';
+  static const String educationDetail = '/education/:id';
+  static const String settings = '/settings';
+  static const String progress = '/progress';
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
+    navigatorKey: _rootNavigatorKey,
     initialLocation: AppRoutes.splash,
     routes: [
       GoRoute(
@@ -28,12 +41,42 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.profileSetup,
-        builder: (context, state) => const ProfileScreen(),
+        builder: (context, state) {
+          final isEdit = state.uri.queryParameters['edit'] == 'true';
+          return ProfileScreen(isEditing: isEdit);
+        },
       ),
       GoRoute(
-        path: AppRoutes.dashboard,
-        builder: (context, state) => const DashboardScreen(),
+        path: AppRoutes.educationDetail,
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final articleId = state.pathParameters['id'] ?? '';
+          return ArticleDetailScreen(articleId: articleId);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.settings,
+        builder: (context, state) => const SettingsScreen(),
+      ),
+      ShellRoute(
+        navigatorKey: _shellNavigatorKey,
+        builder: (context, state, child) => MainScaffold(child: child),
+        routes: [
+          GoRoute(
+            path: AppRoutes.dashboard,
+            pageBuilder: (context, state) => const NoTransitionPage(child: DashboardScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.progress,
+            pageBuilder: (context, state) => const NoTransitionPage(child: ProgressScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.education,
+            pageBuilder: (context, state) => const NoTransitionPage(child: EducationScreen()),
+          ),
+        ],
       ),
     ],
   );
 });
+

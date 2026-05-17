@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,66 +9,109 @@ import '../domain/hydration_calculator.dart';
 import '../data/user_profile_model.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
-  const ProfileScreen({super.key});
+  final bool isEditing;
+  const ProfileScreen({super.key, this.isEditing = false});
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+class _ProfileScreenState extends ConsumerState<ProfileScreen> with TickerProviderStateMixin {
   int _currentStep = 0;
-  static const int _kTotalSteps = 7; // 0–6, step 6 = konfirmasi
+  static const int _kTotalSteps = 9;
 
   final _namaController = TextEditingController();
   final _beratController = TextEditingController();
+  final _tinggiController = TextEditingController();
+
+  late AnimationController _fadeController;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _fadeController.forward();
+
+    if (widget.isEditing) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final s = ref.read(profileProvider);
+        _namaController.text = s.nama;
+        _beratController.text = s.beratBadan > 0 ? s.beratBadan.toString() : '';
+        _tinggiController.text = s.tinggiBadan > 0 ? s.tinggiBadan.toString() : '';
+      });
+    }
+  }
 
   @override
   void dispose() {
     _namaController.dispose();
     _beratController.dispose();
+    _tinggiController.dispose();
+    _fadeController.dispose();
     super.dispose();
+  }
+
+  void _nextStep() {
+    final s = ref.read(profileProvider);
+    if (!_canProceedFromStep(_currentStep, s)) return;
+
+    if (_currentStep < _kTotalSteps - 1) {
+      _fadeController.reverse().then((_) {
+        setState(() => _currentStep++);
+        _fadeController.forward();
+      });
+    } else {
+      _handleSubmit();
+    }
+  }
+
+  void _prevStep() {
+    if (_currentStep > 0) {
+      _fadeController.reverse().then((_) {
+        setState(() => _currentStep--);
+        _fadeController.forward();
+      });
+    }
   }
 
   bool _canProceedFromStep(int step, ProfileFormState s) {
     switch (step) {
-      case 0: // Nama
-        return _validateNama(s.nama) == null;
-      case 1: // Tanggal lahir
-        return _validateTanggalLahir(s.tanggalLahir) == null;
-      case 2: // Jenis kelamin
-        return s.jenisKelamin.isNotEmpty;
-      case 3: // Berat badan
-        return _validateBerat(s.beratBadan) == null;
-      case 4: // Level aktivitas
-        return s.levelAktivitas.isNotEmpty;
-      case 5: // Letak geografis + riwayat penyakit
-        return s.letakGeografis.isNotEmpty;
-      case 6: // Konfirmasi
-        return true;
-      default:
-        return false;
+      case 0: return _validateNama(s.nama) == null;
+      case 1: return _validateTanggalLahir(s.tanggalLahir) == null;
+      case 2: return s.jenisKelamin.isNotEmpty;
+      case 3: return _validateBerat(s.beratBadan) == null;
+      case 4: return _validateTinggi(s.tinggiBadan) == null;
+      case 5: return s.levelAktivitas.isNotEmpty;
+      case 6: return s.letakGeografis.isNotEmpty;
+      case 7: return s.reminderType.isNotEmpty;
+      case 8: return true;
+      default: return false;
     }
   }
 
   String? _validateNama(String value) {
-    if (value.isEmpty) return 'Nama harus 3–10 karakter dan hanya boleh huruf.';
-    if (value.length < 3 || value.length > 10) {
-      return 'Nama harus 3–10 karakter dan hanya boleh huruf.';
-    }
-    if (!RegExp(r'^[A-Za-z ]+$').hasMatch(value)) {
-      return 'Nama harus 3–10 karakter dan hanya boleh huruf.';
-    }
+    if (value.isEmpty) return 'Nama harus 3–10 karakter.';
+    if (value.length < 3 || value.length > 10) return 'Nama harus 3–10 karakter.';
+    if (!RegExp(r'^[A-Za-z ]+$').hasMatch(value)) return 'Hanya boleh huruf.';
     return null;
   }
 
   String? _validateTanggalLahir(DateTime? value) {
-    if (value == null) return 'Usia harus antara 10 hingga 80 tahun.';
-    if (!AppDateUtils.isValidAge(value)) return 'Usia harus antara 10 hingga 80 tahun.';
+    if (value == null) return 'Pilih tanggal lahir.';
+    if (!AppDateUtils.isValidAge(value)) return 'Usia 10–80 tahun.';
     return null;
   }
 
   String? _validateBerat(double value) {
-    if (value < 20 || value > 200) return 'Berat badan harus antara 20–200 kg.';
+    if (value < 20 || value > 200) return '20–200 kg.';
+    return null;
+  }
+
+  String? _validateTinggi(double value) {
+    if (value < 50 || value > 250) return '50–250 cm.';
     return null;
   }
 
@@ -77,279 +121,541 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final notifier = ref.read(profileProvider.notifier);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F8FF),
-      appBar: AppBar(
-        title: const Text('Buat Profil'),
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        foregroundColor: const Color(0xFF1565C0),
-      ),
-      body: Stepper(
-        type: StepperType.vertical,
-        currentStep: _currentStep,
-        onStepContinue: () {
-          if (!_canProceedFromStep(_currentStep, s)) return;
-          if (_currentStep < _kTotalSteps - 1) {
-            setState(() => _currentStep++);
-          } else {
-            _handleSubmit();
-          }
-        },
-        onStepCancel: () {
-          if (_currentStep > 0) setState(() => _currentStep--);
-        },
-        controlsBuilder: (context, details) {
-          final canProceed = _canProceedFromStep(_currentStep, s);
-          return Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: Row(
+      backgroundColor: const Color(0xFFF8F9FE),
+      body: Stack(
+        children: [
+          const _AnimatedWaterBackground(),
+          
+          SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ElevatedButton(
-                  onPressed: canProceed ? details.onStepContinue : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1565C0),
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey.shade300,
-                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                // Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.isEditing ? 'Ubah Profil' : 'Lengkapi Profil',
+                            style: const TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF1A1A2E),
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Langkah ${_currentStep + 1} dari $_kTotalSteps',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (widget.isEditing)
+                        IconButton(
+                          onPressed: () => context.pop(),
+                          icon: const Icon(Icons.close, color: Colors.black54),
+                        ),
+                    ],
                   ),
-                  child: s.isLoading && _currentStep == _kTotalSteps - 1
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : Text(_currentStep == _kTotalSteps - 1 ? 'Konfirmasi' : 'Lanjut'),
                 ),
-                if (_currentStep > 0) ...[
-                  const SizedBox(width: 8),
-                  TextButton(
-                    onPressed: details.onStepCancel,
-                    child: const Text('Kembali'),
+                
+                // Progress Bar
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                  child: Stack(
+                    children: [
+                      Container(
+                        height: 6,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 500),
+                        height: 6,
+                        width: (MediaQuery.of(context).size.width - 48) * 
+                               ((_currentStep + 1) / _kTotalSteps),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF42A5F5), Color(0xFF1565C0)],
+                          ),
+                          borderRadius: BorderRadius.circular(3),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF1565C0).withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
+
+                const SizedBox(height: 24),
+
+                // Content
+                Expanded(
+                  child: FadeTransition(
+                    opacity: _fadeController,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: _GlassCard(
+                        child: _buildCurrentStep(s, notifier),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Footer Actions
+                _buildFooter(s),
               ],
             ),
-          );
-        },
-        steps: [
-          _buildStep(0, 'Nama', _buildNamaStep(s, notifier)),
-          _buildStep(1, 'Tanggal Lahir', _buildTanggalLahirStep(s, notifier)),
-          _buildStep(2, 'Jenis Kelamin', _buildJenisKelaminStep(s, notifier)),
-          _buildStep(3, 'Berat Badan', _buildBeratBadanStep(s, notifier)),
-          _buildStep(4, 'Level Aktivitas', _buildLevelAktivitasStep(s, notifier)),
-          _buildStep(5, 'Letak Geografis & Riwayat Penyakit', _buildGeografisStep(s, notifier)),
-          _buildStep(6, 'Rekomendasi Target', _buildKonfirmasiStep(s, notifier)),
+          ),
         ],
       ),
     );
   }
 
-  Step _buildStep(int index, String title, Widget content) {
-    return Step(
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      content: content,
-      isActive: _currentStep >= index,
-      state: _currentStep > index ? StepState.complete : StepState.indexed,
+  Widget _buildFooter(ProfileFormState s) {
+    final canProceed = _canProceedFromStep(_currentStep, s);
+    
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          if (_currentStep > 0)
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _prevStep,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  side: const BorderSide(color: Color(0xFFE0E0E0)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                child: const Text('KEMBALI', style: TextStyle(color: Colors.black54, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          if (_currentStep > 0) const SizedBox(width: 16),
+          Expanded(
+            flex: 2,
+            child: ElevatedButton(
+              onPressed: canProceed ? _nextStep : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1565C0),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                disabledBackgroundColor: Colors.grey.shade300,
+              ),
+              child: s.isLoading && _currentStep == _kTotalSteps - 1
+                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : Text(
+                    _currentStep == _kTotalSteps - 1 ? 'SELESAI' : 'LANJUT',
+                    style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                  ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  // ── Step 0: Nama ─────────────────────────────────────────────────────────────
+  Widget _buildCurrentStep(ProfileFormState s, ProfileNotifier notifier) {
+    switch (_currentStep) {
+      case 0: return _buildNamaStep(s, notifier);
+      case 1: return _buildTanggalLahirStep(s, notifier);
+      case 2: return _buildJenisKelaminStep(s, notifier);
+      case 3: return _buildWeightHeightStep(s, notifier);
+      case 4: return _buildActivityLevelStep(s, notifier);
+      case 5: return _buildGeographyStep(s, notifier);
+      case 6: return _buildMedicalStep(s, notifier);
+      case 7: return _buildReminderStep(s, notifier);
+      case 8: return _buildKonfirmasiStep(s, notifier);
+      default: return const SizedBox();
+    }
+  }
+
+  Widget _buildStepTitle(String title, String desc) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E))),
+        const SizedBox(height: 8),
+        Text(desc, style: TextStyle(fontSize: 14, color: Colors.grey.shade600, height: 1.4)),
+        const SizedBox(height: 32),
+      ],
+    );
+  }
 
   Widget _buildNamaStep(ProfileFormState s, ProfileNotifier notifier) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Nama Anda', style: TextStyle(color: Colors.black54)),
-        const SizedBox(height: 8),
+        _buildStepTitle('Siapa nama Anda?', 'Gunakan nama panggilan Anda untuk pengalaman yang lebih personal.'),
         TextField(
           controller: _namaController,
           maxLength: 10,
-          decoration: InputDecoration(
-            hintText: 'Contoh: Dimas',
-            errorText: s.nama.isNotEmpty ? _validateNama(s.nama) : null,
-            border: const OutlineInputBorder(),
-          ),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          decoration: _inputDecoration('Nama Panggilan', Icons.person_outline),
           onChanged: notifier.updateNama,
         ),
       ],
     );
   }
 
-  // ── Step 1: Tanggal Lahir ────────────────────────────────────────────────────
-
   Widget _buildTanggalLahirStep(ProfileFormState s, ProfileNotifier notifier) {
     final label = s.tanggalLahir != null
-        ? '${s.tanggalLahir!.day.toString().padLeft(2, '0')}/'
-            '${s.tanggalLahir!.month.toString().padLeft(2, '0')}/'
-            '${s.tanggalLahir!.year}'
-        : 'Pilih tanggal lahir';
-
-    final ageError = s.tanggalLahir != null ? _validateTanggalLahir(s.tanggalLahir) : null;
-
+        ? '${s.tanggalLahir!.day.toString().padLeft(2, '0')} / ${s.tanggalLahir!.month.toString().padLeft(2, '0')} / ${s.tanggalLahir!.year}'
+        : 'Pilih Tanggal';
+        
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Tanggal Lahir', style: TextStyle(color: Colors.black54)),
-        const SizedBox(height: 8),
-        OutlinedButton.icon(
-          icon: const Icon(Icons.calendar_today),
-          label: Text(label),
-          onPressed: () async {
+        _buildStepTitle('Kapan Anda lahir?', 'Informasi ini membantu kami menyesuaikan kebutuhan hidrasi berdasarkan usia.'),
+        InkWell(
+          onTap: () async {
             final now = DateTime.now();
             final picked = await showDatePicker(
               context: context,
-              initialDate: DateTime(now.year - 25),
+              initialDate: DateTime(now.year - 17),
               firstDate: DateTime(now.year - 80),
               lastDate: DateTime(now.year - 10),
-              helpText: 'Pilih Tanggal Lahir',
+              builder: (context, child) {
+                return Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: const ColorScheme.light(primary: Color(0xFF1565C0)),
+                  ),
+                  child: child!,
+                );
+              },
             );
             if (picked != null) notifier.updateTanggalLahir(picked);
           },
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade200),
+              borderRadius: BorderRadius.circular(16),
+              color: Colors.white.withValues(alpha: 0.5),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.calendar_month_outlined, color: Color(0xFF1565C0)),
+                const SizedBox(width: 16),
+                Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.black26),
+              ],
+            ),
+          ),
         ),
-        if (ageError != null) ...[
-          const SizedBox(height: 4),
-          Text(ageError, style: const TextStyle(color: Colors.red, fontSize: 12)),
-        ],
-        if (s.tanggalLahir != null && ageError == null) ...[
-          const SizedBox(height: 4),
+        if (s.tanggalLahir != null) ...[
+          const SizedBox(height: 16),
           Text(
-            'Usia: ${AppDateUtils.ageFromBirthdate(s.tanggalLahir!)} tahun',
-            style: const TextStyle(color: Colors.green, fontSize: 12),
+            'Usia Anda: ${AppDateUtils.ageFromBirthdate(s.tanggalLahir!)} Tahun',
+            style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w600),
           ),
         ],
       ],
     );
   }
 
-  // ── Step 2: Jenis Kelamin ────────────────────────────────────────────────────
-
   Widget _buildJenisKelaminStep(ProfileFormState s, ProfileNotifier notifier) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (s.jenisKelamin.isEmpty)
-          const Text('Pilih jenis kelamin.',
-              style: TextStyle(color: Colors.red, fontSize: 12)),
-        const SizedBox(height: 8),
+        _buildStepTitle('Jenis Kelamin', 'Kebutuhan cairan biologis berbeda antara laki-laki dan perempuan.'),
         Row(
           children: [
-            _kelaminChip('Laki-laki', 'laki_laki', s.jenisKelamin, notifier.updateJenisKelamin),
-            const SizedBox(width: 12),
-            _kelaminChip('Perempuan', 'perempuan', s.jenisKelamin, notifier.updateJenisKelamin),
+            Expanded(child: _genderOption('Laki-laki', 'laki_laki', Icons.male, s.jenisKelamin, notifier.updateJenisKelamin)),
+            const SizedBox(width: 16),
+            Expanded(child: _genderOption('Perempuan', 'perempuan', Icons.female, s.jenisKelamin, notifier.updateJenisKelamin)),
           ],
         ),
       ],
     );
   }
 
-  Widget _kelaminChip(String label, String value, String current, Function(String) onTap) {
-    final selected = value == current;
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => onTap(value),
-      selectedColor: const Color(0xFF1565C0).withOpacity(0.15),
-      labelStyle: TextStyle(
-        color: selected ? const Color(0xFF1565C0) : Colors.black87,
-        fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+  Widget _genderOption(String label, String value, IconData icon, String current, Function(String) onTap) {
+    final isSelected = value == current;
+    return GestureDetector(
+      onTap: () => onTap(value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF1565C0) : Colors.white.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade200),
+          boxShadow: isSelected ? [BoxShadow(color: const Color(0xFF1565C0).withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4))] : [],
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 40, color: isSelected ? Colors.white : Colors.grey.shade400),
+            const SizedBox(height: 12),
+            Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Colors.white : Colors.black87)),
+          ],
+        ),
       ),
     );
   }
 
-  // ── Step 3: Berat Badan ──────────────────────────────────────────────────────
-
-  Widget _buildBeratBadanStep(ProfileFormState s, ProfileNotifier notifier) {
+  Widget _buildWeightHeightStep(ProfileFormState s, ProfileNotifier notifier) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Berat badan (kg)', style: TextStyle(color: Colors.black54)),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: 140,
-          child: TextField(
-            controller: _beratController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              suffixText: 'kg',
-              border: const OutlineInputBorder(),
-              errorText: s.beratBadan > 0 ? _validateBerat(s.beratBadan) : null,
+        _buildStepTitle('Fisik Anda', 'Informasi berat dan tinggi badan digunakan untuk menghitung volume hidrasi ideal.'),
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Berat Badan', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _beratController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    decoration: _inputDecoration('Kg', null),
+                    onChanged: (v) => notifier.updateBeratBadan(double.tryParse(v) ?? 0.0),
+                  ),
+                ],
+              ),
             ),
-            onChanged: (v) => notifier.updateBeratBadan(double.tryParse(v) ?? 0.0),
-          ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Tinggi Badan', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _tinggiController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    decoration: _inputDecoration('Cm', null),
+                    onChanged: (v) => notifier.updateTinggiBadan(double.tryParse(v) ?? 0.0),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  // ── Step 4: Level Aktivitas ──────────────────────────────────────────────────
-
-  Widget _buildLevelAktivitasStep(ProfileFormState s, ProfileNotifier notifier) {
+  Widget _buildActivityLevelStep(ProfileFormState s, ProfileNotifier notifier) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (s.levelAktivitas.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(bottom: 4),
-            child: Text('Pilih level aktivitas.',
-                style: TextStyle(color: Colors.red, fontSize: 12)),
-          ),
-        ...kActivityLevels.map((item) => RadioListTile<String>(
-              title: Text(item['label']!),
-              subtitle: Text(item['description']!,
-                  style: const TextStyle(fontSize: 12, color: Colors.black54)),
-              value: item['value']!,
-              groupValue: s.levelAktivitas,
-              onChanged: (v) => notifier.updateLevelAktivitas(v!),
-              contentPadding: EdgeInsets.zero,
-            )),
+        _buildStepTitle('Seberapa aktif Anda?', 'Semakin tinggi aktivitas fisik, semakin banyak cairan yang dibutuhkan tubuh.'),
+        ...kActivityLevels.map((item) {
+          final isSelected = s.levelAktivitas == item['value'];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: InkWell(
+              onTap: () => notifier.updateLevelAktivitas(item['value']!),
+              borderRadius: BorderRadius.circular(16),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFF1565C0).withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(item['label']!, style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? const Color(0xFF1565C0) : Colors.black87)),
+                          const SizedBox(height: 4),
+                          Text(item['description']!, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                        ],
+                      ),
+                    ),
+                    if (isSelected) const Icon(Icons.check_circle, color: Color(0xFF1565C0)),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
       ],
     );
   }
 
-  // ── Step 5: Letak Geografis + Riwayat Penyakit ──────────────────────────────
-
-  Widget _buildGeografisStep(ProfileFormState s, ProfileNotifier notifier) {
+  Widget _buildGeographyStep(ProfileFormState s, ProfileNotifier notifier) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Letak Geografis', style: TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
-        if (s.letakGeografis.isEmpty)
-          const Text('Pilih letak geografis.',
-              style: TextStyle(color: Colors.red, fontSize: 12)),
-        DropdownButtonFormField<String>(
-          value: s.letakGeografis.isEmpty ? null : s.letakGeografis,
-          hint: const Text('Pilih lokasi'),
-          items: kGeographicOptions.map((opt) {
-            return DropdownMenuItem(value: opt['value'], child: Text(opt['label']!));
+        _buildStepTitle('Dimana Anda tinggal?', 'Suhu dan kelembapan di wilayah dataran tinggi vs rendah memengaruhi penguapan cairan tubuh.'),
+        ...kGeographicOptions.map((opt) {
+          final isSelected = s.letakGeografis == opt['value'];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: InkWell(
+              onTap: () => notifier.updateLetakGeografis(opt['value']!),
+              borderRadius: BorderRadius.circular(16),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFF1565C0).withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Text(opt['label']!, style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? const Color(0xFF1565C0) : Colors.black87)),
+                    const Spacer(),
+                    if (isSelected) const Icon(Icons.check_circle, color: Color(0xFF1565C0)),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildMedicalStep(ProfileFormState s, ProfileNotifier notifier) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildStepTitle('Riwayat Kesehatan', 'Opsional - Informasi ini berguna bagi penelitian untuk memahami latar belakang partisipan.'),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: kMedicalConditions.map((condition) {
+            final isSelected = s.riwayatPenyakit.contains(condition);
+            return FilterChip(
+              label: Text(kMedicalConditionLabels[condition] ?? condition),
+              selected: isSelected,
+              onSelected: (_) => notifier.toggleRiwayatPenyakit(condition),
+              selectedColor: const Color(0xFF1565C0).withValues(alpha: 0.15),
+              checkmarkColor: const Color(0xFF1565C0),
+              labelStyle: TextStyle(
+                color: isSelected ? const Color(0xFF1565C0) : Colors.black87,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+              backgroundColor: Colors.white.withValues(alpha: 0.5),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade200)),
+            );
           }).toList(),
-          onChanged: (v) => notifier.updateLetakGeografis(v!),
-          decoration: const InputDecoration(border: OutlineInputBorder()),
         ),
-        const SizedBox(height: 20),
-        const Text('Riwayat Penyakit', style: TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
-        const Text(
-          'Opsional — tidak berpengaruh pada perhitungan saat ini.',
-          style: TextStyle(fontSize: 12, color: Colors.black45),
-        ),
-        const SizedBox(height: 8),
-        ...kMedicalConditions.map((condition) => CheckboxListTile(
-              title: Text(kMedicalConditionLabels[condition] ?? condition),
-              value: s.riwayatPenyakit.contains(condition),
-              onChanged: (_) => notifier.toggleRiwayatPenyakit(condition),
-              contentPadding: EdgeInsets.zero,
-              controlAffinity: ListTileControlAffinity.leading,
-            )),
       ],
     );
   }
 
-  // ── Step 6: Konfirmasi ───────────────────────────────────────────────────────
+  Widget _buildReminderStep(ProfileFormState s, ProfileNotifier notifier) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildStepTitle('Mode Pengingat', 'Pilih bagaimana aplikasi mengingatkan Anda untuk minum.'),
+        _reminderOption(
+          'Smart Reminder', 
+          'Algoritma cerdas yang menyesuaikan dengan sisa target dan waktu aktif Anda.',
+          'smart', 
+          Icons.auto_awesome_outlined,
+          s.reminderType,
+          notifier.updateReminderType
+        ),
+        const SizedBox(height: 16),
+        _reminderOption(
+          'Interval Tetap', 
+          'Pengingat pada jam-jam yang sudah ditentukan (misal setiap 2 jam).',
+          'interval', 
+          Icons.timer_outlined,
+          s.reminderType,
+          notifier.updateReminderType
+        ),
+        if (s.reminderType == 'interval') ...[
+          const SizedBox(height: 24),
+          const Text('Pilih Interval:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
+          const SizedBox(height: 12),
+          Row(
+            children: [1, 2, 3].map((h) => Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: ChoiceChip(
+                  label: Text('$h Jam'),
+                  selected: s.reminderInterval == h,
+                  onSelected: (_) => notifier.updateReminderInterval(h),
+                ),
+              ),
+            )).toList(),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _reminderOption(String title, String desc, String value, IconData icon, String current, Function(String) onTap) {
+    final isSelected = value == current;
+    return InkWell(
+      onTap: () => onTap(value),
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF1565C0).withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade200),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade400),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? const Color(0xFF1565C0) : Colors.black87)),
+                  const SizedBox(height: 4),
+                  Text(desc, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildKonfirmasiStep(ProfileFormState s, ProfileNotifier notifier) {
-    // Build temp profile for breakdown
     final tempProfile = UserProfile()
       ..jenisKelamin = s.jenisKelamin
       ..beratBadan = s.beratBadan
@@ -363,68 +669,79 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Recommendation headline
-        Text(
-          'Rekomendasi kebutuhan cairan harian',
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          '$displayTarget ml',
-          style: const TextStyle(
-            fontSize: 40,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1565C0),
+        _buildStepTitle('Hasil Perhitungan', 'Berdasarkan data Anda, ini adalah kebutuhan cairan harian yang disarankan.'),
+        
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [Color(0xFF1565C0), Color(0xFF42A5F5)]),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(color: const Color(0xFF1565C0).withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10)),
+            ],
           ),
-        ),
-        const SizedBox(height: 12),
-        // Modifier breakdown
-        if (breakdowns.isNotEmpty) ...[
-          Text('Rincian modifier:', style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
-          const SizedBox(height: 4),
-          ...breakdowns.map((b) => Padding(
-                padding: const EdgeInsets.only(bottom: 2),
+          child: Column(
+            children: [
+              const Text('TARGET HARIAN', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, letterSpacing: 2)),
+              const SizedBox(height: 12),
+              Text(
+                '$displayTarget ml',
+                style: const TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: Colors.white),
+              ),
+              const SizedBox(height: 24),
+              const Divider(color: Colors.white24),
+              const SizedBox(height: 16),
+              ...breakdowns.map((b) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
                   children: [
-                    const SizedBox(width: 8),
-                    Icon(
-                      b.delta >= 0 ? Icons.arrow_upward : Icons.arrow_downward,
-                      size: 14,
-                      color: b.delta >= 0 ? Colors.green : Colors.orange,
-                    ),
-                    const SizedBox(width: 4),
-                    Text('${b.label}: ${b.deltaLabel}',
-                        style: const TextStyle(fontSize: 12)),
+                    Icon(b.delta >= 0 ? Icons.add_circle : Icons.remove_circle, color: Colors.white70, size: 16),
+                    const SizedBox(width: 12),
+                    Text(b.label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                    const Spacer(),
+                    Text(b.deltaLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                   ],
                 ),
               )),
-          const SizedBox(height: 12),
-        ],
-        // Manual adjust
-        TextButton.icon(
-          onPressed: () => _showManualEdit(s, notifier),
-          icon: const Icon(Icons.edit, size: 16),
-          label: const Text('Ubah Manual'),
+            ],
+          ),
         ),
-        if (s.targetManualMl != null) ...[
-          const SizedBox(height: 4),
-          TextButton(
-            onPressed: () => notifier.updateManualTarget(null),
-            child: const Text('Gunakan rekomendasi'),
-          ),
-        ],
-        const SizedBox(height: 16),
-        // Disclaimer — required on all recommendation screens
+        
+        const SizedBox(height: 32),
+        
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TextButton.icon(
+              onPressed: () => _showManualEdit(s, notifier),
+              icon: const Icon(Icons.edit_note),
+              label: const Text('Sesuaikan Manual'),
+            ),
+            if (s.targetManualMl != null)
+              TextButton(
+                onPressed: () => notifier.updateManualTarget(null),
+                child: const Text('Reset Rekomendasi'),
+              ),
+          ],
+        ),
+        
+        const SizedBox(height: 24),
+        
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.amber.shade50,
-            border: Border.all(color: Colors.amber.shade200),
-            borderRadius: BorderRadius.circular(8),
+            color: Colors.orange.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.orange.withValues(alpha: 0.2)),
           ),
-          child: Text(
-            kHydrationDisclaimer,
-            style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.info_outline, color: Colors.orange, size: 20),
+              const SizedBox(width: 12),
+              Expanded(child: Text(kHydrationDisclaimer, style: const TextStyle(fontSize: 12, color: Colors.black87, height: 1.5))),
+            ],
           ),
         ),
       ],
@@ -432,53 +749,158 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _showManualEdit(ProfileFormState s, ProfileNotifier notifier) {
-    final controller = TextEditingController(
-        text: (s.targetManualMl ?? s.calculatedTargetMl).toString());
+    final controller = TextEditingController(text: (s.targetManualMl ?? s.calculatedTargetMl).toString());
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Ubah Target Manual'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Target Manual', style: TextStyle(fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            const Text('Sesuaikan jika Anda memiliki saran khusus dari dokter.'),
+            const SizedBox(height: 20),
             TextField(
               controller: controller,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                suffixText: 'ml',
-                helperText: 'Rentang: 1500–4000 ml',
-              ),
+              autofocus: true,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              decoration: _inputDecoration('Volume (ml)', Icons.water_drop_outlined),
             ),
           ],
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context), child: const Text('Batal')),
-          TextButton(
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('BATAL')),
+          ElevatedButton(
             onPressed: () {
               final val = int.tryParse(controller.text);
               if (val != null && val >= 1500 && val <= 4000) {
                 notifier.updateManualTarget(val);
+                Navigator.pop(context);
               }
-              Navigator.pop(context);
             },
-            child: const Text('Simpan'),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1565C0), foregroundColor: Colors.white),
+            child: const Text('SIMPAN'),
           ),
         ],
       ),
     );
   }
 
+  InputDecoration _inputDecoration(String hint, IconData? icon) {
+    return InputDecoration(
+      hintText: hint,
+      prefixIcon: icon != null ? Icon(icon, color: const Color(0xFF1565C0)) : null,
+      filled: true,
+      fillColor: Colors.white.withValues(alpha: 0.5),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: Colors.grey.shade200),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: Colors.grey.shade200),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFF1565C0), width: 2),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+    );
+  }
+
   Future<void> _handleSubmit() async {
     try {
       await ref.read(profileProvider.notifier).submitProfile();
-      if (mounted) context.go('/dashboard');
+      if (mounted) {
+        if (widget.isEditing) {
+          context.pop();
+        } else {
+          context.go('/dashboard');
+        }
+      }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Terjadi kesalahan: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
+  }
+}
+
+class _GlassCard extends StatelessWidget {
+  final Widget child;
+  const _GlassCard({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(32),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _AnimatedWaterBackground extends StatefulWidget {
+  const _AnimatedWaterBackground();
+
+  @override
+  State<_AnimatedWaterBackground> createState() => _AnimatedWaterBackgroundState();
+}
+
+class _AnimatedWaterBackgroundState extends State<_AnimatedWaterBackground> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 15))..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Stack(
+          children: [
+            Positioned(top: -100 + (50 * _controller.value), left: -50 + (100 * _controller.value), child: _buildBlob(300, const Color(0xFFBDDDFD).withValues(alpha: 0.2))),
+            Positioned(bottom: 100 - (50 * _controller.value), right: -100 + (150 * _controller.value), child: _buildBlob(400, const Color(0xFFC4E8C2).withValues(alpha: 0.15))),
+            Positioned(top: 300 + (100 * (1 - _controller.value)), right: 50 + (50 * _controller.value), child: _buildBlob(250, const Color(0xFFFFE194).withValues(alpha: 0.1))),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildBlob(double size, Color color) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [color, color.withValues(alpha: 0.0)])),
+    );
   }
 }

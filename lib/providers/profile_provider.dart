@@ -1,11 +1,13 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'package:uuid/uuid.dart';
 import '../features/profile/data/profile_repository.dart';
 import '../features/profile/data/user_profile_model.dart';
 import '../features/profile/domain/hydration_calculator.dart';
 import '../core/utils/date_utils.dart';
 import 'onboarding_provider.dart';
+import 'reminder_provider.dart';
 
 class ProfileFormState {
   // ── Form fields ──────────────────────────────────────────────────────────────
@@ -13,9 +15,12 @@ class ProfileFormState {
   final DateTime? tanggalLahir;
   final String jenisKelamin;
   final double beratBadan;
+  final double tinggiBadan;
   final String levelAktivitas;
   final String letakGeografis;
   final List<String> riwayatPenyakit;
+  final String reminderType;
+  final int reminderInterval;
 
   // ── Calculated result ────────────────────────────────────────────────────────
   final int calculatedTargetMl;
@@ -29,9 +34,12 @@ class ProfileFormState {
     this.tanggalLahir,
     this.jenisKelamin = '',
     this.beratBadan = 0.0,
+    this.tinggiBadan = 0.0,
     this.levelAktivitas = '',
     this.letakGeografis = '',
     this.riwayatPenyakit = const [],
+    this.reminderType = 'interval',
+    this.reminderInterval = 2,
     this.calculatedTargetMl = 0,
     this.targetManualMl,
     this.isLoading = false,
@@ -42,9 +50,12 @@ class ProfileFormState {
     DateTime? tanggalLahir,
     String? jenisKelamin,
     double? beratBadan,
+    double? tinggiBadan,
     String? levelAktivitas,
     String? letakGeografis,
     List<String>? riwayatPenyakit,
+    String? reminderType,
+    int? reminderInterval,
     int? calculatedTargetMl,
     int? targetManualMl,
     bool clearManualTarget = false,
@@ -55,9 +66,12 @@ class ProfileFormState {
       tanggalLahir: tanggalLahir ?? this.tanggalLahir,
       jenisKelamin: jenisKelamin ?? this.jenisKelamin,
       beratBadan: beratBadan ?? this.beratBadan,
+      tinggiBadan: tinggiBadan ?? this.tinggiBadan,
       levelAktivitas: levelAktivitas ?? this.levelAktivitas,
       letakGeografis: letakGeografis ?? this.letakGeografis,
       riwayatPenyakit: riwayatPenyakit ?? this.riwayatPenyakit,
+      reminderType: reminderType ?? this.reminderType,
+      reminderInterval: reminderInterval ?? this.reminderInterval,
       calculatedTargetMl: calculatedTargetMl ?? this.calculatedTargetMl,
       targetManualMl: clearManualTarget ? null : (targetManualMl ?? this.targetManualMl),
       isLoading: isLoading ?? this.isLoading,
@@ -70,9 +84,10 @@ class ProfileFormState {
     final lahirOk = tanggalLahir != null && AppDateUtils.isValidAge(tanggalLahir!);
     final kelaminOk = jenisKelamin.isNotEmpty;
     final beratOk = beratBadan >= 20 && beratBadan <= 200;
+    final tinggiOk = tinggiBadan >= 50 && tinggiBadan <= 250;
     final aktivitasOk = levelAktivitas.isNotEmpty;
     final geografisOk = letakGeografis.isNotEmpty;
-    return namaOk && lahirOk && kelaminOk && beratOk && aktivitasOk && geografisOk;
+    return namaOk && lahirOk && kelaminOk && beratOk && tinggiOk && aktivitasOk && geografisOk;
   }
 
   static bool _isNamaValid(String value) {
@@ -103,6 +118,11 @@ class ProfileNotifier extends Notifier<ProfileFormState> {
     _recalculate();
   }
 
+  void updateTinggiBadan(double value) {
+    state = state.copyWith(tinggiBadan: value);
+    _recalculate();
+  }
+
   void updateLevelAktivitas(String value) {
     state = state.copyWith(levelAktivitas: value);
     _recalculate();
@@ -111,6 +131,14 @@ class ProfileNotifier extends Notifier<ProfileFormState> {
   void updateLetakGeografis(String value) {
     state = state.copyWith(letakGeografis: value);
     _recalculate();
+  }
+
+  void updateReminderType(String value) {
+    state = state.copyWith(reminderType: value);
+  }
+
+  void updateReminderInterval(int value) {
+    state = state.copyWith(reminderInterval: value);
   }
 
   void toggleRiwayatPenyakit(String condition) {
@@ -132,6 +160,40 @@ class ProfileNotifier extends Notifier<ProfileFormState> {
     }
   }
 
+  void initializeForEdit(UserProfile profile) {
+    state = ProfileFormState(
+      nama: profile.nama,
+      tanggalLahir: profile.tanggalLahir,
+      jenisKelamin: profile.jenisKelamin,
+      beratBadan: profile.beratBadan,
+      tinggiBadan: profile.tinggiBadan,
+      levelAktivitas: profile.levelAktivitas,
+      letakGeografis: profile.letakGeografis,
+      riwayatPenyakit: profile.riwayatPenyakit,
+      reminderType: profile.reminderType,
+      reminderInterval: profile.reminderInterval,
+      calculatedTargetMl: profile.dailyTargetMl, // initial guess
+      targetManualMl: profile.targetManualMl,
+    );
+    _recalculate(); // recalculate based on existing data
+  }
+
+  Future<void> updateReminderWindow(int start, int end) async {
+    final repo = ref.read(profileRepositoryProvider);
+    final profile = await repo.getUserProfile();
+    if (profile == null) return;
+
+    final updated = profile.copyWith(
+      reminderWindowStart: start,
+      reminderWindowEnd: end,
+      isSynced: false,
+    );
+
+    await repo.saveProfile(updated);
+    // Trigger immediate reschedule
+    await ref.read(reminderServiceProvider).rescheduleWithNewWindow();
+  }
+
   // ── Calculation ──────────────────────────────────────────────────────────────
 
   void _recalculate() {
@@ -147,6 +209,7 @@ class ProfileNotifier extends Notifier<ProfileFormState> {
     final tempProfile = UserProfile()
       ..jenisKelamin = state.jenisKelamin
       ..beratBadan = state.beratBadan
+      ..tinggiBadan = state.tinggiBadan
       ..levelAktivitas = state.levelAktivitas
       ..letakGeografis = state.letakGeografis
       ..riwayatPenyakit = state.riwayatPenyakit;
@@ -160,48 +223,64 @@ class ProfileNotifier extends Notifier<ProfileFormState> {
   Future<void> submitProfile() async {
     state = state.copyWith(isLoading: true);
     try {
-      // 1. Generate UUID v4
-      final userId = const Uuid().v4();
+      final repo = ref.read(profileRepositoryProvider);
+      final existing = await repo.getUserProfile();
 
-      // 2. Supabase anonymous auth (required for RLS compliance)
-      try {
-        await Supabase.instance.client.auth.signInAnonymously();
-      } catch (e) {
-        // Ignore if Supabase is not initialized (Opsi B)
-        // ignore: avoid_print
-        print('Supabase not initialized, skipping auth: $e');
+      // 1. Preservation or generation of userId
+      final userId = existing?.userId ?? const Uuid().v4();
+
+      // 2. Supabase anonymous auth (deferred per AGENTS.md §6)
+      /*
+      if (existing == null) {
+        try {
+          await Supabase.instance.client.auth.signInAnonymously();
+        } catch (e) {
+          debugPrint('[ProfileProvider] Supabase auth error: $e');
+        }
       }
+      */
 
       final finalTarget = state.targetManualMl ?? state.calculatedTargetMl;
       final isManualOverride = state.targetManualMl != null;
 
-      // 3. Construct UserProfile
-      final profile = UserProfile()
+      // 2.5 Request all necessary permissions (no-op if already granted)
+      final notifGranted = await ref.read(reminderServiceProvider).requestPermissions();
+
+      // 3. Construct or Update UserProfile
+      final profile = (existing ?? UserProfile())
         ..userId = userId
-        ..nama = state.nama // Isar only — excluded from SyncService payload
+        ..nama = state.nama
         ..tanggalLahir = state.tanggalLahir!
         ..jenisKelamin = state.jenisKelamin
         ..beratBadan = state.beratBadan
+        ..tinggiBadan = state.tinggiBadan
         ..levelAktivitas = state.levelAktivitas
         ..letakGeografis = state.letakGeografis
         ..riwayatPenyakit = state.riwayatPenyakit
         ..dailyTargetMl = finalTarget
         ..targetDiterima = !isManualOverride
         ..targetManualMl = state.targetManualMl
-        ..notificationPermissionGranted = true // Captured at onboarding
-        ..reminderSystemActive = true
-        ..createdAt = DateTime.now()
+        ..notificationPermissionGranted = notifGranted
+        ..reminderSystemActive = notifGranted
+        ..reminderType = state.reminderType
+        ..reminderInterval = state.reminderInterval
+        ..createdAt = existing?.createdAt ?? DateTime.now()
         ..isSynced = false;
 
       // 4. Persist
-      await ref.read(profileRepositoryProvider).saveProfile(profile);
+      await repo.saveProfile(profile);
 
-      // 5. Mark profile as created in routing guard
+      // 5. Mark profile as created
       await ref.read(profileStatusProvider.notifier).setProfileCreated();
+
+      // 6. Initialize or Reschedule reminder system
+      if (existing == null) {
+        await ref.read(reminderServiceProvider).initialize(finalTarget);
+      } else {
+        await ref.read(reminderServiceProvider).rescheduleWithNewWindow();
+      }
     } catch (e) {
-      // Sync failures are silent per AGENTS.md — log only
-      // ignore: avoid_print
-      print('Profile submission error: $e');
+      debugPrint('[ProfileProvider] Profile submission error: $e');
       rethrow;
     } finally {
       state = state.copyWith(isLoading: false);

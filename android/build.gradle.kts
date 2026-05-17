@@ -22,6 +22,7 @@ subprojects {
         if (project.plugins.hasPlugin("com.android.library")) {
             val androidExt = project.extensions.findByName("android")
             if (androidExt is com.android.build.gradle.LibraryExtension) {
+                androidExt.compileSdk = 36
                 if (androidExt.namespace.isNullOrEmpty()) {
                     androidExt.namespace = project.group.toString().ifEmpty {
                         "dev.isar.isar_flutter_libs"

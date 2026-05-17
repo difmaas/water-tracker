@@ -16,10 +16,11 @@ class HydrationApp extends ConsumerWidget {
     final router = ref.watch(appRouterProvider);
 
     return MaterialApp.router(
-      title: 'Personal Hydration Tracker',
+      title: 'Sehati',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       routerConfig: router,
+      scrollBehavior: const ScrollBehavior().copyWith(overscroll: false),
     );
   }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../providers/hydration_provider.dart';
-import '../../../../providers/profile_provider.dart';
 import 'widgets/progress_ring.dart';
 import 'widgets/quick_add_buttons.dart';
 import 'widgets/fun_fact_card.dart';
@@ -14,7 +14,6 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final hydrationState = ref.watch(hydrationProvider);
     
-    // We get month string in Indonesian manually for simplicity or use intl if available.
     final now = DateTime.now();
     final months = [
       'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -23,164 +22,221 @@ class DashboardScreen extends ConsumerWidget {
     final dateString = '${now.day} ${months[now.month - 1]}';
 
     return PopScope(
-      canPop: false, // Prevent back navigation
+      canPop: false,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF5F8FF),
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          automaticallyImplyLeading: false,
-          toolbarHeight: 0,
-        ),
-        body: hydrationState.isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : SafeArea(
-                child: ListView(
-                  padding: const EdgeInsets.all(24.0),
-                  children: [
-                    // Header Area
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
+        backgroundColor: Colors.transparent,
+        extendBody: true,
+        extendBodyBehindAppBar: true,
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFE8F4F8),
+                Color(0xFFF6F8FD),
+                Color(0xFFE1F0FF),
+              ],
+              stops: [0.0, 0.5, 1.0],
+            ),
+          ),
+          child: hydrationState.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SafeArea(
+                  bottom: false,
+                  child: CustomScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    slivers: [
+                      // 1. TOP AREA (Header, Progress, Buttons)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Hari ini, $dateString',
-                                style: const TextStyle(
-                                  color: Colors.black54,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Hari ini, $dateString',
+                                          style: TextStyle(
+                                            color: Colors.blueGrey.shade400,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Halo, ${hydrationState.userName}! 👋',
+                                          style: TextStyle(
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.blue.shade900,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      IconButton(
+                                        onPressed: () => context.push('/settings'),
+                                        icon: Icon(Icons.settings_outlined, color: Colors.blue.shade700),
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange.shade50,
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(color: Colors.orange.shade200),
+                                        ),
+                                        child: Text(
+                                          '🔥 ${hydrationState.currentStreak} Hari',
+                                          style: TextStyle(
+                                            color: Colors.orange.shade800,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Halo, ${hydrationState.userName}! 👋',
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1565C0),
+                              const SizedBox(height: 16),
+                              if (!hydrationState.notificationPermissionGranted)
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  margin: const EdgeInsets.only(bottom: 24),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.shade50,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.amber.shade200),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          'Izin notifikasi belum diberikan. Pengingat tidak aktif.',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.amber.shade900,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
+                              const Center(child: ProgressRing()),
+                              const SizedBox(height: 32),
+                              const QuickAddButtons(),
+                              const SizedBox(height: 24),
+                              const FunFactCard(),
+                              const SizedBox(height: 16),
                             ],
                           ),
                         ),
-                        // Streak Badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.orange.shade200),
-                          ),
-                          child: Text(
-                            hydrationState.currentStreak > 0
-                                ? '🔥 ${hydrationState.currentStreak} Hari Berturut-turut'
-                                : '🔥 Mulai streak-mu hari ini!',
-                            style: TextStyle(
-                              color: Colors.orange.shade800,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
+                      ),
 
-                    // Notification Banner
-                    if (!hydrationState.notificationPermissionGranted)
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        margin: const EdgeInsets.only(bottom: 24),
-                        decoration: BoxDecoration(
-                          color: Colors.amber.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.amber.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Izin notifikasi belum diberikan. Pengingat minum air tidak akan aktif.',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.amber.shade900,
-                                ),
+                      // 2. STICKY HEADER
+                      SliverPersistentHeader(
+                        pinned: true,
+                        delegate: _StickyHeaderDelegate(
+                          child: Container(
+                            color: const Color(0xFFF6F8FD), // Match background stop
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                            alignment: Alignment.centerLeft,
+                            child: const Text(
+                              'Catatan Hari Ini',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1565C0),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-
-                    // Progress Ring
-                    const Center(child: ProgressRing()),
-                    const SizedBox(height: 32),
-
-                    // Quick Add Buttons
-                    const QuickAddButtons(),
-                    const SizedBox(height: 24),
-
-                    // Fun Fact
-                    const FunFactCard(),
-                    const SizedBox(height: 32),
-
-                    // Log List Header
-                    const Text(
-                      'Catatan Hari Ini',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Log List
-                    if (hydrationState.todayLogs.isEmpty)
-                      Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(32.0),
-                          child: Text(
-                            'Belum ada catatan hari ini.\nYuk minum air!',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.grey.shade500,
-                              height: 1.5,
-                            ),
                           ),
                         ),
-                      )
-                    else
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: Column(
-                          children: hydrationState.todayLogs
-                              .map((log) => HydrationLogTile(log: log))
-                              .toList(),
-                        ),
                       ),
-                    const SizedBox(height: 80), // Padding for FAB
-                  ],
+
+                      // 3. LOG LIST
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                        sliver: hydrationState.todayLogs.isEmpty
+                            ? SliverToBoxAdapter(
+                                child: Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(32.0),
+                                    child: Text(
+                                      'Belum ada catatan hari ini.\nYuk minum air!',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: Colors.grey.shade500,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : SliverList(
+                                delegate: SliverChildBuilderDelegate(
+                                  (context, index) {
+                                    return HydrationLogTile(
+                                      log: hydrationState.todayLogs[index],
+                                    );
+                                  },
+                                  childCount: hydrationState.todayLogs.length,
+                                ),
+                              ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Segera hadir')),
-            );
-          },
-          backgroundColor: Colors.white,
-          foregroundColor: const Color(0xFF1565C0),
-          child: const Icon(Icons.school),
         ),
       ),
     );
+  }
+}
+
+class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+
+  _StickyHeaderDelegate({required this.child});
+
+  @override
+  double get minExtent => 60.0;
+  @override
+  double get maxExtent => 60.0;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF6F8FD),
+        boxShadow: overlapsContent
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                )
+              ]
+            : null,
+      ),
+      child: child,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_StickyHeaderDelegate oldDelegate) {
+    return false;
   }
 }

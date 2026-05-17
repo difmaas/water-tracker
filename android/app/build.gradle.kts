@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.research.hydration_tracker"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

@@ -1,39 +1,52 @@
-# FEATURES.md
+# FEATURES_V3.md
 # Feature Specifications & Acceptance Criteria
 # Personal Hydration Tracker
 
-> This file defines what "done" means for each feature.
-> Agent must satisfy ALL acceptance criteria before moving to next feature.
-> Do not mark a feature complete if any criterion is unmet.
+> **V3 Changelog (2026-05-15):**
+> - Supabase integration deferred to Phase 2 — all F-10 Supabase calls are stubs
+> - F-00: `no_response` lazy detection added to startup sequence
+> - F-00: `dropoutNotificationSent` flag added to prevent duplicate re-engagement
+> - F-03: Schema aligned with refactored profile fields
+> - F-06: Reminder window now user-configurable (stored in UserProfile)
+> - F-06: Reminder window constraints — min 8h, 06:00–22:00
+> - F-11 (new): Settings Screen
+> - F-12 (new): History Screen (riwayat beberapa hari)
+> - Phase numbering updated
 
 ---
 
 ## Build Order
 
-### Phase 1 — Research Core (complete and stabilize before Phase 2)
+### Phase 1 — Feature Development (Isar only, no Supabase)
 ```
 1.  Project Setup & Theme          (F-01)
 2.  Splash & Navigation Guard      (F-00)
 3.  Onboarding                     (F-02)
 4.  Profile Setup + Calculator     (F-03)
-5.  Daily Dashboard shell          (F-04)
+5.  Daily Dashboard                (F-04)
 6.  Hydration Logging              (F-05)
 7.  Reminder System                (F-06)
 8.  Direct Action Notification     (F-07)
 9.  Reminder Response Tracker      (F-08)
 10. Education Screen               (F-09)
-11. Auto-sync to Supabase          (F-10)
+11. Settings Screen                (F-10)
+12. History Screen                 (F-11)
 ```
 
-### Phase 2 — Nice to Have (only if Phase 1 complete and stable)
+### Phase 2 — Supabase Integration (after Phase 1 stable on real device)
 ```
-12. Gamification + Streak          (F-11)
-13. Progress Screen                (F-12)
+13. Auto-sync to Supabase          (F-12)
+```
+
+### Phase 3 — Nice to Have
+```
+14. Gamification + Streak          (F-13)
+15. Progress Screen                (F-14)
 ```
 
 ---
 
-## PHASE 1 — RESEARCH CORE
+## PHASE 1 — FEATURE DEVELOPMENT
 
 ---
 
@@ -41,33 +54,37 @@
 
 **Acceptance Criteria:**
 - [ ] `flutter create` with package name `com.research.hydration_tracker`
-- [ ] All packages in AGENTS.md installed in `pubspec.yaml`
+- [ ] All packages in AGENTS_V3.md installed in `pubspec.yaml`
 - [ ] `AppTheme`, `AppColors`, `AppTypography` defined in `app/theme/`
-- [ ] Primary color: deep blue `#1A73E8`, background: white, accent: `#E8F0FE`
-- [ ] `go_router` configured, all routes stubbed with empty `Scaffold`
+- [ ] Primary color: `#1A73E8`, background: white, accent: `#E8F0FE`
+- [ ] `go_router` configured, all routes stubbed
 - [ ] `main.dart` wraps app in `ProviderScope`
-- [ ] `kHydrationFacts` (15 facts) and `kHydrationArticles` (10–15 articles) hardcoded in `core/constants/app_constants.dart`
+- [ ] `kHydrationFacts` (15 facts) and `kHydrationArticles` template in `app_constants.dart`
 - [ ] App runs on Android without errors
 
 ---
 
 ### F-00: Splash Screen & Navigation Guard
 
-> Built as part of F-01 but listed separately — entry point for all routing logic.
-
 **Acceptance Criteria:**
-- [ ] Splash screen is the first route (`/`) — shows app logo for ~1.5 seconds
-- [ ] On splash: read `isOnboarded` from `shared_preferences`
-  - `false` → navigate to `/onboarding`
+- [ ] Splash screen first route (`/`) — shows app logo ~1.5 seconds
+- [ ] Read `isOnboarded` from `shared_preferences`
+  - `false` → `/onboarding`
   - `true` → query Isar for `UserProfile`
-    - Profile exists → navigate to `/dashboard`
-    - Profile missing → navigate to `/profile-setup`
-- [ ] Routing logic runs every time app is opened — including after cleared from recent apps
-- [ ] On every app open: check `lastOpenedAt` vs today — if different, trigger `performMidnightReset()` before navigating
-- [ ] After midnight check: call `SyncService.pushUnsyncedRecords()` (fire and forget)
-- [ ] After sync call: call `ReminderService.rescheduleIfNeeded()`
-- [ ] Update `UserProfile.lastOpenedAt` to `DateTime.now()` on every open
-- [ ] No manual `Navigator.push()` — use `go_router` redirect logic
+    - exists → `/dashboard`
+    - missing → `/profile-setup`
+- [ ] No `Navigator.push()` — use `go_router` redirect
+
+**Startup Sequence (strictly sequential — all `await`ed before navigation):**
+
+- [ ] **Step 1:** Check `lastOpenedAt` vs today. If different day → `await performMidnightReset()`
+- [ ] **Step 2:** `await` update `UserProfile.lastOpenedAt = DateTime.now()`
+- [ ] **Step 3:** `await` increment `sessionCount` in today's `DailySummary`
+- [ ] **Step 4:** `await` lazy `no_response` detection — mark ReminderResponses where `actionUsed == null` and `notificationScheduledAt` is > 60 min ago as `actionUsed: 'no_response'`
+- [ ] **Step 5:** `await` dropout check — if gap > 3 days: set `dropoutFlag: true` on BOTH `UserProfile` AND today's `DailySummary`. If `dropoutNotificationSent == false`: schedule re-engagement notification AND set `dropoutNotificationSent: true`
+- [ ] **Step 6:** `context.go('/dashboard')`
+- [ ] **Step 7 (fire-and-forget):** `SyncService.pushUnsyncedRecords()` — no-op stub in Phase 1
+- [ ] **Step 8 (fire-and-forget):** `ReminderService.rescheduleIfNeeded()`
 
 ---
 
@@ -75,264 +92,267 @@
 
 **Acceptance Criteria:**
 - [ ] 3-page onboarding using `smooth_page_indicator`
-- [ ] Page 1: App intro + research purpose explanation + one random `kHydrationFacts` item displayed
-- [ ] Page 2: How the app works — visual flow of: profile → target → reminder → log → education
+- [ ] Page 1: App intro + research purpose + random `kHydrationFacts`
+- [ ] Page 2: Flow visual: profil → target → pengingat → log → edukasi
 - [ ] Page 3: Notification permission request via `permission_handler`
-- [ ] Permission result stored in Isar `UserProfile.notificationPermissionGranted: bool`
-- [ ] If permission denied: allow skip, show persistent banner on dashboard
+- [ ] Permission stored in `UserProfile.notificationPermissionGranted`
+- [ ] If denied: allow skip, show persistent banner on dashboard
 - [ ] On complete: write `isOnboarded: true` to `shared_preferences`
-- [ ] On relaunch: if `isOnboarded == true`, skip onboarding entirely
-- [ ] "Skip" option available from page 1
-- [ ] If user skips onboarding: `notificationPermissionGranted` defaults to `false` in UserProfile
+- [ ] Skip option on page 1 — defaults `notificationPermissionGranted: false`
 
 ---
 
 ### F-03: User Profile Setup + Hydration Calculator
 
 **Acceptance Criteria:**
-- [ ] Form fields: Gender (dropdown: male/female), Age (int), Weight in kg (decimal), Activity Level (dropdown: sedentary/light/moderate/active/very_active)
-- [ ] All fields required — cannot submit if empty
-- [ ] Age validation: 10–80 years
-- [ ] Weight validation: 20–200 kg
-- [ ] On submit: `HydrationCalculatorService.calculate()` runs, result clamped to 1500–4000ml
-- [ ] Confirmation screen shows: calculated target + formula explanation
-- [ ] User can adjust target manually within 1500–4000ml range
-- [ ] If accepted as-is: store `targetAccepted: true`
-- [ ] If manually adjusted: store `targetAccepted: false`, `manualTargetMl: X`
-- [ ] Generate `userId` as UUID v4, store in `UserProfile.userId`
-- [ ] Call `signInAnonymously()` on Supabase immediately after `userId` is generated, before saving to Isar
-- [ ] Profile saved to Isar `UserProfile` collection
-- [ ] **Immediately after profile confirmed:**
-  - `ReminderService.initialize()` called
-  - `SyncService.pushUnsyncedRecords()` called (pushes new profile to Supabase)
-- [ ] Profile screen accessible from settings for editing (non-blocking for MVP)
+- [ ] Form fields (all required except `riwayatPenyakit`):
+  - Tanggal Lahir — date picker, age derived must be valid (app accepts any age)
+  - Jenis Kelamin — dropdown: Laki-laki / Perempuan
+  - Berat Badan — decimal, 20–200 kg
+  - Level Aktivitas — dropdown: Rendah / Ringan / Sedang / Aktif / Sangat Aktif
+  - Letak Geografis — dropdown: Dataran Rendah / Dataran Tinggi
+  - Riwayat Penyakit — multi-select checklist (optional): Diabetes Mellitus, Gagal Ginjal, Penyakit Jantung, Penyakit Hati Sirosis
+- [ ] Reminder window setup — time picker for start and end hour
+  - Default: 07:00–21:00
+  - Constraints: start ≥ 06:00, end ≤ 22:00, (end - start) ≥ 8 hours
+  - Error: "Jendela pengingat minimal 8 jam (06:00–22:00)"
+- [ ] Submit disabled until all required fields valid
+- [ ] All validation errors shown inline in Bahasa Indonesia
+- [ ] `HydrationCalculatorService.calculate()` runs on submit
+- [ ] Confirmation screen: calculated target + modifier breakdown + disclaimer
+- [ ] Manual adjustment: 1500–4000 ml range
+- [ ] Store `targetDiterima: true/false`, `targetManualMl` if adjusted
+- [ ] Generate `userId` UUID v4
+- [ ] Save `UserProfile` to Isar
+- [ ] **After profile confirmed:** `ReminderService.initialize()` called
+- [ ] `SyncService.pushUnsyncedRecords()` — no-op stub in Phase 1
 
 ---
 
 ### F-04: Daily Dashboard
 
 **Acceptance Criteria:**
-- [ ] Circular progress ring (`percent_indicator`) showing `currentMl / targetMl`
-- [ ] Center of ring: current ml + percentage (e.g., "1200ml — 48%")
-- [ ] Below ring: remaining ml (e.g., "1300ml lagi")
-- [ ] Quick-add buttons: `+250ml`, `+500ml`, `Custom`
-- [ ] Custom opens bottom sheet with numeric input (min 50ml, max 2000ml)
-- [ ] Today's log list: scrollable, each entry shows `HH:mm — Xml — [source]`
-  - source: `via app` or `via notifikasi`
+- [ ] Circular progress ring showing `currentMl / targetMl`
+- [ ] Center: `[currentMl]ml — [percent]%`
+- [ ] Below ring: `[remainingMl]ml lagi`
+- [ ] Quick-add: `+250ml`, `+500ml`, `Kustom`
+- [ ] Kustom opens bottom sheet (min 50ml, max 2000ml)
+- [ ] Today's log list: `HH:mm — Xml — [via app / via notifikasi]`
 - [ ] Progress ring animates on new log
-- [ ] Date shown at top (e.g., "Hari ini, 14 Mei")
-- [ ] If target reached: ring turns green, celebration text + random fun fact shown
-- [ ] Notification permission denied banner shown if `notificationPermissionGranted: false`
-- [ ] Random `kHydrationFacts` item shown — refreshed on each app open
+- [ ] Date shown at top: "Hari ini, 14 Mei"
+- [ ] Target reached: ring turns green + celebration text + fun fact
+- [ ] Notification permission denied banner if `notificationPermissionGranted: false`
+- [ ] Random `kHydrationFacts` shown — refreshed each app open
+- [ ] Streak badge: "🔥 X Hari Berturut-turut" (or "Mulai streak-mu!" if 0)
 - [ ] Dashboard reads from `hydrationProvider` only — never directly from Isar
+- [ ] Education entry point visible (bottom nav or FAB)
 
-**Provider Init (Critical):**
-- [ ] `HydrationNotifier` constructor immediately calls `_loadToday()` on creation
-- [ ] `_loadToday()` reads today's logs from Isar and updates state before UI renders
-- [ ] Dashboard never shows 0% progress if logs exist in Isar for today
-- [ ] If app cleared from recent apps and reopened: dashboard shows correct accumulated intake
-- [ ] Loading state shown while `_loadToday()` is running (spinner inside progress ring)
+**Provider Init (READ-ONLY — Critical):**
+- [ ] `HydrationNotifier` constructor calls `_loadToday()` immediately
+- [ ] `_loadToday()` reads today's logs + profile from Isar — updates display state only
+- [ ] `_loadToday()` does NOT perform midnight reset
+- [ ] `_loadToday()` does NOT update `lastOpenedAt`
+- [ ] `_loadToday()` does NOT increment `sessionCount`
+- [ ] Loading spinner shown while `_loadToday()` runs
+- [ ] Dashboard never shows 0% if logs exist for today
 
 ---
 
 ### F-05: Hydration Logging
 
 **Acceptance Criteria:**
-- [ ] Quick-add 250ml and 500ml trigger immediate log with `loggedVia: 'app'`
-- [ ] Custom input: min 50ml, max 2000ml
-- [ ] Each log saved to Isar: `volume`, `timestamp` (device time), `loggedVia`, `isSynced: false`
-- [ ] After save: `hydrationProvider` updates, dashboard reflects new total immediately
-- [ ] After save: upsert today's `DailySummary` in Isar following canonical upsert pattern in AGENTS.md Section 15
-- [ ] If DailySummary for today does not exist: create new record with `achievedMl`, `complianceRate`, `firstLogTimestamp` (if first log today)
-- [ ] If DailySummary for today exists: update `achievedMl` and `complianceRate`, preserve `sessionCount` and `firstLogTimestamp`
-- [ ] Each log shows in today's list: `HH:mm — Xml — via app`
-- [ ] Undo available 5 seconds after log (Snackbar with undo)
-- [ ] Undo permanently deletes entry from Isar and recalculates DailySummary
+- [ ] +250ml, +500ml → immediate log, `loggedVia: 'app'`
+- [ ] Custom: min 50ml, max 2000ml
+- [ ] Save to Isar: `volume`, `timestamp`, `loggedVia`, `isSynced: false`
+- [ ] After save: `hydrationProvider` updates immediately
+- [ ] Upsert today's `DailySummary` (canonical pattern — AGENTS_V3.md §15)
+  - Not exists: create with `achievedMl`, `complianceRate`, `firstLogTimestamp`
+  - Exists: update `achievedMl`, `complianceRate` — preserve `sessionCount`, `firstLogTimestamp`
+- [ ] Log appears in list: `HH:mm — Xml — via app`
+- [ ] Undo available 5 seconds (SnackBar) — permanently deletes from Isar + recalculates DailySummary
 
 ---
 
 ### F-06: Reminder System
 
-**Goal:** Dynamic local notifications initialized from profile setup.
-
-**Acceptance Criteria:**
-
 **Initialization:**
-- [ ] `ReminderService.initialize()` called immediately after profile confirmed in F-03
-- [ ] Check current time against reminder window (07:00–21:00)
-  - Within window → schedule first reminder 60 minutes from now
-  - Outside window → schedule first reminder tomorrow at 07:00
-- [ ] If `notificationPermissionGranted: false` → skip scheduling, set `reminderSystemActive: false`
+- [ ] `ReminderService.initialize()` called after profile confirmed
+- [ ] Read `reminderWindowStart` and `reminderWindowEnd` from `UserProfile`
+- [ ] Check current time against user's window
+  - Within window → schedule first reminder 60 min from now
+  - Outside window → schedule first reminder tomorrow at `reminderWindowStart:00`
+- [ ] If `notificationPermissionGranted: false` → skip, set `reminderSystemActive: false`
 
 **Dynamic Interval (3-Tier):**
-- [ ] Recalculate and reschedule after every hydration log and every app open
+- [ ] Recalculate after every log and every app open
 - [ ] `progress < 40%` → remind every 60 minutes
 - [ ] `40% ≤ progress ≤ 80%` → remind every 90 minutes
-- [ ] `progress > 80%` → cancel all pending notifications
-- [ ] Target reached → cancel all + show celebration on dashboard
+- [ ] `progress > 80%` → cancel all pending
+- [ ] Target reached → cancel all + celebration
 
 **Notification Content:**
 - [ ] Title: `💧 Waktunya minum air!`
 - [ ] Body: `Progress hari ini: X% — Yml lagi menuju target`
-- [ ] Random `kHydrationFacts` item shown as expanded notification text
+- [ ] Expanded: random `kHydrationFacts`
 
 **Window Rules:**
-- [ ] No notification sent outside 07:00–21:00
-- [ ] Timezone: device local only — no timezone switching support
+- [ ] Never schedule outside user's `reminderWindowStart–reminderWindowEnd`
+- [ ] Timezone: device local only
+- [ ] At midnight reset: cancel all, reschedule for tomorrow at `reminderWindowStart`
 
 **Boot Recovery:**
-- [ ] `ReminderService.rescheduleIfNeeded()` called on every app open unconditionally
-- [ ] Checks pending notification count
-  - Pending exists → skip
-  - No pending + within window + progress < 80% → reschedule immediately
-- [ ] Handles Xiaomi/OPPO/Vivo/Realme aggressive process killing
+- [ ] `rescheduleIfNeeded()` called unconditionally on app open
+- [ ] No pending + within window + progress < 80% → reschedule immediately
+
+**ReminderResponse Creation:**
+- [ ] When notification is **scheduled**: create `ReminderResponse` record with `actionUsed: null`, `notificationScheduledAt: DateTime.now()`
+- [ ] This enables lazy `no_response` detection in startup sequence
 
 **Android Requirements:**
 - [ ] `AndroidScheduleMode.exactAllowWhileIdle`
-- [ ] `SCHEDULE_EXACT_ALARM` permission requested
-- [ ] Battery optimization whitelist dialog shown once on first setup
+- [ ] `SCHEDULE_EXACT_ALARM` permission
+- [ ] Battery optimization whitelist dialog on first setup
 
 ---
 
 ### F-07: Direct Action Notification
 
-**Goal:** User can log water directly from notification without opening app.
-
 **Acceptance Criteria:**
-- [ ] Every reminder notification shows two action buttons: `+250ml` and `+500ml`
-- [ ] Tapping action button: logs to Isar with `loggedVia: 'notification_action'`
-- [ ] Logs `ReminderResponse`: `completed: true`, `delayMinutes: 0`, `actionUsed: 'button_250'` or `'button_500'`
-- [ ] After action: reschedule notifications based on updated progress
+- [ ] Every reminder shows: `+250ml`, `+500ml`, `Buka App`
+- [ ] Tap `+250ml` / `+500ml`: log to Isar with `loggedVia: 'notification_action'`
+- [ ] Update existing `ReminderResponse`: set `completed: true`, `delayMinutes: 0`, `actionUsed: 'button_250'` or `'button_500'`
+- [ ] After action: reschedule based on updated progress
 - [ ] Dashboard reflects new total on next open
-- [ ] "Buka App" button opens app to dashboard
 
 ---
 
 ### F-08: Reminder Response Tracker
 
-**Goal:** Capture user behavior after every notification for research analysis.
-
 **Acceptance Criteria:**
-- [ ] Notification tapped (opens app): `completed: true`, `delayMinutes` = time since notification sent, `actionUsed: 'opened_app'`
-- [ ] Notification action button used: `completed: true`, `delayMinutes: 0`, `actionUsed: 'button_250'` or `'button_500'`
-- [ ] User logs water within 30 min of notification (via app): `completed: true`, `delayMinutes` = actual elapsed
-- [ ] No response within 60 minutes: `completed: false`, `delayMinutes: 60`, `actionUsed: 'no_response'`
-- [ ] All `ReminderResponse` records saved to Isar with `isSynced: false`
-- [ ] `remindersSent` in today's DailySummary incremented when notification is **scheduled** (not when fired)
-- [ ] `remindersResponded` in today's DailySummary incremented when `ReminderResponse` is recorded with `completed: true`
+- [ ] Notification tapped (opens app): update `ReminderResponse` → `completed: true`, `delayMinutes` = elapsed since `notificationScheduledAt`, `actionUsed: 'opened_app'`
+- [ ] Action button used: `completed: true`, `delayMinutes: 0`
+- [ ] Log within 30 min of notification (via app): `completed: true`, `delayMinutes` = elapsed
+- [ ] No response (lazy detection at app open): `completed: false`, `delayMinutes: 60`, `actionUsed: 'no_response'`
+- [ ] `remindersResponded` in DailySummary incremented only when `completed: true`
+- [ ] `remindersSent` incremented when notification scheduled (not fired)
 
 ---
 
 ### F-09: Education Screen
 
-**Goal:** Provide hardcoded hydration education content — no network, no CMS, no admin needed.
+**Article List (`/education`):**
+- [ ] All `kHydrationArticles` as scrollable card list
+- [ ] Each card: `emoji`, `title`, `summary`, category badge
+- [ ] Filter by category: Semua / Mitos / Sains / Tips / Manfaat
+- [ ] Tap → article detail screen
+- [ ] Empty state if filter empty
 
-**Acceptance Criteria:**
+**Article Detail:**
+- [ ] Full `body` content
+- [ ] Back button
+- [ ] Title + category badge
+- [ ] Read only — no share, no bookmark
 
-**Article List Screen (`/education`):**
-- [ ] Displays all `kHydrationArticles` as scrollable card list
-- [ ] Each card shows: `emoji`, `title`, `summary`, `category` badge
-- [ ] Cards filterable by category: All / Mitos / Sains / Tips / Manfaat
-- [ ] Tapping card navigates to article detail screen
-- [ ] Empty state shown if filter returns no results (should not happen with hardcoded data)
-
-**Article Detail Screen:**
-- [ ] Shows full `body` content of selected article
-- [ ] Back button returns to list
-- [ ] Title and category badge shown at top
-- [ ] No share button, no bookmark — read only
-
-**Content Requirements (to be filled by researcher — agent must NOT generate this content):**
-- [ ] Minimum 10 articles, maximum 15
-- [ ] At least 2 articles per category
-- [ ] All content in Indonesian language
-- [ ] Content provided in `app_constants.dart` by researcher before F-09 is implemented
-- [ ] Topics must include:
-  - Debunking "8 gelas sehari" myth
-  - Dehidrasi ringan dan efeknya pada konsentrasi
-  - Waktu terbaik untuk minum air
-  - Air putih vs minuman lain
-  - Tanda-tanda dehidrasi
-  - Manfaat hidrasi untuk kulit dan ginjal
-  - Hubungan air dan performa fisik
-  - Tips minum air yang konsisten
+**Content:** provided by researcher in `app_constants.dart` — agent must NOT generate
 
 **Dashboard Integration:**
-- [ ] Education icon/button visible on dashboard (bottom nav or FAB area)
-- [ ] Does not interfere with primary logging flow
+- [ ] Education accessible from bottom nav
 
 ---
 
-### F-10: Auto-Sync to Supabase
-
-**Goal:** Research data reaches Supabase automatically — no user action required.
+### F-10: Settings Screen
 
 **Acceptance Criteria:**
-- [ ] `SyncService.pushUnsyncedRecords()` called on every app open (triggered from F-00 splash logic)
-- [ ] Reads all Isar records where `isSynced: false` across: UserProfile, HydrationLog, ReminderResponse, DailySummary
-- [ ] **Maximum 500 records per sync session** — if more exist, push oldest 500 first, rest on next open
-- [ ] **Records older than 30 days**: mark `isSynced: true` locally, do not push to Supabase
-- [ ] Pushes in order: user profile → hydration_logs → reminder_responses → daily_summaries
-- [ ] Each collection syncs independently — failure in one does not block others
-- [ ] On success per record: mark `isSynced: true` in Isar
-- [ ] On failure: silent — log to console only, retry on next app open
-- [ ] User sees no UI indication of sync — completely transparent
-- [ ] Never blocks app startup or UI rendering — runs async after navigation completes
-- [ ] Handles duplicate prevention via Supabase UNIQUE constraints (upsert strategy)
+
+**Reminder Settings:**
+- [ ] Display current reminder window (e.g., "07:00 – 21:00")
+- [ ] Time picker to change `reminderWindowStart` and `reminderWindowEnd`
+- [ ] Validate: start ≥ 06:00, end ≤ 22:00, gap ≥ 8 hours
+- [ ] Error shown inline: "Jendela pengingat minimal 8 jam (antara 06:00–22:00)"
+- [ ] On save: update `UserProfile` in Isar + call `ReminderService.rescheduleWithNewWindow()`
+- [ ] `isSynced: false` on UserProfile after change
+
+**Profile Summary (read-only):**
+- [ ] Show: Jenis Kelamin, Berat Badan, Level Aktivitas, Letak Geografis
+- [ ] Show: Target harian (ml)
+- [ ] Edit Profile button → navigates to profile edit screen (re-uses F-03 form)
+
+**App Info:**
+- [ ] App version
+- [ ] Research disclaimer: "Aplikasi ini digunakan sebagai instrumen penelitian"
+- [ ] Reset data option (for testing only — guarded by confirmation dialog)
 
 ---
 
-## PHASE 2 — NICE TO HAVE
+### F-11: History Screen (Riwayat)
 
-> Do not implement until all Phase 1 features are complete, tested on a real Android device, and stable for at least 3 days of continuous use.
-
----
-
-### F-11: Gamification + Streak
-
-> ⚠️ Research value: NONE. Implements only for user retention during study period.
+**Goal:** Show hydration history for past days from Isar `DailySummary` records.
 
 **Acceptance Criteria:**
-- [ ] Streak counter stored in `UserProfile.currentStreak`
-- [ ] Streak increments during `performMidnightReset()` if compliance ≥ 80%
-- [ ] Streak resets to 0 if compliance < 80%; record `streakBreakHour`
-- [ ] Streak shown on dashboard: "🔥 X Hari Berturut-turut"
-- [ ] Achievements screen: earned badges (with date) + locked badges (greyed out)
-- [ ] Badges: First Drop, 3 Day Streak, 7 Day Streak, Perfect Day, Early Bird
-- [ ] Badge earned → one-time celebration dialog (not repeated on reopen)
-- [ ] `checkAchievements()` is idempotent — never awards duplicates
+- [ ] Accessible from bottom nav or dashboard
+- [ ] List of past days showing: tanggal, `achievedMl / targetMl`, `complianceRate %`
+- [ ] Color indicator per row: green (≥ 80%), yellow (50–79%), red (< 50%)
+- [ ] Default: show last 7 days
+- [ ] Tap on a day: expand to show that day's `HydrationLog` entries
+- [ ] Empty state if no history exists yet
+- [ ] Data source: Isar `DailySummary` + `HydrationLog` — never Supabase
+- [ ] Today's data shown as "in progress" — not finalized
+- [ ] Days where `dropoutFlag: true` shown with indicator
 
 ---
 
-### F-12: Progress Screen
+## PHASE 2 — SUPABASE INTEGRATION
 
-> ⚠️ For user motivation only. Researcher uses Supabase data directly for analysis.
+> Do not begin until Phase 1 is complete and stable on real Android device for at least 3 days.
+
+### F-12: Auto-Sync to Supabase
 
 **Acceptance Criteria:**
-- [ ] Weekly chart: bar chart (fl_chart) of daily compliance for last 7 days
-- [ ] Horizontal reference line at 80% compliance target
-- [ ] Weekly compliance rate displayed (e.g., "Minggu ini: 71% patuh")
-- [ ] Tapping bar shows tooltip with exact ml and compliance %
-- [ ] Empty state shown if no data for period
+- [ ] `SyncService.pushUnsyncedRecords()` enabled (remove no-op stub)
+- [ ] Auth session fallback: check `currentSession`, call `signInAnonymously()` if null
+- [ ] Push order: UserProfile → HydrationLog → ReminderResponse → DailySummary
+- [ ] `users` + `daily_summaries`: `.upsert()` with `onConflict`
+- [ ] `hydration_logs` + `reminder_responses`: `.insert()`
+- [ ] Max 500 records per session — oldest first
+- [ ] Records > 30 days: mark `isSynced: true` locally, skip push
+- [ ] Each collection independent — partial failure does not block others
+- [ ] Silent — no UI indication
+- [ ] `nama` NEVER in any Supabase payload — verified by test
 
 ---
 
-## Dropout Detection (Research Variable — Phase 1)
+## PHASE 3 — NICE TO HAVE
 
-> Implemented inside F-00 splash logic, not as a separate feature.
+### F-13: Gamification + Streak
+- [ ] Uses `UserProfile.currentStreak` (already in schema)
+- [ ] Streak increments in `performMidnightReset()` if compliance ≥ 80%
+- [ ] Streak badge on dashboard
+- [ ] Achievement badges: First Drop, 3 Day, 7 Day, Perfect Day, Early Bird
 
-- [ ] On every app open: compare `DateTime.now()` with `UserProfile.lastOpenedAt`
-- [ ] If gap > 3 days: set `dropoutFlag: true` in UserProfile AND today's DailySummary
-- [ ] Send one re-engagement notification (check `dropoutNotificationSent` flag — one-time only)
-- [ ] `dropoutFlag` synced to Supabase via auto-sync
+### F-14: Progress Screen
+- [ ] Weekly bar chart (fl_chart)
+- [ ] 80% compliance reference line
+- [ ] Weekly compliance rate display
 
 ---
 
-## General UI Requirements (All Features)
+## Dropout Detection
 
-- Loading states: `CircularProgressIndicator` during async operations
-- Error states: `SnackBar` for user-facing failures (not sync failures — those are silent)
+> Implemented in F-00 splash startup. Not a separate feature.
+
+- [ ] Compare `DateTime.now()` with `UserProfile.lastOpenedAt`
+- [ ] Gap > 3 days: set `dropoutFlag: true` on BOTH `UserProfile` AND today's `DailySummary`
+- [ ] If `dropoutNotificationSent == false`: schedule one re-engagement notification, then set `dropoutNotificationSent: true`
+- [ ] Re-engagement notification requires F-06 to be complete first
+
+---
+
+## General UI Requirements
+
+- Loading: `CircularProgressIndicator`
+- Errors: `SnackBar` for user-facing failures (sync failures are silent)
 - Empty states: every list must have a designed empty state
-- No placeholder screens — every implemented screen must be functional
-- Hardware back button must work correctly on Android
-- Fun facts (`kHydrationFacts`) displayed randomly — new fact on each dashboard open
+- No placeholder screens — every screen must be functional
+- Hardware back button works correctly on Android
+- All UI text in Bahasa Indonesia
+- Fun facts displayed randomly — new fact each app open

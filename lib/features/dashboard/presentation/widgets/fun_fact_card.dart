@@ -7,9 +7,9 @@ class FunFactCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(hydrationProvider);
+    final funFact = ref.watch(hydrationProvider.select((s) => s.funFact));
 
-    if (state.funFact.isEmpty) return const SizedBox.shrink();
+    if (funFact.isEmpty) return const SizedBox.shrink();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -24,7 +24,7 @@ class FunFactCard extends ConsumerWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              state.funFact,
+              funFact,
               style: const TextStyle(
                 color: Color(0xFF1565C0),
                 fontSize: 13,

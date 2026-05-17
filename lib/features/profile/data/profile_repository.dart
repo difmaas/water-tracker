@@ -21,7 +21,7 @@ class ProfileRepository {
   Future<void> saveProfile(UserProfile profile) async {
     final json = {
       'userId': profile.userId,
-      // nama: Isar-only field. Intentionally included here for local persistence.
+      // nama: Local-only field. Intentionally included here for local persistence.
       // SyncService explicitly excludes this field from the Supabase payload.
       'nama': profile.nama,
       'tanggalLahir': profile.tanggalLahir.toIso8601String(),
@@ -35,9 +35,13 @@ class ProfileRepository {
       'targetManualMl': profile.targetManualMl,
       'notificationPermissionGranted': profile.notificationPermissionGranted,
       'reminderSystemActive': profile.reminderSystemActive,
+      'reminderWindowStart': profile.reminderWindowStart,
+      'reminderWindowEnd': profile.reminderWindowEnd,
       'createdAt': profile.createdAt.toIso8601String(),
       'lastOpenedAt': profile.lastOpenedAt?.toIso8601String(),
       'dropoutFlag': profile.dropoutFlag,
+      'dropoutNotificationSent': profile.dropoutNotificationSent,
+      'currentStreak': profile.currentStreak,
       'isSynced': profile.isSynced,
     };
     await _prefs.setString(_key, jsonEncode(json));
@@ -63,11 +67,15 @@ class ProfileRepository {
       ..notificationPermissionGranted =
           json['notificationPermissionGranted'] as bool
       ..reminderSystemActive = json['reminderSystemActive'] as bool
+      ..reminderWindowStart = (json['reminderWindowStart'] as int?) ?? 7
+      ..reminderWindowEnd = (json['reminderWindowEnd'] as int?) ?? 21
       ..createdAt = DateTime.parse(json['createdAt'] as String)
       ..lastOpenedAt = json['lastOpenedAt'] != null
           ? DateTime.parse(json['lastOpenedAt'] as String)
           : null
       ..dropoutFlag = json['dropoutFlag'] as bool
+      ..dropoutNotificationSent = (json['dropoutNotificationSent'] as bool?) ?? false
+      ..currentStreak = (json['currentStreak'] as int?) ?? 0
       ..isSynced = json['isSynced'] as bool;
   }
 
@@ -82,6 +90,11 @@ class ProfileRepository {
       profile.lastOpenedAt = timestamp;
       await saveProfile(profile);
     }
+  }
+
+  Future<void> clearAllData() async {
+    // Aggressive clear for research reset
+    await _prefs.clear();
   }
 }
 

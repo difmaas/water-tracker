@@ -21,6 +21,8 @@ class ProfileFormState {
   final List<String> riwayatPenyakit;
   final String reminderType;
   final int reminderInterval;
+  final int reminderWindowStart;
+  final int reminderWindowEnd;
 
   // ── Calculated result ────────────────────────────────────────────────────────
   final int calculatedTargetMl;
@@ -40,6 +42,8 @@ class ProfileFormState {
     this.riwayatPenyakit = const [],
     this.reminderType = 'interval',
     this.reminderInterval = 2,
+    this.reminderWindowStart = 7,
+    this.reminderWindowEnd = 21,
     this.calculatedTargetMl = 0,
     this.targetManualMl,
     this.isLoading = false,
@@ -56,6 +60,8 @@ class ProfileFormState {
     List<String>? riwayatPenyakit,
     String? reminderType,
     int? reminderInterval,
+    int? reminderWindowStart,
+    int? reminderWindowEnd,
     int? calculatedTargetMl,
     int? targetManualMl,
     bool clearManualTarget = false,
@@ -72,8 +78,12 @@ class ProfileFormState {
       riwayatPenyakit: riwayatPenyakit ?? this.riwayatPenyakit,
       reminderType: reminderType ?? this.reminderType,
       reminderInterval: reminderInterval ?? this.reminderInterval,
+      reminderWindowStart: reminderWindowStart ?? this.reminderWindowStart,
+      reminderWindowEnd: reminderWindowEnd ?? this.reminderWindowEnd,
       calculatedTargetMl: calculatedTargetMl ?? this.calculatedTargetMl,
-      targetManualMl: clearManualTarget ? null : (targetManualMl ?? this.targetManualMl),
+      targetManualMl: clearManualTarget
+          ? null
+          : (targetManualMl ?? this.targetManualMl),
       isLoading: isLoading ?? this.isLoading,
     );
   }
@@ -81,13 +91,27 @@ class ProfileFormState {
   /// Returns true when all required fields are valid for form submission.
   bool get isValid {
     final namaOk = _isNamaValid(nama);
-    final lahirOk = tanggalLahir != null && AppDateUtils.isValidAge(tanggalLahir!);
+    final lahirOk =
+        tanggalLahir != null && AppDateUtils.isValidAge(tanggalLahir!);
     final kelaminOk = jenisKelamin.isNotEmpty;
     final beratOk = beratBadan >= 20 && beratBadan <= 200;
     final tinggiOk = tinggiBadan >= 50 && tinggiBadan <= 250;
     final aktivitasOk = levelAktivitas.isNotEmpty;
     final geografisOk = letakGeografis.isNotEmpty;
-    return namaOk && lahirOk && kelaminOk && beratOk && tinggiOk && aktivitasOk && geografisOk;
+    final windowOk =
+        reminderWindowEnd - reminderWindowStart >= 8 &&
+        reminderWindowStart >= 6 &&
+        reminderWindowStart <= 22 &&
+        reminderWindowEnd >= 6 &&
+        reminderWindowEnd <= 22;
+    return namaOk &&
+        lahirOk &&
+        kelaminOk &&
+        beratOk &&
+        tinggiOk &&
+        aktivitasOk &&
+        geografisOk &&
+        windowOk;
   }
 
   static bool _isNamaValid(String value) {
@@ -172,10 +196,16 @@ class ProfileNotifier extends Notifier<ProfileFormState> {
       riwayatPenyakit: profile.riwayatPenyakit,
       reminderType: profile.reminderType,
       reminderInterval: profile.reminderInterval,
+      reminderWindowStart: profile.reminderWindowStart,
+      reminderWindowEnd: profile.reminderWindowEnd,
       calculatedTargetMl: profile.dailyTargetMl, // initial guess
       targetManualMl: profile.targetManualMl,
     );
     _recalculate(); // recalculate based on existing data
+  }
+
+  void updateFormReminderWindow(int start, int end) {
+    state = state.copyWith(reminderWindowStart: start, reminderWindowEnd: end);
   }
 
   Future<void> updateReminderWindow(int start, int end) async {
@@ -244,7 +274,9 @@ class ProfileNotifier extends Notifier<ProfileFormState> {
       final isManualOverride = state.targetManualMl != null;
 
       // 2.5 Request all necessary permissions (no-op if already granted)
-      final notifGranted = await ref.read(reminderServiceProvider).requestPermissions();
+      final notifGranted = await ref
+          .read(reminderServiceProvider)
+          .requestPermissions();
 
       // 3. Construct or Update UserProfile
       final profile = (existing ?? UserProfile())
@@ -262,6 +294,8 @@ class ProfileNotifier extends Notifier<ProfileFormState> {
         ..targetManualMl = state.targetManualMl
         ..notificationPermissionGranted = notifGranted
         ..reminderSystemActive = notifGranted
+        ..reminderWindowStart = state.reminderWindowStart
+        ..reminderWindowEnd = state.reminderWindowEnd
         ..reminderType = state.reminderType
         ..reminderInterval = state.reminderInterval
         ..createdAt = existing?.createdAt ?? DateTime.now()

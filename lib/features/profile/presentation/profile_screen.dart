@@ -1,12 +1,9 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/constants/app_constants.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../providers/profile_provider.dart';
-import '../domain/hydration_calculator.dart';
-import '../data/user_profile_model.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   final bool isEditing;
@@ -16,103 +13,202 @@ class ProfileScreen extends ConsumerStatefulWidget {
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends ConsumerState<ProfileScreen> with TickerProviderStateMixin {
-  int _currentStep = 0;
-  static const int _kTotalSteps = 9;
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  late TextEditingController _namaController;
+  late TextEditingController _usiaController;
+  late TextEditingController _beratController;
 
-  final _namaController = TextEditingController();
-  final _beratController = TextEditingController();
-  final _tinggiController = TextEditingController();
-
-  late AnimationController _fadeController;
+  final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
-    _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 400),
-    );
-    _fadeController.forward();
+    final s = ref.read(profileProvider);
 
-    if (widget.isEditing) {
+    // Pre-fill hidden required fields with safe defaults if not editing
+    if (!widget.isEditing) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        final s = ref.read(profileProvider);
-        _namaController.text = s.nama;
-        _beratController.text = s.beratBadan > 0 ? s.beratBadan.toString() : '';
-        _tinggiController.text = s.tinggiBadan > 0 ? s.tinggiBadan.toString() : '';
+        ref.read(profileProvider.notifier).updateTinggiBadan(160.0);
+        ref
+            .read(profileProvider.notifier)
+            .updateLetakGeografis('dataran_rendah');
       });
     }
+
+    _namaController = TextEditingController(text: s.nama);
+    final age = s.tanggalLahir != null
+        ? AppDateUtils.ageFromBirthdate(s.tanggalLahir!).toString()
+        : '';
+    _usiaController = TextEditingController(text: age);
+    _beratController = TextEditingController(
+      text: s.beratBadan > 0 ? s.beratBadan.toStringAsFixed(0) : '',
+    );
   }
 
   @override
   void dispose() {
     _namaController.dispose();
+    _usiaController.dispose();
     _beratController.dispose();
-    _tinggiController.dispose();
-    _fadeController.dispose();
     super.dispose();
   }
 
-  void _nextStep() {
-    final s = ref.read(profileProvider);
-    if (!_canProceedFromStep(_currentStep, s)) return;
+  String? _validateNama(String? value) {
+    if (value == null || value.trim().isEmpty) return 'Wajib diisi';
+    final name = value.trim();
+    if (name.length < 3 || name.length > 10) return 'Harus 3–10 karakter';
+    if (!RegExp(r'^[A-Za-z ]+$').hasMatch(name)) return 'Hanya huruf saja';
+    return null;
+  }
 
-    if (_currentStep < _kTotalSteps - 1) {
-      _fadeController.reverse().then((_) {
-        setState(() => _currentStep++);
-        _fadeController.forward();
-      });
-    } else {
-      _handleSubmit();
+  String? _validateUsia(String? value) {
+    if (value == null || value.isEmpty) return 'Wajib diisi';
+    final val = int.tryParse(value);
+    if (val == null || val < 10 || val > 80) return 'Usia valid: 10–80 tahun';
+    return null;
+  }
+
+  String? _validateBerat(String? value) {
+    if (value == null || value.isEmpty) return 'Wajib diisi';
+    final val = double.tryParse(value);
+    if (val == null || val < 20 || val > 200) return 'Range valid: 20–200 kg';
+    return null;
+  }
+
+  Future<void> _handleSubmit() async {
+    if (_formKey.currentState!.validate()) {
+      try {
+        await ref.read(profileProvider.notifier).submitProfile();
+        if (mounted) {
+          if (widget.isEditing) {
+            context.pop();
+          } else {
+            context.go('/dashboard');
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Gagal menyimpan profil: $e')));
+        }
+      }
     }
   }
 
-  void _prevStep() {
-    if (_currentStep > 0) {
-      _fadeController.reverse().then((_) {
-        setState(() => _currentStep--);
-        _fadeController.forward();
-      });
-    }
-  }
-
-  bool _canProceedFromStep(int step, ProfileFormState s) {
-    switch (step) {
-      case 0: return _validateNama(s.nama) == null;
-      case 1: return _validateTanggalLahir(s.tanggalLahir) == null;
-      case 2: return s.jenisKelamin.isNotEmpty;
-      case 3: return _validateBerat(s.beratBadan) == null;
-      case 4: return _validateTinggi(s.tinggiBadan) == null;
-      case 5: return s.levelAktivitas.isNotEmpty;
-      case 6: return s.letakGeografis.isNotEmpty;
-      case 7: return s.reminderType.isNotEmpty;
-      case 8: return true;
-      default: return false;
-    }
-  }
-
-  String? _validateNama(String value) {
-    if (value.isEmpty) return 'Nama harus 3–10 karakter.';
-    if (value.length < 3 || value.length > 10) return 'Nama harus 3–10 karakter.';
-    if (!RegExp(r'^[A-Za-z ]+$').hasMatch(value)) return 'Hanya boleh huruf.';
-    return null;
-  }
-
-  String? _validateTanggalLahir(DateTime? value) {
-    if (value == null) return 'Pilih tanggal lahir.';
-    if (!AppDateUtils.isValidAge(value)) return 'Usia 10–80 tahun.';
-    return null;
-  }
-
-  String? _validateBerat(double value) {
-    if (value < 20 || value > 200) return '20–200 kg.';
-    return null;
-  }
-
-  String? _validateTinggi(double value) {
-    if (value < 50 || value > 250) return '50–250 cm.';
-    return null;
+  void _showManualEdit(ProfileFormState s, ProfileNotifier notifier) {
+    final controller = TextEditingController(
+      text: (s.targetManualMl ?? s.calculatedTargetMl).toString(),
+    );
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Target Hidrasi Manual',
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF1F2937),
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Sesuaikan target volume air minum harian jika diperlukan (1500–4000 ml).',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: const Color(0xFF6B7280),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF1F2937),
+              ),
+              decoration: InputDecoration(
+                hintText: 'Volume target (ml)',
+                prefixIcon: const Icon(
+                  Icons.water_drop_outlined,
+                  color: Color(0xFF1A73E8),
+                  size: 20,
+                ),
+                filled: true,
+                fillColor: const Color(0xFFF3F4F6),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'BATAL',
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF6B7280),
+              ),
+            ),
+          ),
+          if (s.targetManualMl != null)
+            TextButton(
+              onPressed: () {
+                notifier.updateManualTarget(null);
+                Navigator.pop(context);
+              },
+              child: Text(
+                'RESET REKOMENDASI',
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFFEF4444),
+                ),
+              ),
+            ),
+          ElevatedButton(
+            onPressed: () {
+              final val = int.tryParse(controller.text);
+              if (val != null && val >= 1500 && val <= 4000) {
+                notifier.updateManualTarget(val);
+                Navigator.pop(context);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Target manual harus antara 1500–4000 ml'),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1A73E8),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              'SIMPAN',
+              style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -120,787 +216,857 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with TickerProvid
     final s = ref.watch(profileProvider);
     final notifier = ref.read(profileProvider.notifier);
 
+    final displayTarget = s.targetManualMl ?? s.calculatedTargetMl;
+    final isWindowValid = AppDateUtils.isValidReminderWindow(
+      s.reminderWindowStart,
+      s.reminderWindowEnd,
+    );
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FE),
-      body: Stack(
-        children: [
-          const _AnimatedWaterBackground(),
-          
-          SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: const Color(0xFFF8FBFF), // Background #F8FBFF
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: const Color(0xFFF8FBFF),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: widget.isEditing
+            ? IconButton(
+                onPressed: () => context.pop(),
+                icon: const Icon(Icons.arrow_back, color: Color(0xFF1F2937)),
+              )
+            : null,
+        title: Text(
+          widget.isEditing ? 'Ubah Profil' : 'Lengkapi Profil',
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w800,
+            fontSize: 20,
+            color: const Color(0xFF1F2937),
+          ),
+        ),
+      ),
+      body: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 1. Header & Explanation Section
+                    Center(
+                      child: Column(
                         children: [
-                          Text(
-                            widget.isEditing ? 'Ubah Profil' : 'Lengkapi Profil',
-                            style: const TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF1A1A2E),
-                              letterSpacing: -0.5,
+                          Container(
+                            width: 72,
+                            height: 72,
+                            decoration: BoxDecoration(
+                              color: const Color(
+                                0xFFE8F4FF,
+                              ), // Soft Blue Accent
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(
+                                  0xFF1A73E8,
+                                ).withValues(alpha: 0.15),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.water_drop_rounded,
+                              color: Color(0xFF1A73E8), // Primary #1A73E8
+                              size: 36,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 16),
                           Text(
-                            'Langkah ${_currentStep + 1} dari $_kTotalSteps',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade600,
+                            'Lengkapi Profilmu',
+                            style: GoogleFonts.inter(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF1F2937),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Data ini digunakan untuk menghitung target minum harian dan mengatur pengingat yang sesuai.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
                               fontWeight: FontWeight.w500,
+                              color: const Color(0xFF6B7280),
+                              height: 1.5,
                             ),
                           ),
                         ],
                       ),
-                      if (widget.isEditing)
-                        IconButton(
-                          onPressed: () => context.pop(),
-                          icon: const Icon(Icons.close, color: Colors.black54),
+                    ),
+                    const SizedBox(height: 28),
+
+                    // 2. Main Form Card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: const Color(0xFFE8F4FF),
+                          width: 1.5,
                         ),
-                    ],
-                  ),
-                ),
-                
-                // Progress Bar
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-                  child: Stack(
-                    children: [
-                      Container(
-                        height: 6,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(3),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(
+                              0xFF1A73E8,
+                            ).withValues(alpha: 0.02),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Nama Panggilan
+                          Text(
+                            'Nama Panggilan',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF1F2937),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _namaController,
+                            maxLength: 10,
+                            validator: _validateNama,
+                            style: GoogleFonts.inter(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF1F2937),
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Nama panggilan',
+                              counterText: '',
+                              filled: true,
+                              fillColor: const Color(0xFFF9FAFB),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                            ),
+                            onChanged: (val) {
+                              notifier.updateNama(val.trim());
+                            },
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Row for Usia and Berat Badan
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Usia
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Usia (Tahun)',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: const Color(0xFF1F2937),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    TextFormField(
+                                      controller: _usiaController,
+                                      keyboardType: TextInputType.number,
+                                      validator: _validateUsia,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF1F2937),
+                                      ),
+                                      decoration: InputDecoration(
+                                        hintText: 'Thn',
+                                        filled: true,
+                                        fillColor: const Color(0xFFF9FAFB),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 14,
+                                            ),
+                                      ),
+                                      onChanged: (val) {
+                                        final age = int.tryParse(val);
+                                        if (age != null &&
+                                            age >= 10 &&
+                                            age <= 80) {
+                                          notifier.updateTanggalLahir(
+                                            DateTime(
+                                              DateTime.now().year - age,
+                                              1,
+                                              1,
+                                            ),
+                                          );
+                                        } else {
+                                          notifier.updateTanggalLahir(null);
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              // Berat Badan
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Berat Badan',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: const Color(0xFF1F2937),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    TextFormField(
+                                      controller: _beratController,
+                                      keyboardType: TextInputType.number,
+                                      validator: _validateBerat,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF1F2937),
+                                      ),
+                                      decoration: InputDecoration(
+                                        hintText: 'kg',
+                                        suffixText: 'kg',
+                                        filled: true,
+                                        fillColor: const Color(0xFFF9FAFB),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 14,
+                                            ),
+                                      ),
+                                      onChanged: (val) {
+                                        final dVal = double.tryParse(val);
+                                        if (dVal != null &&
+                                            dVal >= 20 &&
+                                            dVal <= 200) {
+                                          notifier.updateBeratBadan(dVal);
+                                        } else {
+                                          notifier.updateBeratBadan(0.0);
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Jenis Kelamin Selector
+                          Text(
+                            'Jenis Kelamin',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF1F2937),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildGenderOption(
+                                  'Laki-laki',
+                                  'laki_laki',
+                                  s.jenisKelamin,
+                                  (val) => notifier.updateJenisKelamin(val),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildGenderOption(
+                                  'Perempuan',
+                                  'perempuan',
+                                  s.jenisKelamin,
+                                  (val) => notifier.updateJenisKelamin(val),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Aktivitas Harian
+                          Text(
+                            'Aktivitas Harian',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF1F2937),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          _buildActivityOption(
+                            title: 'Ringan',
+                            desc: 'Lebih banyak duduk atau belajar.',
+                            value: 'ringan',
+                            current: s.levelAktivitas,
+                            onTap: (val) => notifier.updateLevelAktivitas(val),
+                          ),
+                          const SizedBox(height: 8),
+                          _buildActivityOption(
+                            title: 'Sedang',
+                            desc:
+                                'Aktivitas sekolah normal dan cukup sering bergerak.',
+                            value: 'sedang',
+                            current: s.levelAktivitas,
+                            onTap: (val) => notifier.updateLevelAktivitas(val),
+                          ),
+                          const SizedBox(height: 8),
+                          _buildActivityOption(
+                            title: 'Tinggi',
+                            desc:
+                                'Sering olahraga atau aktivitas fisik cukup berat.',
+                            value: 'aktif', // Maps to 'aktif' in database
+                            current: s.levelAktivitas,
+                            onTap: (val) => notifier.updateLevelAktivitas(val),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // 3. Target Preview Card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F4FF), // Soft Blue Background
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: const Color(
+                            0xFF1A73E8,
+                          ).withValues(alpha: 0.12),
+                          width: 1.5,
                         ),
                       ),
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 500),
-                        height: 6,
-                        width: (MediaQuery.of(context).size.width - 48) * 
-                               ((_currentStep + 1) / _kTotalSteps),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF42A5F5), Color(0xFF1565C0)],
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'TARGET HIDRASI HARIAN',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: const Color(0xFF1A73E8),
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.baseline,
+                                    textBaseline: TextBaseline.alphabetic,
+                                    children: [
+                                      Text(
+                                        displayTarget > 0
+                                            ? '$displayTarget'
+                                            : '---',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 32,
+                                          fontWeight: FontWeight.w900,
+                                          color: const Color(0xFF1A73E8),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'ml / hari',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(
+                                            0xFF1A73E8,
+                                          ).withValues(alpha: 0.7),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              if (s.jenisKelamin.isNotEmpty &&
+                                  s.beratBadan > 0 &&
+                                  s.levelAktivitas.isNotEmpty)
+                                ElevatedButton(
+                                  onPressed: () => _showManualEdit(s, notifier),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: const Color(0xFF1A73E8),
+                                    elevation: 0,
+                                    side: const BorderSide(
+                                      color: Color(0xFF1A73E8),
+                                      width: 1.5,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    s.targetManualMl != null
+                                        ? 'Atur Ulang'
+                                        : 'Sesuaikan',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                          borderRadius: BorderRadius.circular(3),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF1565C0).withValues(alpha: 0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                          const SizedBox(height: 12),
+                          Text(
+                            '“Estimasi ini bukan pengganti saran medis profesional.”',
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontStyle: FontStyle.italic,
+                              color: const Color(0xFF6B7280),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // 4. Reminder Settings Card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: const Color(0xFFE8F4FF),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Atur Pengingat Minum',
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF1F2937),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              // Jam Mulai
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Jam Mulai',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        color: const Color(0xFF6B7280),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF9FAFB),
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                      child: DropdownButtonHideUnderline(
+                                        child: DropdownButtonFormField<int>(
+                                          initialValue: s.reminderWindowStart,
+                                          isExpanded: true,
+                                          decoration: const InputDecoration(
+                                            border: InputBorder.none,
+                                          ),
+                                          style: GoogleFonts.inter(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFF1F2937),
+                                          ),
+                                          items: List.generate(17, (i) => i + 6)
+                                              .map((h) {
+                                                return DropdownMenuItem<int>(
+                                                  value: h,
+                                                  child: Text(
+                                                    '${h.toString().padLeft(2, '0')}.00',
+                                                  ),
+                                                );
+                                              })
+                                              .toList(),
+                                          onChanged: (val) {
+                                            if (val != null) {
+                                              notifier.updateFormReminderWindow(
+                                                val,
+                                                s.reminderWindowEnd,
+                                              );
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              // Jam Selesai
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Jam Selesai',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        color: const Color(0xFF6B7280),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF9FAFB),
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                      child: DropdownButtonHideUnderline(
+                                        child: DropdownButtonFormField<int>(
+                                          initialValue: s.reminderWindowEnd,
+                                          isExpanded: true,
+                                          decoration: const InputDecoration(
+                                            border: InputBorder.none,
+                                          ),
+                                          style: GoogleFonts.inter(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFF1F2937),
+                                          ),
+                                          items: List.generate(17, (i) => i + 6)
+                                              .map((h) {
+                                                return DropdownMenuItem<int>(
+                                                  value: h,
+                                                  child: Text(
+                                                    '${h.toString().padLeft(2, '0')}.00',
+                                                  ),
+                                                );
+                                              })
+                                              .toList(),
+                                          onChanged: (val) {
+                                            if (val != null) {
+                                              notifier.updateFormReminderWindow(
+                                                s.reminderWindowStart,
+                                                val,
+                                              );
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Pengingat akan dikirim setiap 2 jam selama jam aktif.',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: const Color(0xFF6B7280),
+                            ),
+                          ),
+                          if (!isWindowValid) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEF2F2),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0xFFFEE2E2),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.error_outline,
+                                    color: Color(0xFFEF4444),
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      s.reminderWindowStart < 6 ||
+                                              s.reminderWindowEnd > 22
+                                          ? 'Jam pengingat hanya dapat diatur antara 06.00 sampai 22.00.'
+                                          : s.reminderWindowEnd <=
+                                                s.reminderWindowStart
+                                          ? 'Jam selesai harus lebih besar dari jam mulai.'
+                                          : 'Jendela pengingat minimal 8 jam.',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFFB91C1C),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
                 ),
+              ),
+            ),
 
-                const SizedBox(height: 24),
-
-                // Content
-                Expanded(
-                  child: FadeTransition(
-                    opacity: _fadeController,
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: _GlassCard(
-                        child: _buildCurrentStep(s, notifier),
-                      ),
+            // 5. Sticky Bottom Action CTA
+            SafeArea(
+              top: false,
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 10,
+                      offset: const Offset(0, -4),
+                    ),
+                  ],
+                  border: Border(
+                    top: BorderSide(
+                      color: Colors.black.withValues(alpha: 0.05),
                     ),
                   ),
                 ),
-
-                // Footer Actions
-                _buildFooter(s),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFooter(ProfileFormState s) {
-    final canProceed = _canProceedFromStep(_currentStep, s);
-    
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          if (_currentStep > 0)
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _prevStep,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  side: const BorderSide(color: Color(0xFFE0E0E0)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!s.isValid)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: Text(
+                          s.nama.trim().length < 3
+                              ? '⚠️ Masukkan nama panggilan (3-10 huruf).'
+                              : s.tanggalLahir == null
+                              ? '⚠️ Masukkan usia valid (10-80 tahun).'
+                              : s.jenisKelamin.isEmpty
+                              ? '⚠️ Pilih jenis kelamin Anda.'
+                              : s.beratBadan <= 0
+                              ? '⚠️ Masukkan berat badan valid (20-200 kg).'
+                              : s.levelAktivitas.isEmpty
+                              ? '⚠️ Pilih tingkat aktivitas harian.'
+                              : !isWindowValid
+                              ? '⚠️ Jendela waktu pengingat harus minimal 8 jam.'
+                              : '⚠️ Harap lengkapi seluruh formulir profil.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFFB45309),
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: ElevatedButton(
+                        onPressed: s.isValid && !s.isLoading
+                            ? _handleSubmit
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(
+                            0xFF1A73E8,
+                          ), // Primary #1A73E8
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: Colors.grey.shade200,
+                          disabledForegroundColor: Colors.grey.shade400,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              16,
+                            ), // Rounded pill button
+                          ),
+                        ),
+                        child: s.isLoading
+                            ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
+                                ),
+                              )
+                            : Text(
+                                widget.isEditing
+                                    ? 'SIMPAN PERUBAHAN'
+                                    : 'SIMPAN PROFIL',
+                                style: GoogleFonts.inter(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
-                child: const Text('KEMBALI', style: TextStyle(color: Colors.black54, fontWeight: FontWeight.bold)),
               ),
             ),
-          if (_currentStep > 0) const SizedBox(width: 16),
-          Expanded(
-            flex: 2,
-            child: ElevatedButton(
-              onPressed: canProceed ? _nextStep : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1565C0),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                disabledBackgroundColor: Colors.grey.shade300,
-              ),
-              child: s.isLoading && _currentStep == _kTotalSteps - 1
-                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : Text(
-                    _currentStep == _kTotalSteps - 1 ? 'SELESAI' : 'LANJUT',
-                    style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
-                  ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCurrentStep(ProfileFormState s, ProfileNotifier notifier) {
-    switch (_currentStep) {
-      case 0: return _buildNamaStep(s, notifier);
-      case 1: return _buildTanggalLahirStep(s, notifier);
-      case 2: return _buildJenisKelaminStep(s, notifier);
-      case 3: return _buildWeightHeightStep(s, notifier);
-      case 4: return _buildActivityLevelStep(s, notifier);
-      case 5: return _buildGeographyStep(s, notifier);
-      case 6: return _buildMedicalStep(s, notifier);
-      case 7: return _buildReminderStep(s, notifier);
-      case 8: return _buildKonfirmasiStep(s, notifier);
-      default: return const SizedBox();
-    }
-  }
-
-  Widget _buildStepTitle(String title, String desc) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E))),
-        const SizedBox(height: 8),
-        Text(desc, style: TextStyle(fontSize: 14, color: Colors.grey.shade600, height: 1.4)),
-        const SizedBox(height: 32),
-      ],
-    );
-  }
-
-  Widget _buildNamaStep(ProfileFormState s, ProfileNotifier notifier) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildStepTitle('Siapa nama Anda?', 'Gunakan nama panggilan Anda untuk pengalaman yang lebih personal.'),
-        TextField(
-          controller: _namaController,
-          maxLength: 10,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          decoration: _inputDecoration('Nama Panggilan', Icons.person_outline),
-          onChanged: notifier.updateNama,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTanggalLahirStep(ProfileFormState s, ProfileNotifier notifier) {
-    final label = s.tanggalLahir != null
-        ? '${s.tanggalLahir!.day.toString().padLeft(2, '0')} / ${s.tanggalLahir!.month.toString().padLeft(2, '0')} / ${s.tanggalLahir!.year}'
-        : 'Pilih Tanggal';
-        
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildStepTitle('Kapan Anda lahir?', 'Informasi ini membantu kami menyesuaikan kebutuhan hidrasi berdasarkan usia.'),
-        InkWell(
-          onTap: () async {
-            final now = DateTime.now();
-            final picked = await showDatePicker(
-              context: context,
-              initialDate: DateTime(now.year - 17),
-              firstDate: DateTime(now.year - 80),
-              lastDate: DateTime(now.year - 10),
-              builder: (context, child) {
-                return Theme(
-                  data: Theme.of(context).copyWith(
-                    colorScheme: const ColorScheme.light(primary: Color(0xFF1565C0)),
-                  ),
-                  child: child!,
-                );
-              },
-            );
-            if (picked != null) notifier.updateTanggalLahir(picked);
-          },
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade200),
-              borderRadius: BorderRadius.circular(16),
-              color: Colors.white.withValues(alpha: 0.5),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.calendar_month_outlined, color: Color(0xFF1565C0)),
-                const SizedBox(width: 16),
-                Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const Spacer(),
-                const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.black26),
-              ],
-            ),
-          ),
-        ),
-        if (s.tanggalLahir != null) ...[
-          const SizedBox(height: 16),
-          Text(
-            'Usia Anda: ${AppDateUtils.ageFromBirthdate(s.tanggalLahir!)} Tahun',
-            style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w600),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildJenisKelaminStep(ProfileFormState s, ProfileNotifier notifier) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildStepTitle('Jenis Kelamin', 'Kebutuhan cairan biologis berbeda antara laki-laki dan perempuan.'),
-        Row(
-          children: [
-            Expanded(child: _genderOption('Laki-laki', 'laki_laki', Icons.male, s.jenisKelamin, notifier.updateJenisKelamin)),
-            const SizedBox(width: 16),
-            Expanded(child: _genderOption('Perempuan', 'perempuan', Icons.female, s.jenisKelamin, notifier.updateJenisKelamin)),
           ],
         ),
-      ],
+      ),
     );
   }
 
-  Widget _genderOption(String label, String value, IconData icon, String current, Function(String) onTap) {
+  Widget _buildGenderOption(
+    String label,
+    String value,
+    String current,
+    Function(String) onTap,
+  ) {
     final isSelected = value == current;
     return GestureDetector(
       onTap: () => onTap(value),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 24),
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF1565C0) : Colors.white.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade200),
-          boxShadow: isSelected ? [BoxShadow(color: const Color(0xFF1565C0).withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4))] : [],
+          color: isSelected ? const Color(0xFFE8F4FF) : const Color(0xFFF9FAFB),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF1A73E8) : Colors.transparent,
+            width: 1.5,
+          ),
         ),
-        child: Column(
-          children: [
-            Icon(icon, size: 40, color: isSelected ? Colors.white : Colors.grey.shade400),
-            const SizedBox(height: 12),
-            Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Colors.white : Colors.black87)),
-          ],
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+            color: isSelected
+                ? const Color(0xFF1A73E8)
+                : const Color(0xFF6B7280),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildWeightHeightStep(ProfileFormState s, ProfileNotifier notifier) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildStepTitle('Fisik Anda', 'Informasi berat dan tinggi badan digunakan untuk menghitung volume hidrasi ideal.'),
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Berat Badan', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _beratController,
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    decoration: _inputDecoration('Kg', null),
-                    onChanged: (v) => notifier.updateBeratBadan(double.tryParse(v) ?? 0.0),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Tinggi Badan', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _tinggiController,
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    decoration: _inputDecoration('Cm', null),
-                    onChanged: (v) => notifier.updateTinggiBadan(double.tryParse(v) ?? 0.0),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActivityLevelStep(ProfileFormState s, ProfileNotifier notifier) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildStepTitle('Seberapa aktif Anda?', 'Semakin tinggi aktivitas fisik, semakin banyak cairan yang dibutuhkan tubuh.'),
-        ...kActivityLevels.map((item) {
-          final isSelected = s.levelAktivitas == item['value'];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: InkWell(
-              onTap: () => notifier.updateLevelAktivitas(item['value']!),
-              borderRadius: BorderRadius.circular(16),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF1565C0).withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(item['label']!, style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? const Color(0xFF1565C0) : Colors.black87)),
-                          const SizedBox(height: 4),
-                          Text(item['description']!, style: const TextStyle(fontSize: 12, color: Colors.black54)),
-                        ],
-                      ),
-                    ),
-                    if (isSelected) const Icon(Icons.check_circle, color: Color(0xFF1565C0)),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  Widget _buildGeographyStep(ProfileFormState s, ProfileNotifier notifier) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildStepTitle('Dimana Anda tinggal?', 'Suhu dan kelembapan di wilayah dataran tinggi vs rendah memengaruhi penguapan cairan tubuh.'),
-        ...kGeographicOptions.map((opt) {
-          final isSelected = s.letakGeografis == opt['value'];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: InkWell(
-              onTap: () => notifier.updateLetakGeografis(opt['value']!),
-              borderRadius: BorderRadius.circular(16),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF1565C0).withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Text(opt['label']!, style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? const Color(0xFF1565C0) : Colors.black87)),
-                    const Spacer(),
-                    if (isSelected) const Icon(Icons.check_circle, color: Color(0xFF1565C0)),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  Widget _buildMedicalStep(ProfileFormState s, ProfileNotifier notifier) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildStepTitle('Riwayat Kesehatan', 'Opsional - Informasi ini berguna bagi penelitian untuk memahami latar belakang partisipan.'),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: kMedicalConditions.map((condition) {
-            final isSelected = s.riwayatPenyakit.contains(condition);
-            return FilterChip(
-              label: Text(kMedicalConditionLabels[condition] ?? condition),
-              selected: isSelected,
-              onSelected: (_) => notifier.toggleRiwayatPenyakit(condition),
-              selectedColor: const Color(0xFF1565C0).withValues(alpha: 0.15),
-              checkmarkColor: const Color(0xFF1565C0),
-              labelStyle: TextStyle(
-                color: isSelected ? const Color(0xFF1565C0) : Colors.black87,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-              backgroundColor: Colors.white.withValues(alpha: 0.5),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade200)),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildReminderStep(ProfileFormState s, ProfileNotifier notifier) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildStepTitle('Mode Pengingat', 'Pilih bagaimana aplikasi mengingatkan Anda untuk minum.'),
-        _reminderOption(
-          'Smart Reminder', 
-          'Algoritma cerdas yang menyesuaikan dengan sisa target dan waktu aktif Anda.',
-          'smart', 
-          Icons.auto_awesome_outlined,
-          s.reminderType,
-          notifier.updateReminderType
-        ),
-        const SizedBox(height: 16),
-        _reminderOption(
-          'Interval Tetap', 
-          'Pengingat pada jam-jam yang sudah ditentukan (misal setiap 2 jam).',
-          'interval', 
-          Icons.timer_outlined,
-          s.reminderType,
-          notifier.updateReminderType
-        ),
-        if (s.reminderType == 'interval') ...[
-          const SizedBox(height: 24),
-          const Text('Pilih Interval:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
-          const SizedBox(height: 12),
-          Row(
-            children: [1, 2, 3].map((h) => Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: ChoiceChip(
-                  label: Text('$h Jam'),
-                  selected: s.reminderInterval == h,
-                  onSelected: (_) => notifier.updateReminderInterval(h),
-                ),
-              ),
-            )).toList(),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _reminderOption(String title, String desc, String value, IconData icon, String current, Function(String) onTap) {
+  Widget _buildActivityOption({
+    required String title,
+    required String desc,
+    required String value,
+    required String current,
+    required Function(String) onTap,
+  }) {
     final isSelected = value == current;
-    return InkWell(
+    return GestureDetector(
       onTap: () => onTap(value),
-      borderRadius: BorderRadius.circular(16),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(16),
+        duration: const Duration(milliseconds: 150),
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 2),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF1565C0).withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.5),
+          color: isSelected ? const Color(0xFFE8F4FF) : const Color(0xFFF9FAFB),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade200),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF1A73E8) : Colors.transparent,
+            width: 1.5,
+          ),
         ),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade400),
-            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? const Color(0xFF1565C0) : Colors.black87)),
+                  Text(
+                    title,
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: isSelected
+                          ? const Color(0xFF1A73E8)
+                          : const Color(0xFF1F2937),
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(desc, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                  Text(
+                    desc,
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      color: const Color(0xFF6B7280),
+                      height: 1.3,
+                    ),
+                  ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildKonfirmasiStep(ProfileFormState s, ProfileNotifier notifier) {
-    final tempProfile = UserProfile()
-      ..jenisKelamin = s.jenisKelamin
-      ..beratBadan = s.beratBadan
-      ..levelAktivitas = s.levelAktivitas
-      ..letakGeografis = s.letakGeografis
-      ..riwayatPenyakit = s.riwayatPenyakit;
-
-    final breakdowns = HydrationCalculator.getBreakdown(tempProfile);
-    final displayTarget = s.targetManualMl ?? s.calculatedTargetMl;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildStepTitle('Hasil Perhitungan', 'Berdasarkan data Anda, ini adalah kebutuhan cairan harian yang disarankan.'),
-        
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFF1565C0), Color(0xFF42A5F5)]),
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(color: const Color(0xFF1565C0).withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10)),
-            ],
-          ),
-          child: Column(
-            children: [
-              const Text('TARGET HARIAN', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, letterSpacing: 2)),
-              const SizedBox(height: 12),
-              Text(
-                '$displayTarget ml',
-                style: const TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: Colors.white),
-              ),
-              const SizedBox(height: 24),
-              const Divider(color: Colors.white24),
-              const SizedBox(height: 16),
-              ...breakdowns.map((b) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
-                    Icon(b.delta >= 0 ? Icons.add_circle : Icons.remove_circle, color: Colors.white70, size: 16),
-                    const SizedBox(width: 12),
-                    Text(b.label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                    const Spacer(),
-                    Text(b.deltaLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                  ],
-                ),
-              )),
-            ],
-          ),
-        ),
-        
-        const SizedBox(height: 32),
-        
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextButton.icon(
-              onPressed: () => _showManualEdit(s, notifier),
-              icon: const Icon(Icons.edit_note),
-              label: const Text('Sesuaikan Manual'),
-            ),
-            if (s.targetManualMl != null)
-              TextButton(
-                onPressed: () => notifier.updateManualTarget(null),
-                child: const Text('Reset Rekomendasi'),
+            if (isSelected)
+              const Icon(
+                Icons.check_circle,
+                color: Color(0xFF1A73E8),
+                size: 20,
               ),
           ],
         ),
-        
-        const SizedBox(height: 24),
-        
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.orange.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.orange.withValues(alpha: 0.2)),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.info_outline, color: Colors.orange, size: 20),
-              const SizedBox(width: 12),
-              Expanded(child: Text(kHydrationDisclaimer, style: const TextStyle(fontSize: 12, color: Colors.black87, height: 1.5))),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showManualEdit(ProfileFormState s, ProfileNotifier notifier) {
-    final controller = TextEditingController(text: (s.targetManualMl ?? s.calculatedTargetMl).toString());
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('Target Manual', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Sesuaikan jika Anda memiliki saran khusus dari dokter.'),
-            const SizedBox(height: 20),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              autofocus: true,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              decoration: _inputDecoration('Volume (ml)', Icons.water_drop_outlined),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('BATAL')),
-          ElevatedButton(
-            onPressed: () {
-              final val = int.tryParse(controller.text);
-              if (val != null && val >= 1500 && val <= 4000) {
-                notifier.updateManualTarget(val);
-                Navigator.pop(context);
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1565C0), foregroundColor: Colors.white),
-            child: const Text('SIMPAN'),
-          ),
-        ],
       ),
-    );
-  }
-
-  InputDecoration _inputDecoration(String hint, IconData? icon) {
-    return InputDecoration(
-      hintText: hint,
-      prefixIcon: icon != null ? Icon(icon, color: const Color(0xFF1565C0)) : null,
-      filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.5),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: Colors.grey.shade200),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: Colors.grey.shade200),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: Color(0xFF1565C0), width: 2),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-    );
-  }
-
-  Future<void> _handleSubmit() async {
-    try {
-      await ref.read(profileProvider.notifier).submitProfile();
-      if (mounted) {
-        if (widget.isEditing) {
-          context.pop();
-        } else {
-          context.go('/dashboard');
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
-    }
-  }
-}
-
-class _GlassCard extends StatelessWidget {
-  final Widget child;
-  const _GlassCard({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(32),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.7),
-            borderRadius: BorderRadius.circular(32),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
-class _AnimatedWaterBackground extends StatefulWidget {
-  const _AnimatedWaterBackground();
-
-  @override
-  State<_AnimatedWaterBackground> createState() => _AnimatedWaterBackgroundState();
-}
-
-class _AnimatedWaterBackgroundState extends State<_AnimatedWaterBackground> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 15))..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Stack(
-          children: [
-            Positioned(top: -100 + (50 * _controller.value), left: -50 + (100 * _controller.value), child: _buildBlob(300, const Color(0xFFBDDDFD).withValues(alpha: 0.2))),
-            Positioned(bottom: 100 - (50 * _controller.value), right: -100 + (150 * _controller.value), child: _buildBlob(400, const Color(0xFFC4E8C2).withValues(alpha: 0.15))),
-            Positioned(top: 300 + (100 * (1 - _controller.value)), right: 50 + (50 * _controller.value), child: _buildBlob(250, const Color(0xFFFFE194).withValues(alpha: 0.1))),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildBlob(double size, Color color) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [color, color.withValues(alpha: 0.0)])),
     );
   }
 }

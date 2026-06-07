@@ -4,7 +4,8 @@ import '../../../core/constants/app_constants.dart';
 /// Type alias for a hydration modifier function.
 /// Each modifier receives the current ml value and the full profile,
 /// and returns an adjusted ml value.
-typedef HydrationModifier = double Function(double currentMl, UserProfile profile);
+typedef HydrationModifier =
+    double Function(double currentMl, UserProfile profile);
 
 /// Modifier-based hydration calculator.
 ///
@@ -86,10 +87,12 @@ class HydrationCalculator {
     final afterActivity = _activityModifier(running, profile);
     final activityDelta = afterActivity - running;
     if (activityDelta != 0) {
-      breakdowns.add(ModifierBreakdown(
-        label: 'Level aktivitas (${profile.levelAktivitas})',
-        delta: activityDelta.round(),
-      ));
+      breakdowns.add(
+        ModifierBreakdown(
+          label: 'Level aktivitas (${profile.levelAktivitas})',
+          delta: activityDelta.round(),
+        ),
+      );
     }
     running = afterActivity;
 
@@ -97,10 +100,12 @@ class HydrationCalculator {
     final afterGender = _genderModifier(running, profile);
     final genderDelta = afterGender - running;
     if (genderDelta != 0) {
-      breakdowns.add(ModifierBreakdown(
-        label: 'Jenis kelamin (${profile.jenisKelamin})',
-        delta: genderDelta.round(),
-      ));
+      breakdowns.add(
+        ModifierBreakdown(
+          label: 'Jenis kelamin (${profile.jenisKelamin})',
+          delta: genderDelta.round(),
+        ),
+      );
     }
     running = afterGender;
 
@@ -108,10 +113,12 @@ class HydrationCalculator {
     final afterGeo = _geographicModifier(running, profile);
     final geoDelta = afterGeo - running;
     if (geoDelta != 0) {
-      breakdowns.add(ModifierBreakdown(
-        label: 'Letak geografis (${profile.letakGeografis})',
-        delta: geoDelta.round(),
-      ));
+      breakdowns.add(
+        ModifierBreakdown(
+          label: 'Letak geografis (${profile.letakGeografis})',
+          delta: geoDelta.round(),
+        ),
+      );
     }
 
     return breakdowns;

@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:isar_community/isar.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
 import 'app/app.dart';
+import 'providers/isar_provider.dart';
 import 'providers/onboarding_provider.dart';
 import 'core/constants/app_constants.dart';
 import 'features/reminder/data/notification_action_log.dart';
 import 'features/reminder/data/reminder_response_model.dart';
+import 'features/profile/data/user_profile_model.dart';
+import 'features/logging/data/daily_summary_model.dart';
+import 'features/logging/data/hydration_log_model.dart';
 import 'features/logging/data/logging_repository.dart';
 import 'features/reminder/data/reminder_response_repository.dart';
 
@@ -68,7 +75,9 @@ Future<void> _onBackgroundNotificationResponse(
       ),
     );
 
-    debugPrint('[Background] Queued ${volume}ml + ReminderResponse($actionUsed)');
+    debugPrint(
+      '[Background] Queued ${volume}ml + ReminderResponse($actionUsed)',
+    );
   } catch (e) {
     debugPrint('[Background] Failed to queue action: $e');
   }
@@ -114,7 +123,9 @@ void _onForegroundNotificationResponse(NotificationResponse response) {
           sentAt: sentAt,
         ),
       );
-      debugPrint('[Foreground] Queued ${volume}ml + ReminderResponse($actionUsed)');
+      debugPrint(
+        '[Foreground] Queued ${volume}ml + ReminderResponse($actionUsed)',
+      );
     } else if (actionId == null) {
       // F-08: Notification body tap (no actionId) — user opens app
       await ReminderResponseRepository.queueResponse(
@@ -127,7 +138,9 @@ void _onForegroundNotificationResponse(NotificationResponse response) {
           sentAt: sentAt,
         ),
       );
-      debugPrint('[Foreground] Queued ReminderResponse(opened_app, delay=${elapsed}min)');
+      debugPrint(
+        '[Foreground] Queued ReminderResponse(opened_app, delay=${elapsed}min)',
+      );
     }
   });
 }
@@ -135,14 +148,26 @@ void _onForegroundNotificationResponse(NotificationResponse response) {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Configure system UI to run in edge-to-edge (fullscreen drawing behind status & navigation bars)
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      statusBarBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarIconBrightness: Brightness.dark,
+      systemNavigationBarDividerColor: Colors.transparent,
+    ),
+  );
+
   // 1. Initialize timezone data (required for flutter_local_notifications scheduling)
   tz.initializeTimeZones();
   // Use device local timezone — no switching support per FEATURES_V2.md
   tz.setLocalLocation(tz.local);
 
   // 2. Initialize flutter_local_notifications with F-07 callbacks
-  const androidSettings =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
+  const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
   const initSettings = InitializationSettings(android: androidSettings);
   await flutterLocalNotificationsPlugin.initialize(
     settings: initSettings,
@@ -156,18 +181,20 @@ void main() async {
   // 3. Initialize SharedPreferences
   final prefs = await SharedPreferences.getInstance();
 
-  // 4. Initialize Isar (TODO: Re-enable after generator fix)
-  // final dir = await getApplicationDocumentsDirectory();
-  // final isar = await Isar.open(
-  //   [UserProfileSchema, DailySummarySchema],
-  //   directory: dir.path,
-  // );
+  // 4. Initialize Isar before ProviderScope so repositories are never unbound.
+  final dir = await getApplicationDocumentsDirectory();
+  final isar = await Isar.open([
+    UserProfileSchema,
+    HydrationLogSchema,
+    DailySummarySchema,
+    ReminderResponseSchema,
+  ], directory: dir.path);
 
   runApp(
     ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
-        // isarProvider.overrideWithValue(isar),
+        isarProvider.overrideWithValue(isar),
       ],
       child: const HydrationApp(),
     ),

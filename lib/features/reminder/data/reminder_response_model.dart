@@ -1,8 +1,8 @@
 // features/reminder/data/reminder_response_model.dart
 import 'dart:convert';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
-// part 'reminder_response_model.g.dart'; // Uncomment when Isar is working
+part 'reminder_response_model.g.dart';
 
 /// Canonical schema per AGENTS_V3.md §15.
 ///
@@ -66,25 +66,26 @@ class ReminderResponse {
       ..completed = completed ?? this.completed
       ..delayMinutes = delayMinutes ?? this.delayMinutes
       ..actionUsed = actionUsed ?? this.actionUsed
-      ..notificationScheduledAt = notificationScheduledAt ?? this.notificationScheduledAt
+      ..notificationScheduledAt =
+          notificationScheduledAt ?? this.notificationScheduledAt
       ..timestamp = timestamp ?? this.timestamp
       ..isSynced = isSynced ?? this.isSynced
       ..createdAt = createdAt ?? this.createdAt;
   }
 
-  // ── JSON proxy serialization ─────────────────────────────────────────────
+  // ── JSON serialization for legacy migration and background queues ───────
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'userId': userId,
-        'completed': completed,
-        'delayMinutes': delayMinutes,
-        'actionUsed': actionUsed,
-        'notificationScheduledAt': notificationScheduledAt.toIso8601String(),
-        'timestamp': timestamp.toIso8601String(),
-        'isSynced': isSynced,
-        'createdAt': createdAt.toIso8601String(),
-      };
+    'id': id,
+    'userId': userId,
+    'completed': completed,
+    'delayMinutes': delayMinutes,
+    'actionUsed': actionUsed,
+    'notificationScheduledAt': notificationScheduledAt.toIso8601String(),
+    'timestamp': timestamp.toIso8601String(),
+    'isSynced': isSynced,
+    'createdAt': createdAt.toIso8601String(),
+  };
 
   factory ReminderResponse.fromJson(Map<String, dynamic> json) {
     final scheduledAtStr = json['notificationScheduledAt'] as String?;
@@ -130,12 +131,12 @@ class PendingReminderResponse {
   });
 
   Map<String, dynamic> toJson() => {
-        'completed': completed,
-        'delayMinutes': delayMinutes,
-        'actionUsed': actionUsed,
-        'timestamp': timestamp.toIso8601String(),
-        'sentAt': sentAt.toIso8601String(),
-      };
+    'completed': completed,
+    'delayMinutes': delayMinutes,
+    'actionUsed': actionUsed,
+    'timestamp': timestamp.toIso8601String(),
+    'sentAt': sentAt.toIso8601String(),
+  };
 
   factory PendingReminderResponse.fromJson(Map<String, dynamic> json) =>
       PendingReminderResponse(
@@ -152,8 +153,7 @@ class PendingReminderResponse {
   static List<PendingReminderResponse> decodeList(String jsonString) {
     final List<dynamic> raw = jsonDecode(jsonString);
     return raw
-        .map((e) =>
-            PendingReminderResponse.fromJson(e as Map<String, dynamic>))
+        .map((e) => PendingReminderResponse.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 }

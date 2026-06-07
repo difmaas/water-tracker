@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,7 +7,22 @@ import '../features/logging/data/logging_repository.dart';
 import '../features/logging/data/hydration_log_model.dart';
 import '../features/logging/data/daily_summary_model.dart';
 import '../features/reminder/data/reminder_response_repository.dart';
+import '../features/reminder/domain/reminder_logic.dart';
 import 'reminder_provider.dart';
+
+enum WeekDayStatus { achieved, partial, empty, future }
+
+class WeekDayProgress {
+  final DateTime date;
+  final WeekDayStatus status;
+  final bool isToday;
+
+  const WeekDayProgress({
+    required this.date,
+    required this.status,
+    required this.isToday,
+  });
+}
 
 /// Display state for the Daily Dashboard.
 class HydrationState {
@@ -18,10 +32,17 @@ class HydrationState {
   final bool isLoading;
   final String userName;
   final int currentStreak;
-  final String funFact;
   final bool notificationPermissionGranted;
+  final DateTime? nextReminderTime;
+  final int reminderInterval;
+  final int reminderWindowStart;
+  final int reminderWindowEnd;
+  final bool reminderSystemActive;
+  final int researchDay;
+  final List<WeekDayProgress> weeklyProgress;
 
-  double get progressPercent => targetMl > 0 ? (currentMl / targetMl).clamp(0.0, 1.0) : 0.0;
+  double get progressPercent =>
+      targetMl > 0 ? (currentMl / targetMl).clamp(0.0, 1.0) : 0.0;
   int get remainingMl => (targetMl - currentMl).clamp(0, targetMl);
   bool get isTargetReached => currentMl >= targetMl;
 
@@ -32,8 +53,14 @@ class HydrationState {
     this.isLoading = true,
     this.userName = '',
     this.currentStreak = 0,
-    this.funFact = '',
     this.notificationPermissionGranted = false,
+    this.nextReminderTime,
+    this.reminderInterval = 2,
+    this.reminderWindowStart = 7,
+    this.reminderWindowEnd = 21,
+    this.reminderSystemActive = false,
+    this.researchDay = 1,
+    this.weeklyProgress = const [],
   });
 
   HydrationState copyWith({
@@ -43,8 +70,15 @@ class HydrationState {
     bool? isLoading,
     String? userName,
     int? currentStreak,
-    String? funFact,
     bool? notificationPermissionGranted,
+    DateTime? nextReminderTime,
+    int? reminderInterval,
+    int? reminderWindowStart,
+    int? reminderWindowEnd,
+    bool? reminderSystemActive,
+    int? researchDay,
+    List<WeekDayProgress>? weeklyProgress,
+    bool clearNextReminder = false,
   }) {
     return HydrationState(
       currentMl: currentMl ?? this.currentMl,
@@ -53,8 +87,17 @@ class HydrationState {
       isLoading: isLoading ?? this.isLoading,
       userName: userName ?? this.userName,
       currentStreak: currentStreak ?? this.currentStreak,
-      funFact: funFact ?? this.funFact,
-      notificationPermissionGranted: notificationPermissionGranted ?? this.notificationPermissionGranted,
+      notificationPermissionGranted:
+          notificationPermissionGranted ?? this.notificationPermissionGranted,
+      nextReminderTime: clearNextReminder
+          ? null
+          : (nextReminderTime ?? this.nextReminderTime),
+      reminderInterval: reminderInterval ?? this.reminderInterval,
+      reminderWindowStart: reminderWindowStart ?? this.reminderWindowStart,
+      reminderWindowEnd: reminderWindowEnd ?? this.reminderWindowEnd,
+      reminderSystemActive: reminderSystemActive ?? this.reminderSystemActive,
+      researchDay: researchDay ?? this.researchDay,
+      weeklyProgress: weeklyProgress ?? this.weeklyProgress,
     );
   }
 }
@@ -97,7 +140,7 @@ class HydrationNotifier extends Notifier<HydrationState> {
           isLoading: false,
           targetMl: 2000,
           userName: '',
-          funFact: kHydrationFacts[Random().nextInt(kHydrationFacts.length)],
+          clearNextReminder: true,
         );
         return;
       }
@@ -105,20 +148,105 @@ class HydrationNotifier extends Notifier<HydrationState> {
       // Read today's logs (READ-ONLY — no writes)
       final logs = await _loggingRepo.getLogsForDate(profile.userId, now);
       int totalMl = logs.fold(0, (sum, log) => sum + log.volume);
+      final target = profile.targetManualMl ?? profile.dailyTargetMl;
+      final progress = target > 0 ? (totalMl / target) : 0.0;
 
-      // Pick random fact — preserve current fact if already set (avoid flicker on refresh)
-      final fact = state.funFact.isNotEmpty
-          ? state.funFact
-          : kHydrationFacts[Random().nextInt(kHydrationFacts.length)];
+      DateTime? nextReminder;
+      if (profile.reminderSystemActive &&
+          profile.notificationPermissionGranted) {
+        nextReminder = ReminderLogic.nextReminderTime(
+          now,
+          reminderType: profile.reminderType,
+          reminderIntervalHours: profile.reminderInterval,
+          startHour: profile.reminderWindowStart,
+          endHour: profile.reminderWindowEnd,
+          progress: progress,
+        );
+      }
+
+      int researchDay = 1;
+      final startDate = DateTime(
+        profile.createdAt.year,
+        profile.createdAt.month,
+        profile.createdAt.day,
+      );
+      final todayDate = DateTime(now.year, now.month, now.day);
+      final elapsed = todayDate.difference(startDate).inDays + 1;
+      researchDay = elapsed.clamp(1, 14);
+
+      // Calculate Monday-to-Sunday weekly progress
+      final monday = todayDate.subtract(Duration(days: todayDate.weekday - 1));
+      final List<WeekDayProgress> weeklyProgressList = [];
+      for (int i = 0; i < 7; i++) {
+        final dayDate = monday.add(Duration(days: i));
+        final isFuture = dayDate.isAfter(todayDate);
+        final isToday =
+            dayDate.year == todayDate.year &&
+            dayDate.month == todayDate.month &&
+            dayDate.day == todayDate.day;
+
+        if (isFuture) {
+          weeklyProgressList.add(
+            WeekDayProgress(
+              date: dayDate,
+              status: WeekDayStatus.future,
+              isToday: false,
+            ),
+          );
+        } else {
+          int dayMl = 0;
+          int dayTarget = target;
+          if (isToday) {
+            dayMl = totalMl;
+            dayTarget = target;
+          } else {
+            final summary = await _loggingRepo.getDailySummary(
+              profile.userId,
+              dayDate,
+            );
+            if (summary != null) {
+              dayMl = summary.achievedMl;
+              dayTarget = summary.targetMl;
+            } else {
+              final logsForDay = await _loggingRepo.getLogsForDate(
+                profile.userId,
+                dayDate,
+              );
+              dayMl = logsForDay.fold(0, (sum, log) => sum + log.volume);
+              dayTarget = profile.targetManualMl ?? profile.dailyTargetMl;
+            }
+          }
+
+          WeekDayStatus status;
+          if (dayMl == 0) {
+            status = WeekDayStatus.empty;
+          } else if (dayMl >= dayTarget) {
+            status = WeekDayStatus.achieved;
+          } else {
+            status = WeekDayStatus.partial;
+          }
+
+          weeklyProgressList.add(
+            WeekDayProgress(date: dayDate, status: status, isToday: isToday),
+          );
+        }
+      }
 
       state = state.copyWith(
         currentMl: totalMl,
-        targetMl: profile.targetManualMl ?? profile.dailyTargetMl,
+        targetMl: target,
         todayLogs: logs,
         userName: profile.nama,
-        currentStreak: 0, // Placeholder for Phase 2
-        funFact: fact,
+        currentStreak: profile.currentStreak,
         notificationPermissionGranted: profile.notificationPermissionGranted,
+        nextReminderTime: nextReminder,
+        clearNextReminder: nextReminder == null,
+        reminderInterval: profile.reminderInterval,
+        reminderWindowStart: profile.reminderWindowStart,
+        reminderWindowEnd: profile.reminderWindowEnd,
+        reminderSystemActive: profile.reminderSystemActive,
+        researchDay: researchDay,
+        weeklyProgress: weeklyProgressList,
         isLoading: false,
       );
     } catch (e, st) {
@@ -163,10 +291,12 @@ class HydrationNotifier extends Notifier<HydrationState> {
 
       // 4. Recalculate reminder interval based on new progress (fire-and-forget)
       // This is the post-log reschedule per ARCHITECTURE_V2.md §4
-      ref.read(reminderServiceProvider).rescheduleIfNeeded(
-        currentMl: state.currentMl,
-        targetMl: state.targetMl,
-      );
+      ref
+          .read(reminderServiceProvider)
+          .rescheduleIfNeeded(
+            currentMl: state.currentMl,
+            targetMl: state.targetMl,
+          );
 
       return log;
     } catch (e, st) {
@@ -194,6 +324,80 @@ class HydrationNotifier extends Notifier<HydrationState> {
       await _loadToday();
     } catch (e, st) {
       debugPrint('Error in undoLog: $e\n$st');
+    }
+  }
+
+  /// Deletes a log by ID and recalculates DailySummary for that specific log's date.
+  Future<void> deleteLog(int logId, DateTime logTimestamp) async {
+    try {
+      final profile = await _profileRepo.getUserProfile();
+      if (profile == null) return;
+
+      // 1. Delete the log
+      await _loggingRepo.deleteLog(logId);
+
+      // 2. Recalculate DailySummary for the log's date
+      await _upsertDailySummaryAfterLog(profile.userId, logTimestamp);
+
+      // 3. Refresh display state
+      await _loadToday();
+
+      // 4. Recalculate reminders if it's today
+      final now = DateTime.now();
+      if (logTimestamp.year == now.year &&
+          logTimestamp.month == now.month &&
+          logTimestamp.day == now.day) {
+        ref
+            .read(reminderServiceProvider)
+            .rescheduleIfNeeded(
+              currentMl: state.currentMl,
+              targetMl: state.targetMl,
+            );
+      }
+    } catch (e, st) {
+      debugPrint('Error in deleteLog: $e\n$st');
+    }
+  }
+
+  /// Updates a log's volume and recalculates DailySummary for that specific log's date.
+  Future<void> updateLog(
+    int logId,
+    int newVolume,
+    DateTime logTimestamp,
+  ) async {
+    try {
+      final profile = await _profileRepo.getUserProfile();
+      if (profile == null) return;
+
+      final log = await _loggingRepo.getLog(logId);
+      if (log == null) return;
+
+      // Update the volume
+      log.volume = newVolume;
+      log.isSynced = false; // Mark unsynced on edit
+
+      await _loggingRepo.saveLog(log);
+
+      // Recalculate DailySummary for the log's date
+      await _upsertDailySummaryAfterLog(profile.userId, logTimestamp);
+
+      // Refresh display state
+      await _loadToday();
+
+      // Recalculate reminders if it's today
+      final now = DateTime.now();
+      if (logTimestamp.year == now.year &&
+          logTimestamp.month == now.month &&
+          logTimestamp.day == now.day) {
+        ref
+            .read(reminderServiceProvider)
+            .rescheduleIfNeeded(
+              currentMl: state.currentMl,
+              targetMl: state.targetMl,
+            );
+      }
+    } catch (e, st) {
+      debugPrint('Error in updateLog: $e\n$st');
     }
   }
 
@@ -247,7 +451,9 @@ class HydrationNotifier extends Notifier<HydrationState> {
   ///
   /// Fire-and-forget — called from addLog() without await.
   Future<void> _checkAndRecordOpenedAppResponse(
-      String userId, DateTime loggedAt) async {
+    String userId,
+    DateTime loggedAt,
+  ) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final sentAtStr = prefs.getString(kLastReminderSentAtKey);
@@ -273,11 +479,14 @@ class HydrationNotifier extends Notifier<HydrationState> {
       );
     } catch (e) {
       debugPrint(
-          '[HydrationNotifier] _checkAndRecordOpenedAppResponse failed: $e');
+        '[HydrationNotifier] _checkAndRecordOpenedAppResponse failed: $e',
+      );
     }
   }
 }
 
-final hydrationProvider = NotifierProvider<HydrationNotifier, HydrationState>(() {
-  return HydrationNotifier();
-});
+final hydrationProvider = NotifierProvider<HydrationNotifier, HydrationState>(
+  () {
+    return HydrationNotifier();
+  },
+);

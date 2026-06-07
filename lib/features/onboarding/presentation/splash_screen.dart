@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../providers/onboarding_provider.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/data/user_profile_model.dart';
@@ -10,7 +11,6 @@ import '../../logging/data/hydration_log_model.dart';
 import '../../reminder/data/reminder_response_repository.dart';
 import '../../../core/services/sync_service.dart';
 import '../../../providers/reminder_provider.dart';
-import '../../../app/theme/app_colors.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -21,46 +21,42 @@ class SplashScreen extends ConsumerStatefulWidget {
 
 class _SplashScreenState extends ConsumerState<SplashScreen>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fadeInAnimation;
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+
+    _fadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 2000),
     );
 
-    _fadeInAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.6, curve: Curves.easeIn),
-      ),
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
+
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeOutBack),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.6, curve: Curves.easeOutBack),
-      ),
-    );
-
-    _controller.forward();
+    _fadeController.forward();
     _handleNavigation();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
   Future<void> _handleNavigation() async {
-    // 1. Minimum delay for branding + startup tasks in parallel
+    // 1. Wait for animation + startup tasks
     await Future.wait([
-      Future.delayed(const Duration(milliseconds: 2000)),
+      Future.delayed(const Duration(milliseconds: 3000)),
       _performStartupTasks(),
     ]);
 
@@ -108,28 +104,71 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       await profileRepo.saveProfile(profile);
       await _incrementSessionCount(profile, loggingRepo, now);
       await _checkReminderResponses(profile.userId);
-      await _checkDropout(originalLastOpenedAt, profile, profileRepo, loggingRepo, now);
+      await _checkDropout(
+        originalLastOpenedAt,
+        profile,
+        profileRepo,
+        loggingRepo,
+        now,
+      );
       await _flushNotificationActions(profile, loggingRepo);
     } catch (e) {
       debugPrint('[SplashScreen] Startup reconciliation failed: $e');
     }
   }
 
-  Future<void> _performMidnightReset(UserProfile profile, LoggingRepository loggingRepo) async {
+  Future<void> _performMidnightReset(
+    UserProfile profile,
+    LoggingRepository loggingRepo,
+  ) async {
     final yesterday = profile.lastOpenedAt!;
-    final yesterdaySummary = await loggingRepo.getDailySummary(profile.userId, yesterday);
+    final yesterdaySummary = await loggingRepo.getDailySummary(
+      profile.userId,
+      yesterday,
+    );
+
+    bool isMaintained = false;
+    int? streakBreakHour;
 
     if (yesterdaySummary != null) {
-      final isMaintained = yesterdaySummary.complianceRate >= 0.8;
+      isMaintained = yesterdaySummary.complianceRate >= 0.8;
+      if (!isMaintained) {
+        final yesterdayLogs = await loggingRepo.getLogsForDate(
+          profile.userId,
+          yesterday,
+        );
+        if (yesterdayLogs.isNotEmpty) {
+          yesterdayLogs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+          streakBreakHour = yesterdayLogs.last.timestamp.hour;
+        }
+      }
+
       final updatedSummary = yesterdaySummary.copyWith(
         streakMaintained: isMaintained,
+        streakBreakHour: streakBreakHour,
         isSynced: false,
       );
       await loggingRepo.upsertDailySummary(updatedSummary);
     }
+
+    // 2. Update currentStreak in UserProfile
+    if (isMaintained) {
+      profile.currentStreak += 1;
+    } else {
+      profile.currentStreak = 0;
+    }
+    profile.isSynced = false;
+
+    // 6. Cancel all pending notifications
+    final reminderService = ref.read(reminderServiceProvider);
+    await reminderService.cancelAll();
   }
 
-  Future<void> _incrementSessionCount(UserProfile profile, LoggingRepository loggingRepo, DateTime now) async {
+  Future<void> _incrementSessionCount(
+    UserProfile profile,
+    LoggingRepository loggingRepo,
+    DateTime now,
+  ) async {
     final targetMl = profile.targetManualMl ?? profile.dailyTargetMl;
     final existing = await loggingRepo.getDailySummary(profile.userId, now);
 
@@ -159,44 +198,79 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     }
   }
 
-  Future<void> _checkDropout(DateTime? originalLastOpenedAt, UserProfile profile, ProfileRepository profileRepo, LoggingRepository loggingRepo, DateTime now) async {
+  Future<void> _checkDropout(
+    DateTime? originalLastOpenedAt,
+    UserProfile profile,
+    ProfileRepository profileRepo,
+    LoggingRepository loggingRepo,
+    DateTime now,
+  ) async {
     if (originalLastOpenedAt == null) return;
     final gap = now.difference(originalLastOpenedAt).inDays;
-    if (gap > 3 && !profile.dropoutFlag) {
+    if (gap > 3) {
       profile.dropoutFlag = true;
       profile.isSynced = false;
-      await profileRepo.saveProfile(profile);
 
-      final todaySummary = await loggingRepo.getDailySummary(profile.userId, now);
+      final todaySummary = await loggingRepo.getDailySummary(
+        profile.userId,
+        now,
+      );
       if (todaySummary != null) {
-        final updated = todaySummary.copyWith(dropoutFlag: true, isSynced: false);
+        final updated = todaySummary.copyWith(
+          dropoutFlag: true,
+          isSynced: false,
+        );
         await loggingRepo.upsertDailySummary(updated);
       }
+
+      if (!profile.dropoutNotificationSent) {
+        final reminderService = ref.read(reminderServiceProvider);
+        await reminderService.scheduleReEngagementNotification();
+        profile.dropoutNotificationSent = true;
+      }
+
+      await profileRepo.saveProfile(profile);
     }
   }
 
-  Future<void> _flushNotificationActions(UserProfile profile, LoggingRepository loggingRepo) async {
+  Future<void> _flushNotificationActions(
+    UserProfile profile,
+    LoggingRepository loggingRepo,
+  ) async {
     try {
       final committed = await loggingRepo.flushActionQueue(profile.userId);
       if (committed.isEmpty) return;
       final byDate = <String, List<HydrationLog>>{};
       for (final log in committed) {
-        final key = '${log.timestamp.year}-${log.timestamp.month}-${log.timestamp.day}';
+        final key =
+            '${log.timestamp.year}-${log.timestamp.month}-${log.timestamp.day}';
         byDate.putIfAbsent(key, () => []).add(log);
       }
       final targetMl = profile.targetManualMl ?? profile.dailyTargetMl;
       for (final entry in byDate.entries) {
         final dateRef = entry.value.first.timestamp;
-        final allLogsForDate = await loggingRepo.getLogsForDate(profile.userId, dateRef);
+        final allLogsForDate = await loggingRepo.getLogsForDate(
+          profile.userId,
+          dateRef,
+        );
         final totalMl = allLogsForDate.fold(0, (sum, log) => sum + log.volume);
-        final existing = await loggingRepo.getDailySummary(profile.userId, dateRef);
+        final existing = await loggingRepo.getDailySummary(
+          profile.userId,
+          dateRef,
+        );
         if (existing != null) {
-          final updated = existing.copyWith(achievedMl: totalMl, complianceRate: targetMl > 0 ? totalMl / targetMl : 0.0, isSynced: false);
+          final updated = existing.copyWith(
+            achievedMl: totalMl,
+            complianceRate: targetMl > 0 ? totalMl / targetMl : 0.0,
+            isSynced: false,
+          );
           await loggingRepo.upsertDailySummary(updated);
         }
       }
     } catch (e) {
-      debugPrint('[SplashScreen] _flushNotificationActions failed silently: $e');
+      debugPrint(
+        '[SplashScreen] _flushNotificationActions failed silently: $e',
+      );
     }
   }
 
@@ -225,7 +299,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       final logs = await loggingRepo.getLogsForDate(profile.userId, now);
       final currentMl = logs.fold(0, (sum, log) => sum + log.volume);
       final targetMl = profile.targetManualMl ?? profile.dailyTargetMl;
-      ref.read(reminderServiceProvider).rescheduleIfNeeded(currentMl: currentMl, targetMl: targetMl);
+      ref
+          .read(reminderServiceProvider)
+          .rescheduleIfNeeded(currentMl: currentMl, targetMl: targetMl);
     } catch (e) {
       debugPrint('[SplashScreen] _rescheduleReminders failed silently: $e');
     }
@@ -238,68 +314,57 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.onPrimary,
-      body: Stack(
-        children: [
-          // Background Gradient
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Theme.of(context).colorScheme.onPrimary,
-                  AppColors.primary.withValues(alpha: 0.05),
-                ],
-              ),
-            ),
-          ),
-          
-          Center(
-            child: FadeTransition(
-              opacity: _fadeInAnimation,
-              child: ScaleTransition(
-                scale: _scaleAnimation,
+      backgroundColor: const Color(0xFFF8FBFF), // Fresh background #F8FBFF
+      body: SafeArea(
+        child: Center(
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: ScaleTransition(
+              scale: _scaleAnimation,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32.0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Silhouette Logo
                     Container(
-                      width: 220,
-                      height: 220,
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
+                        color: const Color(0xFFE8F4FF),
                         shape: BoxShape.circle,
-                        color: Theme.of(context).colorScheme.onPrimary,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.1),
-                            blurRadius: 30,
-                            spreadRadius: 5,
-                          ),
-                        ],
                       ),
-                      child: ClipOval(
-                        child: Image.asset(
-                          'assets/images/splash_logo.png',
-                          fit: BoxFit.contain,
-                        ),
+                      child: const Icon(
+                        Icons.water_drop_rounded,
+                        size: 64,
+                        color: Color(0xFF1A73E8),
                       ),
                     ),
-                    SizedBox(height: 40),
+                    const SizedBox(height: 32),
                     Text(
                       'SEHATI',
-                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 10,
-                            color: AppColors.primary,
-                          ),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 54,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 4,
+                        color: const Color(0xFF1A73E8), // Primary #1A73E8
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Teman minum air harianmu',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF5F6368),
+                        height: 1.5,
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

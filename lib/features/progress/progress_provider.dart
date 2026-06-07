@@ -75,22 +75,30 @@ class ProgressNotifier extends Notifier<ProgressState> {
       final profile = await profileRepo.getUserProfile();
 
       if (profile == null) {
-        state = state.copyWith(isLoading: false, weekSummaries: [], monthSummaries: []);
+        state = state.copyWith(
+          isLoading: false,
+          weekSummaries: [],
+          monthSummaries: [],
+        );
         return;
       }
 
       final loggingRepo = ref.read(loggingRepositoryProvider);
 
       // Fetch last 7 days, newest first
-      final newest7 =
-          await loggingRepo.getHistorySummaries(profile.userId, limit: 7);
+      final newest7 = await loggingRepo.getHistorySummaries(
+        profile.userId,
+        limit: 7,
+      );
 
       // Reverse to oldest→newest for correct left-to-right chart axis
       final ordered = newest7.reversed.toList();
 
       // Fetch last 35 days for calendar (covers any calendar month view)
-      final newest35 =
-          await loggingRepo.getHistorySummaries(profile.userId, limit: 35);
+      final newest35 = await loggingRepo.getHistorySummaries(
+        profile.userId,
+        limit: 35,
+      );
       final orderedMonth = newest35.reversed.toList();
 
       // Compute weekly aggregates
@@ -104,8 +112,9 @@ class ProgressNotifier extends Notifier<ProgressState> {
         if (s.achievedMl > 0) activeDays++;
       }
 
-      final avgCompliance =
-          ordered.isEmpty ? 0.0 : totalCompliance / ordered.length;
+      final avgCompliance = ordered.isEmpty
+          ? 0.0
+          : totalCompliance / ordered.length;
 
       state = state.copyWith(
         weekSummaries: ordered,
@@ -124,7 +133,6 @@ class ProgressNotifier extends Notifier<ProgressState> {
   Future<void> refresh() => _load();
 }
 
-final progressProvider =
-    NotifierProvider<ProgressNotifier, ProgressState>(() {
+final progressProvider = NotifierProvider<ProgressNotifier, ProgressState>(() {
   return ProgressNotifier();
 });

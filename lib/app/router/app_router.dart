@@ -54,25 +54,29 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return ArticleDetailScreen(articleId: articleId);
         },
       ),
-      GoRoute(
-        path: AppRoutes.settings,
-        builder: (context, state) => const SettingsScreen(),
-      ),
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
         builder: (context, state, child) => MainScaffold(child: child),
         routes: [
           GoRoute(
             path: AppRoutes.dashboard,
-            pageBuilder: (context, state) => const NoTransitionPage(child: DashboardScreen()),
+            pageBuilder: (context, state) =>
+                _buildFadeTransitionPage(state, const DashboardScreen()),
           ),
           GoRoute(
             path: AppRoutes.progress,
-            pageBuilder: (context, state) => const NoTransitionPage(child: ProgressScreen()),
+            pageBuilder: (context, state) =>
+                _buildFadeTransitionPage(state, const ProgressScreen()),
           ),
           GoRoute(
             path: AppRoutes.education,
-            pageBuilder: (context, state) => const NoTransitionPage(child: EducationScreen()),
+            pageBuilder: (context, state) =>
+                _buildFadeTransitionPage(state, const EducationScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.settings,
+            pageBuilder: (context, state) =>
+                _buildFadeTransitionPage(state, const SettingsScreen()),
           ),
         ],
       ),
@@ -80,3 +84,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   );
 });
 
+CustomTransitionPage<void> _buildFadeTransitionPage(
+  GoRouterState state,
+  Widget child,
+) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 300),
+    reverseTransitionDuration: const Duration(milliseconds: 300),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(
+        opacity: CurveTween(curve: Curves.easeInOut).animate(animation),
+        child: child,
+      );
+    },
+  );
+}

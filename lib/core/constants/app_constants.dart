@@ -15,9 +15,7 @@ const String kRouteSettings = '/settings';
 // ── App Info & Research ───────────────────────────────────────────────────────
 
 const String kSettingsResearchDisclaimer =
-    'Aplikasi ini digunakan sebagai instrumen penelitian OPSI. '
-    'Seluruh data yang dikumpulkan bersifat anonim dan hanya digunakan untuk kepentingan riset.';
-
+    'Data ini hanya digunakan untuk menyesuaikan pengalaman di aplikasi.';
 
 // ── Hydration Defaults ───────────────────────────────────────────────────────
 
@@ -85,7 +83,7 @@ const List<String> kHydrationFacts = [
   'Konsumsi air yang cukup dapat membantu mencegah batu ginjal.',
 ];
 
-// ── Hydration Articles (Full Content) ────────────────────────────────────────
+// ── Hydration Articles (Full Content) ────────────────────────────────────────────────
 
 /// Data class for education articles displayed on the Education screen.
 class HydrationArticle {
@@ -112,32 +110,49 @@ const List<HydrationArticle> kHydrationArticles = [
   HydrationArticle(
     id: 'sains_1',
     title: '60% Tubuh Anda Adalah Air',
-    summary: 'Tubuh manusia dewasa rata-rata terdiri dari sekitar 60% air. Persentase ini bahkan lebih tinggi pada bayi dan anak-anak.',
-    body: 'Tubuh manusia dewasa rata-rata terdiri dari sekitar 60% air. Persentase ini bahkan lebih tinggi pada bayi dan anak-anak, bisa mencapai 75-80%. Air tidak hanya ada di darah, tetapi juga di otak (75%), jantung (75%), paru-paru (86%), ginjal (83%), bahkan tulang yang keras sekalipun mengandung 22% air. Setiap sel, jaringan, dan organ dalam tubuh Anda membutuhkan air agar bisa berfungsi dengan normal. Tanpa air yang cukup, seluruh sistem tubuh akan terganggu.',
+    summary:
+        'Tubuh manusia dewasa rata-rata terdiri dari sekitar 60% air. Persentase ini bahkan lebih tinggi pada bayi dan anak-anak.',
+    body:
+        'Tubuh manusia dewasa rata-rata terdiri dari sekitar 60% air. Persentase ini bahkan lebih tinggi pada bayi dan anak-anak, yang bisa mencapai 75–80%.\n\n'
+        'Air tidak hanya terkandung di dalam darah, tetapi juga di otak (75%), jantung (75%), paru-paru (86%), ginjal (83%), bahkan tulang yang keras sekalipun mengandung sekitar 22% air.\n\n'
+        'Setiap sel, jaringan, dan organ dalam tubuh Anda membutuhkan air agar dapat berfungsi secara normal. Tanpa air yang cukup, seluruh sistem tubuh Anda akan terganggu.',
     category: 'sains',
     emoji: '🔬',
   ),
   HydrationArticle(
     id: 'sains_2',
     title: 'Kebutuhan Air Setiap Orang Berbeda',
-    summary: 'Rekomendasi umum "8 gelas sehari" memang mudah diingat, tapi kebutuhan air setiap orang berbeda-beda tergantung berbagai faktor.',
-    body: 'Rekomendasi umum "8 gelas sehari" memang mudah diingat, tapi kebutuhan air setiap orang berbeda-beda. Faktor yang mempengaruhi antara lain: berat badan, usia, jenis kelamin, tingkat aktivitas fisik, suhu lingkungan, dan kondisi kesehatan. Cara paling akurat untuk menghitung kebutuhan air harian adalah dengan rumus: Berat Badan (kg) × 30 ml. Contohnya, jika berat badan Anda 60 kg, maka Anda membutuhkan sekitar 1.800 ml atau setara dengan 7-8 gelas air per hari. Orang yang aktif berolahraga atau bekerja di luar ruangan membutuhkan lebih banyak lagi.',
+    summary:
+        'Rekomendasi umum "8 gelas sehari" memang mudah diingat, tapi kebutuhan air setiap orang berbeda-beda tergantung berbagai faktor.',
+    body:
+        'Rekomendasi umum "8 gelas sehari" memang mudah diingat, tetapi kebutuhan air setiap orang sebenarnya berbeda-beda. Faktor yang memengaruhi antara lain: berat badan, usia, jenis kelamin, tingkat aktivitas fisik, suhu lingkungan, dan kondisi kesehatan.\n\n'
+        'Cara paling akurat untuk menghitung kebutuhan air harian adalah dengan rumus: Berat Badan (kg) × 30 ml.\n\n'
+        'Sebagai contoh, jika berat badan Anda 60 kg, Anda membutuhkan sekitar 1.800 ml air atau setara dengan 7–8 gelas per hari. Orang yang aktif berolahraga atau bekerja di luar ruangan tentu membutuhkan asupan yang lebih banyak.',
     category: 'sains',
     emoji: '⚖️',
   ),
   HydrationArticle(
     id: 'sains_3',
     title: 'Air Membantu Detoksifikasi Alami Tubuh',
-    summary: 'Tubuh memiliki sistem detoksifikasi alami yang canggih, dan air adalah kunci utama untuk melarutkan dan mengeluarkan racun.',
-    body: 'Tubuh memiliki sistem detoksifikasi alami yang sangat canggih, dan air adalah kuncinya. Racun-racun hasil metabolisme, seperti urea, kreatinin, dan asam urat, larut dalam air dan dikeluarkan melalui urine. Selain itu, racun juga keluar melalui keringat dan feses. Tanpa asupan air yang cukup, racun-racun ini akan tetap berada di dalam tubuh dan bisa merusak sel-sel sehat. Minum air putih yang cukup, terutama di pagi hari setelah bangun tidur, sangat efektif untuk membantu proses pembersihan organ-organ tubuh. Semakin banyak air yang Anda minum (dalam dosis wajar), semakin banyak racun yang dikeluarkan.',
+    summary:
+        'Tubuh memiliki sistem detoksifikasi alami yang canggih, dan air adalah kunci utama untuk melarutkan dan mengeluarkan racun.',
+    body:
+        'Tubuh memiliki sistem detoksifikasi alami yang sangat canggih, dan air adalah kuncinya.\n\n'
+        'Racun hasil metabolisme seperti urea, kreatinin, dan asam urat akan larut dalam air sebelum dikeluarkan melalui urine. Selain itu, sisa metabolisme juga dikeluarkan melalui keringat dan feses.\n\n'
+        'Tanpa asupan air yang cukup, racun-racun ini akan tetap menumpuk di dalam tubuh dan berpotensi merusak sel-sel yang sehat.\n\n'
+        'Minum air putih yang cukup, terutama di pagi hari setelah bangun tidur, sangat efektif untuk membantu proses pembersihan organ dalam tubuh. Semakin teratur Anda minum air (dalam batas wajar), semakin efisien proses pengeluaran racun tersebut.',
     category: 'sains',
     emoji: '🧪',
   ),
   HydrationArticle(
     id: 'sains_4',
     title: 'Air Mengatur Suhu Tubuh',
-    summary: 'Air berperan krusial dalam mengatur suhu tubuh melalui proses penguapan keringat untuk mencegah sengatan panas.',
-    body: 'Salah satu fungsi air yang paling penting namun sering tidak disadari adalah mengatur suhu tubuh. Ketika tubuh Anda kepanasan (misalnya karena olahraga, demam, atau cuaca panas), kelenjar keringat akan mengeluarkan air ke permukaan kulit. Saat air keringat menguap, tubuh Anda menjadi dingin. Proses ini hanya bisa berjalan jika tubuh memiliki cukup air. Jika Anda dehidrasi, tubuh tidak bisa berkeringat dengan baik, sehingga suhu tubuh bisa naik secara berbahaya, menyebabkan heat stroke (sengatan panas) yang bisa berakibat fatal. Minum air yang cukup sangat penting, terutama saat cuaca panas atau saat beraktivitas fisik berat.',
+    summary:
+        'Air berperan krusial dalam mengatur suhu tubuh melalui proses penguapan keringat untuk mencegah sengatan panas.',
+    body:
+        'Salah satu fungsi air yang paling penting tetapi sering tidak disadari adalah mengatur suhu tubuh.\n\n'
+        'Ketika tubuh Anda kepanasan (misalnya akibat olahraga, demam, atau cuaca panas), kelenjar keringat akan mengeluarkan cairan ke permukaan kulit. Saat keringat menguap, suhu tubuh Anda akan menurun secara alami. Proses pendinginan ini hanya bisa berjalan optimal jika tubuh memiliki cadangan air yang cukup.\n\n'
+        'Jika Anda mengalami dehidrasi, tubuh tidak dapat menghasilkan keringat dengan baik sehingga suhu tubuh bisa meningkat drastis. Kondisi ini dapat memicu heat stroke (sengatan panas) yang berbahaya. Oleh karena itu, minumlah air yang cukup sebelum, selama, dan setelah beraktivitas.',
     category: 'sains',
     emoji: '🌡️',
   ),
@@ -145,41 +160,64 @@ const List<HydrationArticle> kHydrationArticles = [
   // ── FAKTA UNIK ────────────────────────────────────────────────────────────
   HydrationArticle(
     id: 'fakta_1',
-    title: 'Haus Berarti Anda Sudah Terlambat',
-    summary: 'Rasa haus muncul ketika tubuh sudah kehilangan 1-2% cairan tubuh, menandakan Anda sudah mengalami dehidrasi ringan.',
-    body: 'Banyak orang mengira rasa haus adalah tanda bahwa tubuh mulai membutuhkan air. Padahal, rasa haus muncul ketika tubuh sudah kehilangan 1-2% dari total cairan tubuh. Ini berarti Anda sudah memasuki fase dehidrasi ringan. Pada tahap ini, konsentrasi mulai menurun, tubuh terasa lemas, mulut kering, dan suasana hati bisa menjadi mudah marah. Oleh karena itu, jangan tunggu haus untuk minum. Biasakan minum air secara teratur sepanjang hari agar tubuh tetap terhidrasi optimal.',
+    title: 'Rasa Haus Berarti Anda Sudah Terlambat',
+    summary:
+        'Rasa haus muncul ketika tubuh sudah kehilangan 1-2% cairan tubuh, menandakan Anda sudah mengalami dehidrasi ringan.',
+    body:
+        'Banyak orang mengira rasa haus adalah sinyal awal bahwa tubuh mulai memerlukan air. Padahal, rasa haus baru muncul ketika tubuh telah kehilangan 1–2% dari total cairan tubuh. Ini menandakan bahwa Anda sebenarnya sudah mengalami dehidrasi ringan.\n\n'
+        'Pada tahap dehidrasi ringan ini, konsentrasi Anda mulai menurun, tubuh terasa lemas, mulut terasa kering, dan suasana hati dapat menjadi lebih sensitif atau mudah marah.\n\n'
+        'Oleh karena itu, jangan menunggu hingga rasa haus datang untuk minum air. Biasakanlah minum air putih secara teratur sepanjang hari agar tubuh tetap terhidrasi secara optimal.',
     category: 'fakta_unik',
     emoji: '🏜️',
   ),
   HydrationArticle(
     id: 'fakta_2',
     title: 'Cara Termudah Mengetahui Cukup Minum: Lihat Warna Urine',
-    summary: 'Warna urine adalah indikator termudah untuk memantau status hidrasi tubuh Anda tanpa memerlukan alat canggih.',
-    body: 'Anda tidak perlu alat canggih untuk mengetahui apakah tubuh Anda terhidrasi dengan baik. Cukup lihat warna urine Anda. Kriteria sederhananya:\n\n· Kuning muda pucat atau bening → Selamat! Tubuh Anda terhidrasi dengan sangat baik.\n· Kuning terang → Masih cukup, tapi sebaiknya segera minum.\n· Kuning gelap/pekat seperti teh atau jus apel → Tanda bahaya! Anda kekurangan cairan dan harus segera minum air putih.\n· Oranye atau coklat → Dehidrasi berat. Segera minum air dan konsultasikan ke dokter jika berlanjut.\n\nSemakin gelap warna urine Anda, semakin pekat limbah di dalam tubuh, dan semakin berat kerja ginjal Anda.',
+    summary:
+        'Warna urine adalah indikator termudah untuk memantau status hidrasi tubuh Anda tanpa memerlukan alat canggih.',
+    body:
+        'Anda tidak memerlukan alat medis yang canggih untuk memantau apakah tubuh Anda sudah mendapatkan cukup air. Cukup perhatikan warna urine Anda saat buang air kecil. Berikut adalah kriteria sederhananya:\n\n'
+        '· Kuning muda pucat atau bening → Selamat! Tubuh Anda sudah terhidrasi dengan sangat baik.\n'
+        '· Kuning terang → Status hidrasi Anda masih cukup, tetapi sebaiknya Anda segera minum air.\n'
+        '· Kuning gelap atau pekat seperti teh → Tanda peringatan! Anda kekurangan cairan dan harus segera minum air putih.\n'
+        '· Oranye atau kecokelatan → Menandakan dehidrasi berat. Segera penuhi kebutuhan air Anda, dan konsultasikan ke dokter jika kondisi ini terus berlanjut.\n\n'
+        'Semakin gelap warna urine, semakin tinggi konsentrasi limbah yang menumpuk di dalam tubuh, yang berarti ginjal Anda harus bekerja jauh lebih keras.',
     category: 'fakta_unik',
     emoji: '🎨',
   ),
   HydrationArticle(
     id: 'fakta_3',
     title: 'Pengetahuan Baik Membentuk Perilaku Minum yang Baik',
-    summary: 'Pengetahuan yang baik tentang manfaat air putih terbukti dapat membentuk perilaku dan kebiasaan minum yang lebih sehat.',
-    body: 'Penelitian membuktikan bahwa semakin tinggi pengetahuan seseorang tentang manfaat air putih, semakin baik pula perilaku minumnya. Siswa yang tahu bahwa air putih mencegah dehidrasi, melancarkan pencernaan, dan melindungi ginjal cenderung minum lebih banyak air setiap hari dibandingkan siswa yang pengetahuannya rendah. Sayangnya, banyak remaja yang pengetahuannya masih minim. Mereka hanya minum saat haus, sering mengganti air putih dengan minuman manis, atau bahkan tidak minum sama sekali saat makan. Oleh karena itu, edukasi tentang manfaat air putih harus terus digalakkan, mulai dari sekolah, keluarga, hingga lingkungan masyarakat.',
+    summary:
+        'Pengetahuan yang baik tentang manfaat air putih terbukti dapat membentuk perilaku dan kebiasaan minum yang lebih sehat.',
+    body:
+        'Studi kesehatan menunjukkan bahwa tingkat pengetahuan seseorang mengenai manfaat air putih memengaruhi perilaku minum harian mereka secara positif. Remaja yang memahami bahwa air putih berguna untuk mencegah dehidrasi, melancarkan pencernaan, serta memelihara fungsi ginjal cenderung mengonsumsi lebih banyak air putih setiap hari dibandingkan dengan mereka yang kurang memahami hal tersebut.\n\n'
+        'Sayangnya, masih banyak remaja yang belum menyadari pentingnya hidrasi teratur. Mereka cenderung baru minum saat merasa sangat haus, atau justru sering mengganti air putih dengan minuman manis yang tinggi gula.\n\n'
+        'Oleh karena itu, edukasi mengenai manfaat air putih perlu terus ditingkatkan, baik di lingkungan sekolah, keluarga, maupun komunitas remaja.',
     category: 'fakta_unik',
     emoji: '🎓',
   ),
   HydrationArticle(
     id: 'fakta_4',
     title: 'Sikap Positif Juga Penting, Tapi Tidak Cukup',
-    summary: 'Tahu manfaat air putih saja tidak cukup; diperlukan kemauan dan kebiasaan konsisten seperti membawa botol minum sendiri.',
-    body: 'Memiliki sikap positif terhadap air putih (misalnya setuju bahwa air putih itu sehat) memang baik, tetapi belum tentu membuat seseorang benar-benar minum cukup. Banyak orang tahu bahwa air putih itu penting, tetapi tetap malas meminumnya karena alasan "tidak enak", "hambar", atau "lupa". Hal ini menunjukkan bahwa sikap positif saja tidak cukup. Yang diperlukan adalah kebiasaan dan kemauan. Mulailah dengan membawa botol minum (tumbler) ke mana pun Anda pergi, memasang pengingat minum di ponsel, atau membiasakan minum satu gelas air setiap bangun tidur, sebelum makan, dan sebelum tidur. Kebiasaan kecil yang dilakukan konsisten akan membawa perubahan besar bagi kesehatan Anda.',
+    summary:
+        'Tahu manfaat air putih saja tidak cukup; diperlukan kemauan dan kebiasaan konsisten seperti membawa botol minum sendiri.',
+    body:
+        'Memiliki sikap yang positif terhadap konsumsi air putih (seperti setuju bahwa air putih itu menyehatkan) adalah langkah awal yang baik. Namun, sikap saja belum tentu membuat seseorang otomatis minum secara cukup. Banyak orang sadar bahwa air putih penting, tetapi tetap malas meminumnya dengan alasan hambar atau sering lupa.\n\n'
+        'Hal ini membuktikan bahwa kesadaran saja tidaklah cukup jika tidak disertai dengan tindakan nyata dan pembiasaan diri.\n\n'
+        'Cobalah memulainya dengan langkah praktis, seperti membawa botol minum sendiri (tumbler) ke mana pun pergi, memasang alarm pengingat minum di ponsel, atau membiasakan diri minum satu gelas air setiap kali bangun tidur, sebelum makan, dan menjelang tidur. Kebiasaan kecil yang dilakukan secara konsisten akan membawa dampak besar bagi kesehatan Anda.',
     category: 'fakta_unik',
     emoji: '✅',
   ),
   HydrationArticle(
     id: 'fakta_5',
     title: 'Edukasi Air Putih Harus Dimulai Sejak Usia Dini',
-    summary: 'Mengajarkan manfaat air putih sejak usia dini sangat penting untuk mencegah gangguan konsentrasi dan masalah kesehatan jangka panjang.',
-    body: 'Anak-anak usia sekolah dasar (SD/MI) cenderung sangat aktif bergerak dan bermain, sehingga cairan tubuh mereka lebih cepat keluar melalui keringat. Jika tidak cukup minum, mereka berisiko mengalami dehidrasi yang bisa mengganggu konsentrasi belajar, menurunkan prestasi akademik, bahkan menyebabkan masalah kesehatan jangka panjang seperti gangguan ginjal. Sayangnya, anak-anak lebih suka minuman manis berwarna-warni daripada air putih. Oleh karena itu, orang tua dan guru memiliki peran yang sangat penting. Mereka harus mengajarkan manfaat air putih sejak dini, memberi contoh dengan minum air putih di depan anak, menyediakan air putih yang mudah dijangkau, serta menerapkan pendidikan karakter seperti "tanggung jawab menjaga kesehatan diri sendiri".',
+    summary:
+        'Mengajarkan manfaat air putih sejak usia dini sangat penting untuk mencegah gangguan konsentrasi dan masalah kesehatan jangka panjang.',
+    body:
+        'Anak-anak dan remaja cenderung sangat aktif beraktivitas dan bermain, sehingga cairan tubuh mereka lebih cepat berkurang melalui keringat.\n\n'
+        'Jika kebutuhan cairan tidak terpenuhi, mereka rentan mengalami dehidrasi yang dapat mengganggu konsentrasi belajar, menurunkan fokus akademik, bahkan memicu masalah kesehatan jangka panjang seperti gangguan ginjal. Sayangnya, mereka sering kali lebih memilih minuman manis yang berwarna-warni dibandingkan air putih.\n\n'
+        'Di sinilah peran penting orang tua dan pendidik untuk memberikan contoh nyata dengan rutin minum air putih, menyediakan akses air minum yang mudah dijangkau, serta mengajarkan kebiasaan bertanggung jawab dalam menjaga kesehatan diri sendiri sejak dini.',
     category: 'fakta_unik',
     emoji: '🧒',
   ),
@@ -188,48 +226,73 @@ const List<HydrationArticle> kHydrationArticles = [
   HydrationArticle(
     id: 'sehat_1',
     title: 'Air Meningkatkan Konsentrasi dan Fungsi Otak',
-    summary: 'Dehidrasi ringan dapat mengganggu fungsi kognitif, konsentrasi, dan suasana hati karena otak sangat sensitif terhadap kadar air.',
-    body: 'Otak Anda sangat sensitif terhadap perubahan kadar air. Penelitian menunjukkan bahwa dehidrasi ringan saja (kehilangan 1-2% cairan tubuh) sudah cukup untuk mengganggu fungsi kognitif. Gejalanya meliputi: sulit fokus, daya ingat menurun, waktu reaksi melambat, dan kemampuan berpikir menjadi tidak tajam. Bahkan, dehidrasi bisa membuat Anda merasa cemas dan mudah stres. Sebaliknya, ketika tubuh terhidrasi dengan baik, otak bekerja lebih optimal, konsentrasi meningkat, dan suasana hati menjadi lebih stabil. Minumlah air putih secara teratur, terutama saat belajar atau bekerja.',
+    summary:
+        'Dehidrasi ringan dapat mengganggu fungsi kognitif, konsentrasi, dan suasana hati karena otak sangat sensitif terhadap kadar air.',
+    body:
+        'Otak manusia sangat sensitif terhadap perubahan kadar air. Banyak studi menunjukkan bahwa dehidrasi ringan (kehilangan hanya 1–2% cairan tubuh) sudah cukup untuk mengganggu fungsi kognitif otak Anda.\n\n'
+        'Gejala yang sering muncul meliputi kesulitan untuk fokus, penurunan daya ingat jangka pendek, respon yang melambat, serta mudah merasa lelah. Bahkan, kekurangan cairan juga dapat memperburuk suasana hati dan memicu kecemasan.\n\n'
+        'Sebaliknya, ketika kebutuhan cairan terpenuhi dengan baik, aliran darah ke otak menjadi lebih lancar, konsentrasi meningkat, dan fungsi kognitif berjalan optimal. Oleh karena itu, selalu sediakan air putih di meja belajar atau tempat kerja Anda.',
     category: 'kesehatan',
     emoji: '🧠',
   ),
   HydrationArticle(
     id: 'sehat_2',
     title: 'Kurang Minum Bisa Merusak Ginjal',
-    summary: 'Ginjal membutuhkan air yang cukup untuk menyaring limbah darah. Kekurangan cairan berisiko menyebabkan batu ginjal hingga gagal ginjal.',
-    body: 'Ginjal adalah organ yang bertugas menyaring limbah dan racun dari darah. Setiap hari, ginjal memproses sekitar 120-150 liter darah untuk menghasilkan 1-2 liter urine. Proses ini membutuhkan air yang cukup. Jika tubuh kekurangan cairan, ginjal akan kesulitan membuang racun, sehingga zat-zat berbahaya menumpuk di dalam tubuh. Dalam jangka pendek, ini bisa menyebabkan infeksi saluran kemih. Dalam jangka panjang, risiko batu ginjal dan gagal ginjal kronis meningkat drastis. Sayangnya, banyak remaja dan dewasa muda yang sudah harus menjalani cuci darah karena gagal ginjal akibat kurang minum air putih.',
+    summary:
+        'Ginjal membutuhkan air yang cukup untuk menyaring limbah darah. Kekurangan cairan berisiko menyebabkan batu ginjal hingga gagal ginjal.',
+    body:
+        'Ginjal bertugas menyaring limbah, racun, dan kelebihan cairan dari dalam darah untuk dikeluarkan sebagai urine. Agar dapat menjalankan proses penyaringan ini secara efisien, ginjal membutuhkan asupan air yang cukup setiap hari.\n\n'
+        'Apabila tubuh kekurangan cairan, ginjal harus bekerja lebih keras dan memekatkan urine, sehingga zat-zat sisa metabolisme dapat mengendap di saluran kemih.\n\n'
+        'Dalam jangka pendek, hal ini bisa memicu infeksi saluran kemih. Sementara dalam jangka panjang, risiko terbentuknya batu ginjal hingga gagal ginjal kronis akan meningkat secara signifikan.\n\n'
+        'Membiasakan diri minum air putih yang cukup adalah cara termudah dan paling efektif untuk menjaga kesehatan ginjal Anda agar terhindar dari penyakit berat di masa depan.',
     category: 'kesehatan',
     emoji: '🩺',
   ),
   HydrationArticle(
     id: 'sehat_3',
     title: 'Air Mencegah Sembelit dan Melancarkan Pencernaan',
-    summary: 'Air membantu memecah makanan dan melunakkan feses, menjadikannya kunci utama untuk mencegah sembelit dan melancarkan pencernaan.',
-    body: 'Sistem pencernaan Anda membutuhkan air untuk bekerja dengan lancar. Air membantu memecah makanan yang Anda konsumsi, sehingga nutrisi lebih mudah diserap oleh usus. Air juga berperan dalam pembentukan air liur dan getah lambung. Selain itu, air melunakkan feses sehingga mudah dikeluarkan. Kurang minum adalah salah satu penyebab utama sembelit (konstipasi). Jika Anda sering mengalami susah buang air besar, perut kembung, atau wasir, coba periksa apakah Anda sudah cukup minum air putih setiap hari. Minum air hangat di pagi hari juga dikenal ampuh melancarkan buang air besar.',
+    summary:
+        'Air membantu memecah makanan dan melunakkan feses, menjadikannya kunci utama untuk mencegah sembelit dan melancarkan pencernaan.',
+    body:
+        'Sistem pencernaan Anda memerlukan cairan yang cukup agar dapat berfungsi secara optimal. Air membantu memecah makanan yang masuk ke tubuh sehingga zat gizi atau nutrisinya dapat diserap usus dengan mudah.\n\n'
+        'Selain itu, air berfungsi melunakkan konsistensi feses agar lebih mudah dikeluarkan. Kurang minum merupakan salah satu penyebab utama terjadinya sembelit (konstipasi).\n\n'
+        'Jika Anda sering mengalami kesulitan buang air besar atau perut kembung, cobalah untuk meningkatkan asupan air putih harian Anda. Membiasakan minum segelas air hangat di pagi hari juga sangat dianjurkan untuk menstimulasi pencernaan yang sehat.',
     category: 'kesehatan',
     emoji: '🍏',
   ),
   HydrationArticle(
     id: 'sehat_4',
     title: 'Air Membuat Kulit Lebih Sehat dan Awet Muda',
-    summary: 'Air menjaga kelembaban dan elastisitas kulit dari dalam, membantu kulit tetap sehat, kenyal, dan bercahaya.',
-    body: 'Kulit adalah organ terbesar di tubuh Anda, dan kulit yang sehat dimulai dari dalam. Air membantu menjaga kelembaban alami kulit, meningkatkan elastisitas, dan mencegah kekeringan. Ketika tubuh kekurangan cairan, kulit akan terlihat kusam, kering, mudah mengelupas, dan garis-garis halus (kerutan) menjadi lebih cepat muncul. Sebaliknya, kulit yang terhidrasi dengan baik akan terasa kenyal, lembab, dan bercahaya. Tidak ada krim atau serum yang bisa menggantikan manfaat air putih dari dalam. Jadi, jika Anda ingin kulit sehat dan awet muda, mulailah dengan minum air yang cukup setiap hari.',
+    summary:
+        'Air menjaga kelembaban dan elastisitas kulit dari dalam, membantu kulit tetap sehat, kenyal, dan bercahaya.',
+    body:
+        'Kulit merupakan organ terluar yang melindungi tubuh Anda, dan keindahan serta kesehatannya sangat bergantung pada hidrasi dari dalam. Air membantu menjaga kelembutan dan kelembapan alami kulit, meningkatkan elastisitas, serta mencegah kulit menjadi kering dan kasar.\n\n'
+        'Ketika Anda kekurangan cairan, kulit akan terlihat lebih kusam, kering, mudah bersisik, dan garis-garis halus dapat tampak lebih jelas.\n\n'
+        'Sebaliknya, hidrasi yang cukup akan membantu kulit Anda tetap kenyal, lembap, dan tampak lebih segar secara alami. Mulailah merawat kulit Anda dari hal mendasar dengan minum air putih yang cukup setiap hari.',
     category: 'kesehatan',
     emoji: '✨',
   ),
   HydrationArticle(
     id: 'sehat_5',
     title: 'Air Membantu Menjaga Berat Badan Ideal',
-    summary: 'Minum air putih sebelum makan dapat membantu mengontrol nafsu makan dan meningkatkan efisiensi metabolisme lemak tubuh.',
-    body: 'Bagi Anda yang sedang berusaha menurunkan atau menjaga berat badan, air putih adalah sahabat terbaik. Penelitian menunjukkan bahwa minum air putih 30 menit sebelum makan dapat membantu Anda merasa kenyang lebih cepat, sehingga secara alami Anda akan makan lebih sedikit. Dalam sebuah studi, remaja putri yang minum 450 ml air sebelum makan selama 5 minggu mengalami penurunan persentase lemak tubuh yang signifikan. Selain itu, mengganti minuman manis (seperti soda, jus kemasan, atau teh manis) dengan air putih bisa mengurangi ratusan kalori setiap hari. Air putih juga membantu metabolisme lemak lebih efisien.',
+    summary:
+        'Minum air putih sebelum makan dapat membantu mengontrol nafsu makan dan meningkatkan efisiensi metabolisme lemak tubuh.',
+    body:
+        'Bagi Anda yang ingin menjaga atau mencapai berat badan ideal, air putih adalah pendukung yang sangat baik. Studi menunjukkan bahwa membiasakan minum air putih sekitar 30 menit sebelum makan dapat meningkatkan rasa kenyang lebih awal, sehingga membantu mengontrol porsi makan secara alami.\n\n'
+        'Dalam sebuah studi ilmiah, remaja putri yang rutin minum 450 ml air sebelum makan utama selama 5 minggu mengalami penurunan berat badan dan persentase lemak tubuh yang cukup berarti.\n\n'
+        'Selain itu, mengganti konsumsi minuman kemasan atau bersoda yang tinggi kalori dengan air mineral murni dapat memangkas asupan kalori harian secara signifikan serta mendukung kelancaran metabolisme tubuh.',
     category: 'kesehatan',
     emoji: '🏃',
   ),
   HydrationArticle(
     id: 'sehat_6',
     title: 'Jauhi Minuman Manis, Perbanyak Air Putih',
-    summary: 'Minuman manis mengandung gula tinggi yang berbahaya; air mineral murni adalah pilihan terbaik untuk hidrasi tubuh yang sehat.',
-    body: 'Saat ini, banyak remaja dan orang dewasa lebih menyukai minuman manis, bersoda, berenergi, atau bahkan beralkohol dibandingkan air putih. Padahal, kebiasaan ini sangat berbahaya bagi kesehatan jangka panjang. Minuman manis mengandung gula tinggi yang bisa menyebabkan obesitas, diabetes, dan kerusakan gigi. Minuman bersoda dan berenergi juga bersifat diuretik (memperbanyak buang air kecil) sehingga justru membuat tubuh kehilangan cairan lebih cepat. Anggapan bahwa minuman lain bisa menggantikan air putih adalah kesalahan fatal. Tubuh Anda membutuhkan air putih mineral murni, bukan air yang sudah dicampur zat kimia, pewarna, atau pengawet.',
+    summary:
+        'Minuman manis mengandung gula tinggi yang berbahaya; air mineral murni adalah pilihan terbaik untuk hidrasi tubuh yang sehat.',
+    body:
+        'Saat ini, banyak remaja dan orang dewasa lebih menyukai minuman manis, bersoda, atau minuman kemasan berenergi dibandingkan dengan air putih biasa. Padahal, kebiasaan tersebut memiliki risiko tinggi bagi kesehatan dalam jangka panjang.\n\n'
+        'Minuman manis mengandung kadar gula yang tinggi yang dapat memicu kelebihan berat badan (obesitas), kerusakan pada gigi, hingga risiko diabetes melitus. Selain itu, beberapa jenis minuman bersoda dan berenergi memiliki sifat diuretik, yang justru membuat tubuh Anda membuang cairan lebih cepat.\n\n'
+        'Anggapan bahwa minuman manis dapat sepenuhnya menggantikan fungsi air putih adalah kekeliruan yang besar. Tubuh Anda pada dasarnya membutuhkan air mineral murni yang bebas dari pemanis buatan, pewarna, atau zat pengawet kimia.',
     category: 'kesehatan',
     emoji: '🥤',
   ),
@@ -266,11 +329,7 @@ const List<Map<String, String>> kActivityLevels = [
     'label': 'Ringan',
     'description': 'Jalan kaki ringan, olahraga 1–2x/minggu',
   },
-  {
-    'value': 'sedang',
-    'label': 'Sedang',
-    'description': 'Olahraga 3–5x/minggu',
-  },
+  {'value': 'sedang', 'label': 'Sedang', 'description': 'Olahraga 3–5x/minggu'},
   {
     'value': 'aktif',
     'label': 'Aktif',

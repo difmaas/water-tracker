@@ -1,4 +1,3 @@
-# ARCHITECTURE_V3.md
 # Technical Architecture — Personal Hydration Tracker
 
 > **V3 Changelog (2026-05-15):**

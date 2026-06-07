@@ -1,7 +1,7 @@
 // features/logging/data/daily_summary_model.dart
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
-// part 'daily_summary_model.g.dart'; // Uncomment when Isar is working
+part 'daily_summary_model.g.dart';
 
 @collection
 class DailySummary {
@@ -10,13 +10,13 @@ class DailySummary {
   late DateTime date;
   late int targetMl;
   late int achievedMl;
-  late double complianceRate;   // achievedMl / targetMl
+  late double complianceRate; // achievedMl / targetMl
   late int remindersSent;
   late int remindersResponded;
-  late int sessionCount;        // incremented on every app open for this date
-  late bool streakMaintained;   // complianceRate >= 0.8
+  late int sessionCount; // incremented on every app open for this date
+  late bool streakMaintained; // complianceRate >= 0.8
   DateTime? firstLogTimestamp;
-  int? streakBreakHour;         // hour of last log if streak broken
+  int? streakBreakHour; // hour of last log if streak broken
   bool dropoutFlag = false;
   bool isSynced = false;
   late DateTime createdAt;
@@ -57,24 +57,23 @@ class DailySummary {
       ..createdAt = createdAt ?? this.createdAt;
   }
 
-  // Added for JSON proxy serialization
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'userId': userId,
-        'date': date.toIso8601String(),
-        'targetMl': targetMl,
-        'achievedMl': achievedMl,
-        'complianceRate': complianceRate,
-        'remindersSent': remindersSent,
-        'remindersResponded': remindersResponded,
-        'sessionCount': sessionCount,
-        'streakMaintained': streakMaintained,
-        'firstLogTimestamp': firstLogTimestamp?.toIso8601String(),
-        'streakBreakHour': streakBreakHour,
-        'dropoutFlag': dropoutFlag,
-        'isSynced': isSynced,
-        'createdAt': createdAt.toIso8601String(),
-      };
+    'id': id,
+    'userId': userId,
+    'date': date.toIso8601String(),
+    'targetMl': targetMl,
+    'achievedMl': achievedMl,
+    'complianceRate': complianceRate,
+    'remindersSent': remindersSent,
+    'remindersResponded': remindersResponded,
+    'sessionCount': sessionCount,
+    'streakMaintained': streakMaintained,
+    'firstLogTimestamp': firstLogTimestamp?.toIso8601String(),
+    'streakBreakHour': streakBreakHour,
+    'dropoutFlag': dropoutFlag,
+    'isSynced': isSynced,
+    'createdAt': createdAt.toIso8601String(),
+  };
 
   factory DailySummary.fromJson(Map<String, dynamic> json) {
     return DailySummary()

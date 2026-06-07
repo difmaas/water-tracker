@@ -1,9 +1,9 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
-// part 'user_profile_model.g.dart'; // Re-enable after Isar generator fix
+part 'user_profile_model.g.dart';
 
 /// Canonical UserProfile schema per AGENTS_V2 (V3) §15.
-// @collection // Re-enable after Isar generator fix
+@collection
 class UserProfile {
   Id id = Isar.autoIncrement;
 
@@ -11,8 +11,11 @@ class UserProfile {
   String userId = ''; // UUID v4 — generated once at profile setup
 
   // ── Personal Data (Local only — nama never synced to Supabase) ──────────────
-  String nama = ''; // Min 3, max 10 chars, letters and spaces only. Never synced.
-  DateTime tanggalLahir = DateTime(2000); // Age derived at runtime via AppDateUtils.ageFromBirthdate()
+  String nama =
+      ''; // Min 3, max 10 chars, letters and spaces only. Never synced.
+  DateTime tanggalLahir = DateTime(
+    2000,
+  ); // Age derived at runtime via AppDateUtils.ageFromBirthdate()
 
   // ── Physical Profile ─────────────────────────────────────────────────────────
   String jenisKelamin = ''; // 'laki_laki' | 'perempuan'
@@ -20,7 +23,8 @@ class UserProfile {
   double tinggiBadan = 0.0; // cm
 
   // ── Lifestyle & Context ──────────────────────────────────────────────────────
-  String levelAktivitas = ''; // 'rendah'|'ringan'|'sedang'|'aktif'|'sangat_aktif'
+  String levelAktivitas =
+      ''; // 'rendah'|'ringan'|'sedang'|'aktif'|'sangat_aktif'
   String letakGeografis = ''; // 'dataran_rendah' | 'dataran_tinggi'
 
   // ── Research Variable (NOT used in calculation — collected for research only)
@@ -28,15 +32,16 @@ class UserProfile {
 
   // ── Hydration Target ────────────────────────────────────────────────────────
   int dailyTargetMl = 0;
-  bool targetDiterima = true; // true = accepted recommendation, false = manual override
+  bool targetDiterima =
+      true; // true = accepted recommendation, false = manual override
   int? targetManualMl; // Only set when targetDiterima == false
   String unit = 'ml'; // 'ml' | 'oz'
 
   // ── Notification & Reminder ──────────────────────────────────────────────────
   bool notificationPermissionGranted = false; // Captured during onboarding
   bool reminderSystemActive = false;
-  int reminderWindowStart = 7;  // V3: hour (06–22, default 7)
-  int reminderWindowEnd = 21;   // V3: hour (06–22, default 21, min 8h gap)
+  int reminderWindowStart = 7; // V3: hour (06–22, default 7)
+  int reminderWindowEnd = 21; // V3: hour (06–22, default 21, min 8h gap)
   String reminderType = 'interval'; // 'smart' | 'interval'
   int reminderInterval = 2; // 1, 2, or 3 (hours)
 
@@ -102,8 +107,74 @@ class UserProfile {
       ..createdAt = createdAt ?? this.createdAt
       ..lastOpenedAt = lastOpenedAt ?? this.lastOpenedAt
       ..dropoutFlag = dropoutFlag ?? this.dropoutFlag
-      ..dropoutNotificationSent = dropoutNotificationSent ?? this.dropoutNotificationSent
+      ..dropoutNotificationSent =
+          dropoutNotificationSent ?? this.dropoutNotificationSent
       ..currentStreak = currentStreak ?? this.currentStreak
       ..isSynced = isSynced ?? this.isSynced;
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'userId': userId,
+    'nama': nama,
+    'tanggalLahir': tanggalLahir.toIso8601String(),
+    'jenisKelamin': jenisKelamin,
+    'beratBadan': beratBadan,
+    'tinggiBadan': tinggiBadan,
+    'levelAktivitas': levelAktivitas,
+    'letakGeografis': letakGeografis,
+    'riwayatPenyakit': riwayatPenyakit,
+    'dailyTargetMl': dailyTargetMl,
+    'targetDiterima': targetDiterima,
+    'targetManualMl': targetManualMl,
+    'unit': unit,
+    'notificationPermissionGranted': notificationPermissionGranted,
+    'reminderSystemActive': reminderSystemActive,
+    'reminderWindowStart': reminderWindowStart,
+    'reminderWindowEnd': reminderWindowEnd,
+    'reminderType': reminderType,
+    'reminderInterval': reminderInterval,
+    'createdAt': createdAt.toIso8601String(),
+    'lastOpenedAt': lastOpenedAt?.toIso8601String(),
+    'dropoutFlag': dropoutFlag,
+    'dropoutNotificationSent': dropoutNotificationSent,
+    'currentStreak': currentStreak,
+    'isSynced': isSynced,
+  };
+
+  factory UserProfile.fromJson(Map<String, dynamic> json) {
+    return UserProfile()
+      ..id = json['id'] as int? ?? Isar.autoIncrement
+      ..userId = json['userId'] as String
+      ..nama = json['nama'] as String? ?? ''
+      ..tanggalLahir = DateTime.parse(json['tanggalLahir'] as String)
+      ..jenisKelamin = json['jenisKelamin'] as String
+      ..beratBadan = (json['beratBadan'] as num).toDouble()
+      ..tinggiBadan = (json['tinggiBadan'] as num?)?.toDouble() ?? 0.0
+      ..levelAktivitas = json['levelAktivitas'] as String
+      ..letakGeografis = json['letakGeografis'] as String
+      ..riwayatPenyakit = List<String>.from(
+        json['riwayatPenyakit'] as List? ?? const [],
+      )
+      ..dailyTargetMl = json['dailyTargetMl'] as int
+      ..targetDiterima = json['targetDiterima'] as bool
+      ..targetManualMl = json['targetManualMl'] as int?
+      ..unit = json['unit'] as String? ?? 'ml'
+      ..notificationPermissionGranted =
+          json['notificationPermissionGranted'] as bool
+      ..reminderSystemActive = json['reminderSystemActive'] as bool
+      ..reminderWindowStart = json['reminderWindowStart'] as int? ?? 7
+      ..reminderWindowEnd = json['reminderWindowEnd'] as int? ?? 21
+      ..reminderType = json['reminderType'] as String? ?? 'interval'
+      ..reminderInterval = json['reminderInterval'] as int? ?? 2
+      ..createdAt = DateTime.parse(json['createdAt'] as String)
+      ..lastOpenedAt = json['lastOpenedAt'] != null
+          ? DateTime.parse(json['lastOpenedAt'] as String)
+          : null
+      ..dropoutFlag = json['dropoutFlag'] as bool
+      ..dropoutNotificationSent =
+          json['dropoutNotificationSent'] as bool? ?? false
+      ..currentStreak = json['currentStreak'] as int? ?? 0
+      ..isSynced = json['isSynced'] as bool;
   }
 }

@@ -15,9 +15,8 @@ subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 
-    // Fix for isar_flutter_libs (and other legacy plugins) that don't declare
-    // a namespace — required by AGP 8.0+. Must be registered before
-    // evaluationDependsOn triggers eager evaluation.
+    // Compatibility shim for older Android library plugins that don't declare
+    // a namespace. AGP 8+ requires one during configuration.
     afterEvaluate {
         if (project.plugins.hasPlugin("com.android.library")) {
             val androidExt = project.extensions.findByName("android")
@@ -25,7 +24,7 @@ subprojects {
                 androidExt.compileSdk = 36
                 if (androidExt.namespace.isNullOrEmpty()) {
                     androidExt.namespace = project.group.toString().ifEmpty {
-                        "dev.isar.isar_flutter_libs"
+                        "dev.isar_community.isar_flutter_libs"
                     }
                 }
             }

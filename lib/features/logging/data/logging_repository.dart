@@ -2,86 +2,97 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:isar_community/isar.dart';
 import 'hydration_log_model.dart';
 import 'daily_summary_model.dart';
+import '../../../providers/isar_provider.dart';
 import '../../../providers/onboarding_provider.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../reminder/data/notification_action_log.dart';
-import 'package:isar/isar.dart';
 
-/// Persists HydrationLogs and DailySummaries using SharedPreferences (JSON proxy).
-///
-/// NOTE: This is a temporary stability workaround due to Isar generator
-/// incompatibility. Will be replaced by actual Isar calls in F-05.
+/// Persists HydrationLogs and DailySummaries in Isar.
 class LoggingRepository {
+  final Isar _isar;
   final SharedPreferences _prefs;
   static const _logsKey = 'hydration_logs_json';
   static const _summaryKey = 'daily_summaries_json';
+  static const _logsMigrationKey = 'isar_migrated_hydration_logs_json';
+  static const _summariesMigrationKey = 'isar_migrated_daily_summaries_json';
 
-  LoggingRepository(this._prefs);
+  LoggingRepository(this._isar, this._prefs);
 
   // --- HydrationLogs ---
 
-  Future<List<HydrationLog>> getLogsForDate(String userId, DateTime date) async {
+  Future<List<HydrationLog>> getLogsForDate(
+    String userId,
+    DateTime date,
+  ) async {
+    await _migrateLegacyLogsIfNeeded();
     final allLogs = await _getAllLogs();
-    return allLogs.where((log) {
+    final logs = allLogs.where((log) {
       return log.userId == userId &&
           log.timestamp.year == date.year &&
           log.timestamp.month == date.month &&
           log.timestamp.day == date.day;
     }).toList();
+    logs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    return logs;
   }
 
   Future<void> saveLog(HydrationLog log) async {
-    final logs = await _getAllLogs();
-    // Simulate auto-increment ID
-    if (log.id == Isar.autoIncrement || log.id == 0) {
-      log.id = logs.isEmpty ? 1 : (logs.last.id + 1);
-    }
-    logs.add(log);
-    await _saveAllLogs(logs);
+    await _migrateLegacyLogsIfNeeded();
+    await _isar.writeTxn(() async {
+      await _isar.hydrationLogs.put(log);
+    });
   }
 
   Future<List<HydrationLog>> _getAllLogs() async {
-    final jsonString = _prefs.getString(_logsKey);
-    if (jsonString == null) return [];
-    final List<dynamic> jsonList = jsonDecode(jsonString);
-    return jsonList.map((json) => HydrationLog.fromJson(json)).toList();
+    final logs = await _isar.hydrationLogs.where().findAll();
+    logs.sort((a, b) => a.id.compareTo(b.id));
+    return logs;
   }
 
   Future<void> deleteLog(int logId) async {
-    final logs = await _getAllLogs();
-    logs.removeWhere((log) => log.id == logId);
-    await _saveAllLogs(logs);
+    await _migrateLegacyLogsIfNeeded();
+    await _isar.writeTxn(() async {
+      await _isar.hydrationLogs.delete(logId);
+    });
   }
 
-  Future<void> _saveAllLogs(List<HydrationLog> logs) async {
-    final jsonString = jsonEncode(logs.map((e) => e.toJson()).toList());
-    await _prefs.setString(_logsKey, jsonString);
+  Future<HydrationLog?> getLog(int logId) async {
+    await _migrateLegacyLogsIfNeeded();
+    return await _isar.hydrationLogs.get(logId);
   }
 
   // --- DailySummary ---
 
   Future<DailySummary?> getDailySummary(String userId, DateTime date) async {
+    await _migrateLegacySummariesIfNeeded();
     final summaries = await _getAllSummaries();
     try {
-      return summaries.firstWhere((s) =>
-          s.userId == userId &&
-          s.date.year == date.year &&
-          s.date.month == date.month &&
-          s.date.day == date.day);
+      return summaries.firstWhere(
+        (s) =>
+            s.userId == userId &&
+            s.date.year == date.year &&
+            s.date.month == date.month &&
+            s.date.day == date.day,
+      );
     } catch (e) {
       return null;
     }
   }
 
   /// Fetch history summaries sorted by date descending
-  Future<List<DailySummary>> getHistorySummaries(String userId, {int limit = 7}) async {
+  Future<List<DailySummary>> getHistorySummaries(
+    String userId, {
+    int limit = 7,
+  }) async {
+    await _migrateLegacySummariesIfNeeded();
     final summaries = await _getAllSummaries();
     final userSummaries = summaries.where((s) => s.userId == userId).toList();
     // Sort descending (newest first)
     userSummaries.sort((a, b) => b.date.compareTo(a.date));
-    
+
     if (limit > 0 && userSummaries.length > limit) {
       return userSummaries.sublist(0, limit);
     }
@@ -89,36 +100,84 @@ class LoggingRepository {
   }
 
   Future<void> upsertDailySummary(DailySummary summary) async {
+    await _migrateLegacySummariesIfNeeded();
     final summaries = await _getAllSummaries();
-    final index = summaries.indexWhere((s) =>
-        s.userId == summary.userId &&
-        s.date.year == summary.date.year &&
-        s.date.month == summary.date.month &&
-        s.date.day == summary.date.day);
+    final index = summaries.indexWhere(
+      (s) =>
+          s.userId == summary.userId &&
+          s.date.year == summary.date.year &&
+          s.date.month == summary.date.month &&
+          s.date.day == summary.date.day,
+    );
 
     if (index >= 0) {
-      // Simulate ID retention on update
       summary.id = summaries[index].id;
-      summaries[index] = summary;
-    } else {
-      if (summary.id == Isar.autoIncrement || summary.id == 0) {
-        summary.id = summaries.isEmpty ? 1 : (summaries.last.id + 1);
-      }
-      summaries.add(summary);
     }
-    await _saveAllSummaries(summaries);
+    await _isar.writeTxn(() async {
+      await _isar.dailySummarys.put(summary);
+    });
   }
 
   Future<List<DailySummary>> _getAllSummaries() async {
-    final jsonString = _prefs.getString(_summaryKey);
-    if (jsonString == null) return [];
-    final List<dynamic> jsonList = jsonDecode(jsonString);
-    return jsonList.map((json) => DailySummary.fromJson(json)).toList();
+    final summaries = await _isar.dailySummarys.where().findAll();
+    summaries.sort((a, b) => a.id.compareTo(b.id));
+    return summaries;
   }
 
-  Future<void> _saveAllSummaries(List<DailySummary> summaries) async {
-    final jsonString = jsonEncode(summaries.map((e) => e.toJson()).toList());
-    await _prefs.setString(_summaryKey, jsonString);
+  Future<void> _migrateLegacyLogsIfNeeded() async {
+    if (_prefs.getBool(_logsMigrationKey) == true) return;
+
+    final existing = await _isar.hydrationLogs.where().findFirst();
+    if (existing != null) {
+      await _prefs.setBool(_logsMigrationKey, true);
+      return;
+    }
+
+    final jsonString = _prefs.getString(_logsKey);
+    if (jsonString == null) {
+      await _prefs.setBool(_logsMigrationKey, true);
+      return;
+    }
+
+    final List<dynamic> jsonList = jsonDecode(jsonString);
+    final logs = jsonList
+        .map((json) => HydrationLog.fromJson(json as Map<String, dynamic>))
+        .toList();
+
+    if (logs.isNotEmpty) {
+      await _isar.writeTxn(() async {
+        await _isar.hydrationLogs.putAll(logs);
+      });
+    }
+    await _prefs.setBool(_logsMigrationKey, true);
+  }
+
+  Future<void> _migrateLegacySummariesIfNeeded() async {
+    if (_prefs.getBool(_summariesMigrationKey) == true) return;
+
+    final existing = await _isar.dailySummarys.where().findFirst();
+    if (existing != null) {
+      await _prefs.setBool(_summariesMigrationKey, true);
+      return;
+    }
+
+    final jsonString = _prefs.getString(_summaryKey);
+    if (jsonString == null) {
+      await _prefs.setBool(_summariesMigrationKey, true);
+      return;
+    }
+
+    final List<dynamic> jsonList = jsonDecode(jsonString);
+    final summaries = jsonList
+        .map((json) => DailySummary.fromJson(json as Map<String, dynamic>))
+        .toList();
+
+    if (summaries.isNotEmpty) {
+      await _isar.writeTxn(() async {
+        await _isar.dailySummarys.putAll(summaries);
+      });
+    }
+    await _prefs.setBool(_summariesMigrationKey, true);
   }
 
   // ── Notification Action Queue (F-07) ────────────────────────────────────────
@@ -137,7 +196,10 @@ class LoggingRepository {
         ? NotificationActionLog.decodeList(existing)
         : <NotificationActionLog>[];
     list.add(action);
-    await prefs.setString(kPendingActionsKey, NotificationActionLog.encodeList(list));
+    await prefs.setString(
+      kPendingActionsKey,
+      NotificationActionLog.encodeList(list),
+    );
   }
 
   /// Reads all queued notification action logs, saves each as a [HydrationLog]
@@ -155,9 +217,7 @@ class LoggingRepository {
     final actions = NotificationActionLog.decodeList(jsonString);
     if (actions.isEmpty) return [];
 
-    // FIX H-01: Load all logs once
-    final allLogs = await _getAllLogs();
-    int nextId = allLogs.isEmpty ? 1 : (allLogs.last.id + 1);
+    await _migrateLegacyLogsIfNeeded();
     final committed = <HydrationLog>[];
 
     for (final action in actions) {
@@ -168,24 +228,25 @@ class LoggingRepository {
         ..loggedVia = 'notification_action'
         ..isSynced = false
         ..createdAt = action.timestamp;
-
-      log.id = nextId++;
-      allLogs.add(log);
       committed.add(log);
     }
 
-    // FIX H-01: Single batch write for all queued items
-    await _saveAllLogs(allLogs);
+    await _isar.writeTxn(() async {
+      await _isar.hydrationLogs.putAll(committed);
+    });
 
     // Clear the queue after successful flush
     await _prefs.remove(kPendingActionsKey);
 
-    debugPrint('[LoggingRepository] Flushed ${committed.length} queued notification action(s)');
+    debugPrint(
+      '[LoggingRepository] Flushed ${committed.length} queued notification action(s)',
+    );
     return committed;
   }
 }
 
 final loggingRepositoryProvider = Provider<LoggingRepository>((ref) {
+  final isar = ref.watch(isarProvider);
   final prefs = ref.watch(sharedPreferencesProvider);
-  return LoggingRepository(prefs);
+  return LoggingRepository(isar, prefs);
 });

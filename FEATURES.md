@@ -1,4 +1,3 @@
-# FEATURES_V3.md
 # Feature Specifications & Acceptance Criteria
 # Personal Hydration Tracker
 

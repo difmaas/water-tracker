@@ -1,87 +1,73 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:isar_community/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'user_profile_model.dart';
+import '../../logging/data/daily_summary_model.dart';
+import '../../logging/data/hydration_log_model.dart';
+import '../../reminder/data/reminder_response_model.dart';
+import '../../../providers/isar_provider.dart';
 import '../../../providers/onboarding_provider.dart';
 
-/// Persists UserProfile using SharedPreferences (JSON proxy).
-///
-/// NOTE: This is a temporary stability workaround due to Isar generator
-/// incompatibility with the current dev environment. All field names
-/// exactly mirror the Isar schema to allow a clean migration later.
-///
 /// IMPORTANT: `nama` is stored locally here but MUST NEVER appear in
 /// the SyncService Supabase payload — excluded explicitly in SyncService.
 class ProfileRepository {
+  final Isar _isar;
   final SharedPreferences _prefs;
   static const _key = 'user_profile_json';
+  static const _migrationKey = 'isar_migrated_user_profile_json';
 
-  ProfileRepository(this._prefs);
+  ProfileRepository(this._isar, this._prefs);
 
   Future<void> saveProfile(UserProfile profile) async {
-    final json = {
-      'userId': profile.userId,
-      // nama: Local-only field. Intentionally included here for local persistence.
-      // SyncService explicitly excludes this field from the Supabase payload.
-      'nama': profile.nama,
-      'tanggalLahir': profile.tanggalLahir.toIso8601String(),
-      'jenisKelamin': profile.jenisKelamin,
-      'beratBadan': profile.beratBadan,
-      'levelAktivitas': profile.levelAktivitas,
-      'letakGeografis': profile.letakGeografis,
-      'riwayatPenyakit': profile.riwayatPenyakit,
-      'dailyTargetMl': profile.dailyTargetMl,
-      'targetDiterima': profile.targetDiterima,
-      'targetManualMl': profile.targetManualMl,
-      'notificationPermissionGranted': profile.notificationPermissionGranted,
-      'reminderSystemActive': profile.reminderSystemActive,
-      'reminderWindowStart': profile.reminderWindowStart,
-      'reminderWindowEnd': profile.reminderWindowEnd,
-      'createdAt': profile.createdAt.toIso8601String(),
-      'lastOpenedAt': profile.lastOpenedAt?.toIso8601String(),
-      'dropoutFlag': profile.dropoutFlag,
-      'dropoutNotificationSent': profile.dropoutNotificationSent,
-      'currentStreak': profile.currentStreak,
-      'isSynced': profile.isSynced,
-    };
-    await _prefs.setString(_key, jsonEncode(json));
+    await _migrateLegacyProfileIfNeeded();
+
+    if (profile.id == Isar.autoIncrement || profile.id == 0) {
+      final existing = await _getStoredProfile();
+      if (existing != null && existing.userId == profile.userId) {
+        profile.id = existing.id;
+      }
+    }
+
+    await _isar.writeTxn(() async {
+      await _isar.userProfiles.put(profile);
+    });
   }
 
   Future<UserProfile?> getUserProfile() async {
+    await _migrateLegacyProfileIfNeeded();
+    return _getStoredProfile();
+  }
+
+  Future<UserProfile?> _getStoredProfile() async {
+    return _isar.userProfiles.where().findFirst();
+  }
+
+  Future<void> _migrateLegacyProfileIfNeeded() async {
+    if (_prefs.getBool(_migrationKey) == true) return;
+
+    final existing = await _isar.userProfiles.where().findFirst();
+    if (existing != null) {
+      await _prefs.setBool(_migrationKey, true);
+      return;
+    }
+
     final jsonString = _prefs.getString(_key);
-    if (jsonString == null) return null;
+    if (jsonString == null) {
+      await _prefs.setBool(_migrationKey, true);
+      return;
+    }
 
     final json = jsonDecode(jsonString) as Map<String, dynamic>;
-    return UserProfile()
-      ..userId = json['userId'] as String
-      ..nama = json['nama'] as String
-      ..tanggalLahir = DateTime.parse(json['tanggalLahir'] as String)
-      ..jenisKelamin = json['jenisKelamin'] as String
-      ..beratBadan = (json['beratBadan'] as num).toDouble()
-      ..levelAktivitas = json['levelAktivitas'] as String
-      ..letakGeografis = json['letakGeografis'] as String
-      ..riwayatPenyakit = List<String>.from(json['riwayatPenyakit'] as List)
-      ..dailyTargetMl = json['dailyTargetMl'] as int
-      ..targetDiterima = json['targetDiterima'] as bool
-      ..targetManualMl = json['targetManualMl'] as int?
-      ..notificationPermissionGranted =
-          json['notificationPermissionGranted'] as bool
-      ..reminderSystemActive = json['reminderSystemActive'] as bool
-      ..reminderWindowStart = (json['reminderWindowStart'] as int?) ?? 7
-      ..reminderWindowEnd = (json['reminderWindowEnd'] as int?) ?? 21
-      ..createdAt = DateTime.parse(json['createdAt'] as String)
-      ..lastOpenedAt = json['lastOpenedAt'] != null
-          ? DateTime.parse(json['lastOpenedAt'] as String)
-          : null
-      ..dropoutFlag = json['dropoutFlag'] as bool
-      ..dropoutNotificationSent = (json['dropoutNotificationSent'] as bool?) ?? false
-      ..currentStreak = (json['currentStreak'] as int?) ?? 0
-      ..isSynced = json['isSynced'] as bool;
+    final profile = UserProfile.fromJson(json);
+    await _isar.writeTxn(() async {
+      await _isar.userProfiles.put(profile);
+    });
+    await _prefs.setBool(_migrationKey, true);
   }
 
   Future<void> reconcileDailyData() async {
-    // Placeholder — will contain lastOpenedAt comparison logic
-    // once Isar-backed DailySummary is available.
+    // Placeholder for future startup reconciliation beyond splash logic.
   }
 
   Future<void> updateLastOpenedAt(DateTime timestamp) async {
@@ -94,11 +80,18 @@ class ProfileRepository {
 
   Future<void> clearAllData() async {
     // Aggressive clear for research reset
+    await _isar.writeTxn(() async {
+      await _isar.userProfiles.clear();
+      await _isar.hydrationLogs.clear();
+      await _isar.dailySummarys.clear();
+      await _isar.reminderResponses.clear();
+    });
     await _prefs.clear();
   }
 }
 
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
+  final isar = ref.watch(isarProvider);
   final prefs = ref.watch(sharedPreferencesProvider);
-  return ProfileRepository(prefs);
+  return ProfileRepository(isar, prefs);
 });

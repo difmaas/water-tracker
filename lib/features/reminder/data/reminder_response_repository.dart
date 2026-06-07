@@ -3,25 +3,24 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
+import '../../../providers/isar_provider.dart';
 import '../../../providers/onboarding_provider.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../logging/data/logging_repository.dart';
 import 'reminder_response_model.dart';
 
-/// Persists [ReminderResponse] records using SharedPreferences JSON proxy.
-///
-/// NOTE: This is the same temporary stability workaround used by
-/// [LoggingRepository] — will be replaced by Isar calls when generator is
-/// fixed. All Isar annotations are preserved so migration is a drop-in.
+/// Persists [ReminderResponse] records in Isar.
 class ReminderResponseRepository {
+  final Isar _isar;
   final SharedPreferences _prefs;
   final LoggingRepository _loggingRepo;
 
   static const _responsesKey = 'reminder_responses_json';
+  static const _migrationKey = 'isar_migrated_reminder_responses_json';
 
-  ReminderResponseRepository(this._prefs, this._loggingRepo);
+  ReminderResponseRepository(this._isar, this._prefs, this._loggingRepo);
 
   // ── Save ──────────────────────────────────────────────────────────────────
 
@@ -45,14 +44,14 @@ class ReminderResponseRepository {
         ..isSynced = false
         ..createdAt = now;
 
-      final all = await _getAll();
-      if (response.id == Isar.autoIncrement || response.id == 0) {
-        response.id = all.isEmpty ? 1 : (all.last.id + 1);
-      }
-      all.add(response);
-      await _saveAll(all);
+      await _migrateLegacyResponsesIfNeeded();
+      await _isar.writeTxn(() async {
+        await _isar.reminderResponses.put(response);
+      });
 
-      debugPrint('[ReminderResponseRepository] Created pending for scheduledAt=$notificationScheduledAt');
+      debugPrint(
+        '[ReminderResponseRepository] Created pending for scheduledAt=$notificationScheduledAt',
+      );
     } catch (e) {
       debugPrint('[ReminderResponseRepository] createPending() failed: $e');
     }
@@ -74,6 +73,7 @@ class ReminderResponseRepository {
   }) async {
     try {
       final now = DateTime.now();
+      await _migrateLegacyResponsesIfNeeded();
       final all = await _getAll();
 
       // Find the pending record for this notification
@@ -105,9 +105,6 @@ class ReminderResponseRepository {
           ..timestamp = now
           ..isSynced = false
           ..createdAt = now;
-        if (response.id == Isar.autoIncrement || response.id == 0) {
-          response.id = all.isEmpty ? 1 : (all.last.id + 1);
-        }
         all.add(response);
       }
 
@@ -116,16 +113,22 @@ class ReminderResponseRepository {
 
       // Mark deduplication guard
       await _prefs.setString(
-          kLastResponseRecordedAtKey, notificationScheduledAt.toIso8601String());
+        kLastResponseRecordedAtKey,
+        notificationScheduledAt.toIso8601String(),
+      );
 
       // FIX C-01: Attribute to the date the notification was scheduled, not today
       if (completed) {
-        await _incrementRemindersResponded(userId, notificationScheduledAt.toLocal());
+        await _incrementRemindersResponded(
+          userId,
+          notificationScheduledAt.toLocal(),
+        );
       }
 
       debugPrint(
-          '[ReminderResponseRepository] Marked: actionUsed=$actionUsed, '
-          'completed=$completed, delay=${delayMinutes}min');
+        '[ReminderResponseRepository] Marked: actionUsed=$actionUsed, '
+        'completed=$completed, delay=${delayMinutes}min',
+      );
     } catch (e) {
       debugPrint('[ReminderResponseRepository] markResponded() failed: $e');
     }
@@ -145,8 +148,9 @@ class ReminderResponseRepository {
         : <PendingReminderResponse>[];
     list.add(response);
     await prefs.setString(
-        kPendingReminderResponsesKey,
-        PendingReminderResponse.encodeList(list));
+      kPendingReminderResponsesKey,
+      PendingReminderResponse.encodeList(list),
+    );
   }
 
   /// Reads and flushes all pending queued responses into the main store.
@@ -161,6 +165,7 @@ class ReminderResponseRepository {
 
     final pending = PendingReminderResponse.decodeList(jsonString);
     final lastRecorded = _prefs.getString(kLastResponseRecordedAtKey);
+    await _migrateLegacyResponsesIfNeeded();
     final all = await _getAll();
     bool modified = false;
     String? latestRecordedKey;
@@ -170,7 +175,9 @@ class ReminderResponseRepository {
 
       // Skip if we already recorded a response for this sentAt timestamp
       if (lastRecorded != null && lastRecorded == sentAtKey) {
-        debugPrint('[ReminderResponseRepository] Skipping duplicate for sentAt=${p.sentAt}');
+        debugPrint(
+          '[ReminderResponseRepository] Skipping duplicate for sentAt=${p.sentAt}',
+        );
         continue;
       }
 
@@ -203,7 +210,6 @@ class ReminderResponseRepository {
           ..timestamp = now
           ..isSynced = false
           ..createdAt = now;
-        response.id = all.isEmpty ? 1 : (all.last.id + 1);
         all.add(response);
       }
 
@@ -236,8 +242,12 @@ class ReminderResponseRepository {
   ///   - actionUsed == null (still pending)
   ///   - notificationScheduledAt is > cutoffMinutes ago
   /// → Mark as no_response. Does NOT increment remindersResponded.
-  Future<void> checkAndMarkNoResponses(String userId, {int cutoffMinutes = 60}) async {
+  Future<void> checkAndMarkNoResponses(
+    String userId, {
+    int cutoffMinutes = 60,
+  }) async {
     try {
+      await _migrateLegacyResponsesIfNeeded();
       final all = await _getAll();
       final cutoff = DateTime.now().subtract(Duration(minutes: cutoffMinutes));
       bool modified = false;
@@ -258,7 +268,8 @@ class ReminderResponseRepository {
         );
         modified = true;
         debugPrint(
-            '[ReminderResponseRepository] Marked no_response for scheduledAt=${r.notificationScheduledAt}');
+          '[ReminderResponseRepository] Marked no_response for scheduledAt=${r.notificationScheduledAt}',
+        );
         // NOTE: remindersResponded is NOT incremented for no_response (per AGENTS_V3 §7)
       }
 
@@ -267,7 +278,8 @@ class ReminderResponseRepository {
       }
     } catch (e) {
       debugPrint(
-          '[ReminderResponseRepository] checkAndMarkNoResponses() failed: $e');
+        '[ReminderResponseRepository] checkAndMarkNoResponses() failed: $e',
+      );
     }
   }
 
@@ -275,7 +287,10 @@ class ReminderResponseRepository {
 
   /// FIX C-01: Takes [date] as parameter — uses notification's scheduled date,
   /// not DateTime.now(). Prevents cross-day data attribution errors.
-  Future<void> _incrementRemindersResponded(String userId, DateTime date) async {
+  Future<void> _incrementRemindersResponded(
+    String userId,
+    DateTime date,
+  ) async {
     try {
       final existing = await _loggingRepo.getDailySummary(userId, date);
       if (existing != null) {
@@ -287,31 +302,58 @@ class ReminderResponseRepository {
       }
     } catch (e) {
       debugPrint(
-          '[ReminderResponseRepository] _incrementRemindersResponded failed: $e');
+        '[ReminderResponseRepository] _incrementRemindersResponded failed: $e',
+      );
     }
   }
 
   Future<List<ReminderResponse>> _getAll() async {
+    final responses = await _isar.reminderResponses.where().findAll();
+    responses.sort((a, b) => a.id.compareTo(b.id));
+    return responses;
+  }
+
+  Future<void> _migrateLegacyResponsesIfNeeded() async {
+    if (_prefs.getBool(_migrationKey) == true) return;
+
+    final existing = await _isar.reminderResponses.where().findFirst();
+    if (existing != null) {
+      await _prefs.setBool(_migrationKey, true);
+      return;
+    }
+
     final jsonString = _prefs.getString(_responsesKey);
-    if (jsonString == null) return [];
+    if (jsonString == null) {
+      await _prefs.setBool(_migrationKey, true);
+      return;
+    }
+
     final List<dynamic> raw = jsonDecode(jsonString);
-    return raw
+    final responses = raw
         .map((e) => ReminderResponse.fromJson(e as Map<String, dynamic>))
         .toList();
+    if (responses.isNotEmpty) {
+      await _isar.writeTxn(() async {
+        await _isar.reminderResponses.putAll(responses);
+      });
+    }
+    await _prefs.setBool(_migrationKey, true);
   }
 
   Future<void> _saveAll(List<ReminderResponse> responses) async {
-    final jsonString =
-        jsonEncode(responses.map((e) => e.toJson()).toList());
-    await _prefs.setString(_responsesKey, jsonString);
+    await _isar.writeTxn(() async {
+      await _isar.reminderResponses.putAll(responses);
+    });
   }
 }
 
 // ── Provider ─────────────────────────────────────────────────────────────────
 
-final reminderResponseRepositoryProvider =
-    Provider<ReminderResponseRepository>((ref) {
-  final prefs = ref.watch(sharedPreferencesProvider);
-  final loggingRepo = ref.watch(loggingRepositoryProvider);
-  return ReminderResponseRepository(prefs, loggingRepo);
-});
+final reminderResponseRepositoryProvider = Provider<ReminderResponseRepository>(
+  (ref) {
+    final isar = ref.watch(isarProvider);
+    final prefs = ref.watch(sharedPreferencesProvider);
+    final loggingRepo = ref.watch(loggingRepositoryProvider);
+    return ReminderResponseRepository(isar, prefs, loggingRepo);
+  },
+);

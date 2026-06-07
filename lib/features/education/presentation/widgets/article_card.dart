@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_constants.dart';
 
 const _kCategoryStyles = {
   'sains': (
     color: Color(0xFFBDDDFD),
     chipBg: Colors.white,
-    fg: Color(0xFF1565C0)
+    fg: Color(0xFF1565C0),
   ),
   'fakta_unik': (
     color: Color(0xFFFFE194),
     chipBg: Colors.white,
-    fg: Color(0xFF795548)
+    fg: Color(0xFF795548),
   ),
   'kesehatan': (
     color: Color(0xFFC4E8C2),
     chipBg: Colors.white,
-    fg: Color(0xFF2E7D32)
+    fg: Color(0xFF2E7D32),
   ),
 };
 
-/// Displays a single [HydrationArticle] as a tappable large card.
 class ArticleCard extends StatefulWidget {
   final HydrationArticle article;
   final VoidCallback onTap;
@@ -41,7 +41,8 @@ class _ArticleCardState extends State<ArticleCard> {
 
   @override
   Widget build(BuildContext context) {
-    final style = _kCategoryStyles[widget.article.category.toLowerCase()] ??
+    final style =
+        _kCategoryStyles[widget.article.category.toLowerCase()] ??
         _kCategoryStyles['sains']!;
 
     return GestureDetector(
@@ -56,7 +57,7 @@ class _ArticleCardState extends State<ArticleCard> {
           margin: EdgeInsets.only(bottom: widget.isFeatured ? 24 : 16),
           decoration: BoxDecoration(
             color: style.color,
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: Colors.white.withValues(alpha: 0.5),
               width: 1.5,
@@ -77,69 +78,71 @@ class _ArticleCardState extends State<ArticleCard> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Category pill
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 6),
+                        horizontal: 14,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
                         _categoryLabel(widget.article.category),
-                        style: TextStyle(
+                        style: GoogleFonts.inter(
                           fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.bold,
                           color: style.fg,
                           letterSpacing: 0.5,
                         ),
                       ),
                     ),
-                    // Emoji
                     Text(
                       widget.article.emoji,
-                      style: TextStyle(fontSize: widget.isFeatured ? 32 : 24),
+                      style: GoogleFonts.inter(
+                        fontSize: widget.isFeatured ? 32 : 24,
+                      ),
                     ),
                   ],
                 ),
                 SizedBox(height: widget.isFeatured ? 32 : 20),
-                // Title
                 Text(
                   widget.article.title,
-                  style: TextStyle(
-                    fontSize: widget.isFeatured ? 26 : 22,
-                    fontWeight: FontWeight.w800,
+                  style: GoogleFonts.inter(
+                    fontSize: widget.isFeatured ? 24 : 20,
+                    fontWeight: FontWeight.w900,
                     color: style.fg,
-                    height: 1.2,
-                    letterSpacing: -0.3,
+                    height: 1.25,
+                    letterSpacing: -0.5,
                   ),
                 ),
                 const SizedBox(height: 12),
-                // Body / Summary
                 Text(
                   widget.article.summary,
                   maxLines: widget.isFeatured ? 4 : 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: style.fg.withValues(alpha: 0.6),
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: style.fg.withValues(alpha: 0.7),
                     height: 1.5,
                   ),
                 ),
                 const SizedBox(height: 24),
-                // Read time footer
                 Row(
                   children: [
-                    Icon(Icons.access_time_rounded,
-                        size: 14, color: style.fg.withValues(alpha: 0.4)),
+                    Icon(
+                      Icons.access_time_rounded,
+                      size: 14,
+                      color: style.fg.withValues(alpha: 0.5),
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       '2 menit baca',
-                      style: TextStyle(
+                      style: GoogleFonts.inter(
                         fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: style.fg.withValues(alpha: 0.4),
+                        fontWeight: FontWeight.bold,
+                        color: style.fg.withValues(alpha: 0.5),
                       ),
                     ),
                     const Spacer(),
@@ -149,8 +152,11 @@ class _ArticleCardState extends State<ArticleCard> {
                         color: Colors.white.withValues(alpha: 0.4),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.arrow_forward_rounded,
-                          size: 16, color: style.fg),
+                      child: Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 16,
+                        color: style.fg,
+                      ),
                     ),
                   ],
                 ),
@@ -164,10 +170,14 @@ class _ArticleCardState extends State<ArticleCard> {
 
   String _categoryLabel(String category) {
     switch (category.toLowerCase()) {
-      case 'sains':      return 'Sains';
-      case 'fakta_unik': return 'Fakta Unik';
-      case 'kesehatan':  return 'Kesehatan';
-      default:           return category;
+      case 'sains':
+        return 'Sains';
+      case 'fakta_unik':
+        return 'Fakta Unik';
+      case 'kesehatan':
+        return 'Kesehatan';
+      default:
+        return category;
     }
   }
 }

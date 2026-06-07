@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -37,7 +36,7 @@ class ReminderService {
   final ReminderResponseRepository _responseRepo;
 
   ReminderService(this._profileRepo, this._loggingRepo, this._responseRepo);
-  
+
   // ── Permission Management ───────────────────────────────────────────────────
 
   /// Requests all necessary permissions for the reminder system.
@@ -48,9 +47,12 @@ class ReminderService {
     // 1. Request Notification Permission (Android 13+)
     // Use the plugin's own method for better consistency with F-07 implementation.
     final androidImplementation = flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    
-    final bool? notifGranted = await androidImplementation?.requestNotificationsPermission();
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+
+    final bool? notifGranted = await androidImplementation
+        ?.requestNotificationsPermission();
     if (notifGranted != true) allGranted = false;
 
     // 1.5 Create the notification channel explicitly
@@ -62,7 +64,7 @@ class ReminderService {
     if (await Permission.scheduleExactAlarm.isDenied) {
       final alarmStatus = await Permission.scheduleExactAlarm.request();
       if (!alarmStatus.isGranted) {
-         allGranted = false;
+        allGranted = false;
       }
     }
 
@@ -80,7 +82,7 @@ class ReminderService {
   Future<void> _updateProfilePermission(bool granted) async {
     final profile = await _profileRepo.getUserProfile();
     if (profile == null) return;
-    
+
     if (profile.notificationPermissionGranted != granted) {
       final updated = profile.copyWith(
         notificationPermissionGranted: granted,
@@ -88,7 +90,9 @@ class ReminderService {
         isSynced: false,
       );
       await _profileRepo.saveProfile(updated);
-      debugPrint('[ReminderService] UserProfile updated: permissionGranted=$granted');
+      debugPrint(
+        '[ReminderService] UserProfile updated: permissionGranted=$granted',
+      );
     }
   }
 
@@ -117,6 +121,7 @@ class ReminderService {
         reminderIntervalHours: profile.reminderInterval,
         startHour: profile.reminderWindowStart,
         endHour: profile.reminderWindowEnd,
+        progress: 0.0,
       );
 
       await _scheduleNotification(
@@ -127,7 +132,9 @@ class ReminderService {
         today: now,
       );
 
-      debugPrint('[ReminderService] Initialized — first reminder at $scheduledTime');
+      debugPrint(
+        '[ReminderService] Initialized — first reminder at $scheduledTime',
+      );
     } catch (e) {
       debugPrint('[ReminderService] initialize() failed silently: $e');
     }
@@ -136,11 +143,11 @@ class ReminderService {
   /// Called on every app open (Splash) and after every hydration log (addLog).
   /// Fire-and-forget — failures are always silent.
   ///
-  /// Logic (from ARCHITECTURE_V2.md §4 Boot Recovery):
+  /// Logic (from ARCHITECTURE_V3.md §4 Boot Recovery):
   ///   - Check pending notifications
   ///   - Pending exists → skip (already scheduled)
   ///   - No pending + within window + progress < 80% → reschedule now
-  ///   - Progress > 80% → cancel all
+  ///   - Progress > 80% → schedule tomorrow morning (overwrites today's)
   Future<void> rescheduleIfNeeded({
     required int currentMl,
     required int targetMl,
@@ -154,32 +161,28 @@ class ReminderService {
         return;
       }
 
-      // Progress >= 100% — cancel all pending
-      if (currentMl >= targetMl) {
-        await cancelAll();
-        debugPrint('[ReminderService] Target reached — all notifications cancelled');
-        return;
-      }
-
       // Check if a notification is already pending
-      final pending =
-          await flutterLocalNotificationsPlugin.pendingNotificationRequests();
+      final pending = await flutterLocalNotificationsPlugin
+          .pendingNotificationRequests();
       final alreadyScheduled = pending.any((n) => n.id == _kNotificationId);
 
       if (alreadyScheduled) {
-        debugPrint('[ReminderService] Pending notification exists — skipping reschedule');
+        debugPrint(
+          '[ReminderService] Pending notification exists — skipping reschedule',
+        );
         return;
       }
 
       // No pending notification → schedule next one
-      // nextReminderTime() handles both within-window and outside-window cases
       final now = DateTime.now();
+      final progress = targetMl > 0 ? (currentMl / targetMl) : 0.0;
       final scheduledTime = ReminderLogic.nextReminderTime(
         now,
         reminderType: profile.reminderType,
         reminderIntervalHours: profile.reminderInterval,
         startHour: profile.reminderWindowStart,
         endHour: profile.reminderWindowEnd,
+        progress: progress,
       );
 
       await _scheduleNotification(
@@ -199,24 +202,61 @@ class ReminderService {
   /// Forcefully reschedule the next reminder using a new time window.
   /// Called from Settings when window bounds are modified.
   Future<void> rescheduleWithNewWindow() async {
-    debugPrint('[ReminderService] Manual reschedule triggered via window change');
+    debugPrint(
+      '[ReminderService] Manual reschedule triggered via window change',
+    );
     await cancelAll();
-    
+
     final profile = await _profileRepo.getUserProfile();
     if (profile == null) return;
-    
+
     final today = DateTime.now();
     final logs = await _loggingRepo.getLogsForDate(profile.userId, today);
     final currentMl = logs.fold<int>(0, (sum, log) => sum + log.volume);
-    
+
     await rescheduleIfNeeded(
       currentMl: currentMl,
       targetMl: profile.dailyTargetMl,
     );
   }
 
+  /// Schedules a re-engagement notification immediately when dropout (>3 days gap) is detected.
+  Future<void> scheduleReEngagementNotification() async {
+    try {
+      final profile = await _profileRepo.getUserProfile();
+      if (profile == null ||
+          !profile.notificationPermissionGranted ||
+          !profile.reminderSystemActive) {
+        return;
+      }
+
+      const androidDetails = AndroidNotificationDetails(
+        _kChannelId,
+        _kChannelName,
+        channelDescription: _kChannelDesc,
+        importance: Importance.high,
+        priority: Priority.high,
+      );
+      const notificationDetails = NotificationDetails(android: androidDetails);
+
+      // Show immediately (using a unique ID 43 to avoid overwriting regular reminders)
+      await flutterLocalNotificationsPlugin.show(
+        id: 43,
+        title: '💧 Mari kembali terhidrasi!',
+        body:
+            'Sudah 3 hari kamu tidak memantau hidrasimu. Yuk, mulai minum air lagi bersama teman kecilmu!',
+        notificationDetails: notificationDetails,
+      );
+      debugPrint('[ReminderService] Re-engagement notification sent');
+    } catch (e) {
+      debugPrint(
+        '[ReminderService] scheduleReEngagementNotification failed: $e',
+      );
+    }
+  }
+
   /// Cancels all pending hydration reminder notifications.
-  /// Called at: midnight reset, target reached.
+  /// Called at: midnight reset.
   Future<void> cancelAll() async {
     try {
       await flutterLocalNotificationsPlugin.cancel(id: _kNotificationId);
@@ -234,11 +274,18 @@ class ReminderService {
     required String userId,
     required DateTime today,
   }) async {
-    final progressPercent =
-        targetMl > 0 ? ((currentMl / targetMl) * 100).toInt() : 0;
+    final progressPercent = targetMl > 0
+        ? ((currentMl / targetMl) * 100).toInt()
+        : 0;
     final remainingMl = (targetMl - currentMl).clamp(0, targetMl);
-    final randomFact =
-        kHydrationFacts[Random().nextInt(kHydrationFacts.length)];
+    final String notificationBody;
+    if (progressPercent >= 80) {
+      notificationBody =
+          'Sedikit lagi menuju targetmu. Kurang ${remainingMl}ml lagi!';
+    } else {
+      notificationBody =
+          'Jangan lupa minum air hari ini. Kurang ${remainingMl}ml lagi.';
+    }
 
     final androidDetails = AndroidNotificationDetails(
       _kChannelId,
@@ -246,9 +293,9 @@ class ReminderService {
       channelDescription: _kChannelDesc,
       importance: Importance.high,
       priority: Priority.high,
-      // Expanded notification shows a random fun fact
+      // Expanded notification shows progress details
       styleInformation: BigTextStyleInformation(
-        randomFact,
+        notificationBody,
         contentTitle: '💧 Waktunya minum air!',
         summaryText: 'Hidrasi Tracker',
       ),
@@ -278,8 +325,7 @@ class ReminderService {
     await flutterLocalNotificationsPlugin.zonedSchedule(
       id: _kNotificationId,
       title: '💧 Waktunya minum air!',
-      body:
-          'Progress hari ini: $progressPercent% — ${remainingMl}ml lagi menuju target',
+      body: notificationBody,
       scheduledDate: tzScheduledTime,
       notificationDetails: notificationDetails,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -290,7 +336,9 @@ class ReminderService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
-          kLastReminderSentAtKey, scheduledTime.toIso8601String());
+        kLastReminderSentAtKey,
+        scheduledTime.toIso8601String(),
+      );
       // Clear the last-recorded guard so the new notification can be responded to
       await prefs.remove(kLastResponseRecordedAtKey);
     } catch (e) {
@@ -328,15 +376,19 @@ class ReminderService {
       // If no DailySummary yet for that date, skip —
       // the summary will be created on the correct day's app open.
     } catch (e) {
-      debugPrint('[ReminderService] _incrementRemindersSent failed silently: $e');
+      debugPrint(
+        '[ReminderService] _incrementRemindersSent failed silently: $e',
+      );
     }
   }
 
   /// Explicitly creates the notification channel for Android.
   Future<void> _createNotificationChannel() async {
     final androidImplementation = flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+
     if (androidImplementation == null) return;
 
     const channel = AndroidNotificationChannel(

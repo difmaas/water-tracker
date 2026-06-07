@@ -18,10 +18,10 @@ class NotificationActionLog {
   });
 
   Map<String, dynamic> toJson() => {
-        'volume': volume,
-        'timestamp': timestamp.toIso8601String(),
-        'actionId': actionId,
-      };
+    'volume': volume,
+    'timestamp': timestamp.toIso8601String(),
+    'actionId': actionId,
+  };
 
   factory NotificationActionLog.fromJson(Map<String, dynamic> json) =>
       NotificationActionLog(

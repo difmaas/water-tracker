@@ -1,4 +1,3 @@
-# AGENTS_V3.md
 # AI Agent Rules — Personal Hydration Tracker
 
 > Read this file completely before writing any code, running any command, or making any structural decision.
@@ -607,3 +606,13 @@ static bool isValidReminderWindow(int startHour, int endHour) {
 5. Test sync on real Android devices
 6. Verify `nama` never appears in any Supabase payload
 7. Researcher accesses data via Supabase dashboard SQL queries
+
+## Gradle / Android Build Rules
+
+- Do not run Gradle commands unless explicitly requested.
+- Do not run `./gradlew build`, `./gradlew assembleDebug`, `./gradlew test`, or `flutter run` automatically.
+- Before running any Gradle-related command, explain why it is necessary.
+- Prefer static code inspection before build execution.
+- If validation is needed, ask before running build commands.
+- Never run multiple Gradle commands in parallel.
+- After any Gradle command, run `./gradlew --stop` if no further build is needed.

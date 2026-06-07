@@ -10,14 +10,8 @@ class TestRadio extends StatelessWidget {
       onChanged: (v) {},
       child: Column(
         children: [
-          RadioListTile<String>(
-            value: 'a',
-            title: const Text('A'),
-          ),
-          RadioListTile<String>(
-            value: 'b',
-            title: const Text('B'),
-          ),
+          RadioListTile<String>(value: 'a', title: const Text('A')),
+          RadioListTile<String>(value: 'b', title: const Text('B')),
         ],
       ),
     );

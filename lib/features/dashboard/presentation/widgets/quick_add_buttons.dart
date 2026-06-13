@@ -1,11 +1,16 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../providers/hydration_provider.dart';
 import 'target_achieved_sheet.dart';
 
 class QuickAddButtons extends ConsumerWidget {
-  const QuickAddButtons({super.key});
+  final bool lightweightMode;
+
+  const QuickAddButtons({super.key, this.lightweightMode = false});
 
   static const Color kPrimaryBlue = Color(0xFF1A73E8);
   static const Color kSoftBlue = Color(0xFFE8F4FF);
@@ -31,13 +36,16 @@ class QuickAddButtons extends ConsumerWidget {
       // Show Target Achieved Success Alert (Bottom Sheet)
       showModalBottomSheet(
         context: context,
+        useRootNavigator: true,
         isScrollControlled: true,
-        backgroundColor: Colors.white,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        barrierColor: Colors.black.withValues(alpha: 0.15),
         builder: (sheetContext) {
-          return TargetAchievedSheet(state: newState);
+          return TargetAchievedSheet(
+            state: newState,
+            lightweightMode: lightweightMode,
+          );
         },
       );
     } else {
@@ -47,37 +55,68 @@ class QuickAddButtons extends ConsumerWidget {
 
       final snackBarController = scaffoldMessenger.showSnackBar(
         SnackBar(
-          content: Row(
-            children: [
-              const Icon(
-                Icons.check_circle_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Berhasil ditambah +${volumeMl}ml',
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
           duration: const Duration(seconds: 5),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: kDarkText,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          padding: EdgeInsets.zero,
           margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-          action: SnackBarAction(
-            label: 'BATAL',
-            textColor: const Color(0xFFF9AB00), // Warning orange
-            onPressed: () {
-              ref.read(hydrationProvider.notifier).undoLog(log.id);
-            },
-          ),
+          content: lightweightMode
+              ? Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.95),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFD7E8F7)),
+                  ),
+                  child: _UndoSnackBarContent(
+                    volumeMl: volumeMl,
+                    scaffoldMessenger: scaffoldMessenger,
+                    logId: log.id,
+                  ),
+                )
+              : ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.white.withValues(alpha: 0.50),
+                            Colors.white.withValues(alpha: 0.20),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          width: 1.2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: _UndoSnackBarContent(
+                        volumeMl: volumeMl,
+                        scaffoldMessenger: scaffoldMessenger,
+                        logId: log.id,
+                      ),
+                    ),
+                  ),
+                ),
         ),
       );
 
@@ -90,43 +129,77 @@ class QuickAddButtons extends ConsumerWidget {
     }
   }
 
+  static double _getIconSize(int volume) {
+    switch (volume) {
+      case 250:
+        return 22.0;
+      case 500:
+        return 24.0;
+      case 750:
+        return 32.0;
+      case 1000:
+        return 26.0;
+      default:
+        return 24.0;
+    }
+  }
+
   Widget _buildPresetItem(
     BuildContext context,
     BuildContext sheetContext,
     WidgetRef ref,
     int volume,
   ) {
-    return InkWell(
-      onTap: () {
-        Navigator.pop(sheetContext);
-        _addWater(context, ref, volume);
-      },
+    return ClipRRect(
       borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFE8F4FF), // Soft blue accent
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFBAE6FD), width: 1.5),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.local_drink_rounded,
-              color: kPrimaryBlue,
-              size: 24,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '$volume ml',
-              style: GoogleFonts.inter(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: kPrimaryBlue,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.pop(sheetContext);
+            _addWater(context, ref, volume);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withValues(alpha: 0.40),
+                  Colors.white.withValues(alpha: 0.15),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.6),
+                width: 1.2,
               ),
             ),
-          ],
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SvgPicture.asset(
+                  'assets/icons/${volume}ml.svg',
+                  width: _getIconSize(volume),
+                  height: _getIconSize(volume),
+                  colorFilter: const ColorFilter.mode(
+                    Colors.black,
+                    BlendMode.srcIn,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '$volume ml',
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.normal,
+                    color: Colors.black,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -135,50 +208,61 @@ class QuickAddButtons extends ConsumerWidget {
   void _showLainnyaBottomSheet(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      barrierColor: Colors.black.withValues(alpha: 0.15),
       builder: (sheetContext) {
-        return Padding(
+        final sheet = Container(
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: lightweightMode
+                  ? [
+                      Colors.white.withValues(alpha: 0.95),
+                      const Color(0xFFF4FAFF),
+                    ]
+                  : [
+                      Colors.white.withValues(alpha: 0.60),
+                      Colors.white.withValues(alpha: 0.30),
+                    ],
+            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.6),
+              width: 1.2,
+            ),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Pilih Volume Air',
-                    style: GoogleFonts.inter(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: kDarkText,
-                      letterSpacing: -0.5,
-                    ),
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(sheetContext),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF1F5F9),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.close_rounded,
-                        size: 18,
-                        color: Colors.black45,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Pilih Volume Air',
+                style: GoogleFonts.inter(
+                  fontSize: 20,
+                  fontWeight: FontWeight.normal,
+                  color: Colors.black,
+                  letterSpacing: -0.5,
+                ),
               ),
               const SizedBox(height: 20),
 
-              // Grid of presets: 700ml, 800ml, 1000ml, 1500ml
+              // Larger presets share the same source as the edit-log flow.
               GridView.count(
                 shrinkWrap: true,
                 crossAxisCount: 2,
@@ -186,14 +270,30 @@ class QuickAddButtons extends ConsumerWidget {
                 mainAxisSpacing: 12,
                 childAspectRatio: 1.8,
                 physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _buildPresetItem(context, sheetContext, ref, 700),
-                  _buildPresetItem(context, sheetContext, ref, 800),
-                  _buildPresetItem(context, sheetContext, ref, 1000),
-                  _buildPresetItem(context, sheetContext, ref, 1500),
-                ],
+                children: kHydrationVolumePresets
+                    .skip(2)
+                    .map(
+                      (volume) =>
+                          _buildPresetItem(context, sheetContext, ref, volume),
+                    )
+                    .toList(growable: false),
               ),
             ],
+          ),
+        );
+
+        if (lightweightMode) {
+          return ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            child: sheet,
+          );
+        }
+
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+            child: sheet,
           ),
         );
       },
@@ -204,37 +304,41 @@ class QuickAddButtons extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Row(
       children: [
-        // Primary: Solid Blue
+        // Primary: Glassmorphic Black/Accent
         _QuickAddButton(
           label: '+250',
           subLabel: 'ml',
-          icon: Icons.water_drop,
-          backgroundColor: kPrimaryBlue,
-          textColor: Colors.white,
-          iconBgColor: Colors.white.withValues(alpha: 0.2),
-          onTap: () => _addWater(context, ref, 250),
+          svgPath: 'assets/icons/250ml.svg',
+          iconSize: _getIconSize(kHydrationVolumePresets[0]),
+          backgroundColor: Colors.transparent,
+          textColor: Colors.black,
+          iconBgColor: Colors.black.withValues(alpha: 0.05),
+          lightweightMode: lightweightMode,
+          onTap: () => _addWater(context, ref, kHydrationVolumePresets[0]),
         ),
         const SizedBox(width: 12),
-        // Secondary: Soft Blue Accent
+        // Secondary: Glassmorphic Black/Accent
         _QuickAddButton(
           label: '+500',
           subLabel: 'ml',
-          icon: Icons.local_drink_rounded,
-          backgroundColor: kSoftBlue,
-          textColor: kPrimaryBlue,
-          iconBgColor: kPrimaryBlue.withValues(alpha: 0.1),
-          onTap: () => _addWater(context, ref, 500),
+          svgPath: 'assets/icons/500ml.svg',
+          iconSize: _getIconSize(kHydrationVolumePresets[1]),
+          backgroundColor: Colors.transparent,
+          textColor: Colors.black,
+          iconBgColor: Colors.black.withValues(alpha: 0.05),
+          lightweightMode: lightweightMode,
+          onTap: () => _addWater(context, ref, kHydrationVolumePresets[1]),
         ),
         const SizedBox(width: 12),
-        // Tertiary: White Outline
+        // Tertiary: Glassmorphic Other Option
         _QuickAddButton(
-          label: 'Custom',
+          label: 'Lainnya',
           subLabel: '',
           icon: Icons.more_horiz_rounded,
-          backgroundColor: Colors.white,
-          textColor: kDarkText,
-          iconBgColor: const Color(0xFFF1F5F9),
-          border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+          backgroundColor: Colors.transparent,
+          textColor: Colors.black,
+          iconBgColor: Colors.black.withValues(alpha: 0.05),
+          lightweightMode: lightweightMode,
           onTap: () => _showLainnyaBottomSheet(context, ref),
         ),
       ],
@@ -245,22 +349,26 @@ class QuickAddButtons extends ConsumerWidget {
 class _QuickAddButton extends StatefulWidget {
   final String label;
   final String subLabel;
-  final IconData icon;
+  final IconData? icon;
+  final String? svgPath;
+  final double? iconSize;
   final VoidCallback onTap;
   final Color backgroundColor;
   final Color textColor;
   final Color iconBgColor;
-  final BoxBorder? border;
+  final bool lightweightMode;
 
   const _QuickAddButton({
     required this.label,
     required this.subLabel,
-    required this.icon,
+    this.icon,
+    this.svgPath,
+    this.iconSize,
     required this.onTap,
     required this.backgroundColor,
     required this.textColor,
     required this.iconBgColor,
-    this.border,
+    required this.lightweightMode,
   });
 
   @override
@@ -279,72 +387,176 @@ class _QuickAddButtonState extends State<_QuickAddButton> {
         onTapCancel: () => setState(() => _isPressed = false),
         onTap: widget.onTap,
         child: AnimatedScale(
-          scale: _isPressed ? 0.95 : 1.0,
-          duration: const Duration(milliseconds: 100),
+          scale: widget.lightweightMode ? 1.0 : (_isPressed ? 0.95 : 1.0),
+          duration: widget.lightweightMode
+              ? Duration.zero
+              : const Duration(milliseconds: 100),
           curve: Curves.easeOutCubic,
-          child: Container(
-            height: 104,
-            decoration: BoxDecoration(
-              color: widget.backgroundColor,
-              borderRadius: BorderRadius.circular(16),
-              border:
-                  widget.border ??
-                  Border.all(
-                    color: Colors.black.withValues(alpha: 0.01),
-                    width: 1,
-                  ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 12,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
+          child: widget.lightweightMode
+              ? Container(
+                  height: 104,
                   decoration: BoxDecoration(
-                    color: widget.iconBgColor,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(widget.icon, color: widget.textColor, size: 20),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(
-                      widget.label,
-                      style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: widget.textColor,
-                        letterSpacing: -0.5,
-                      ),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Colors.white, Color(0xFFF4FAFF)],
                     ),
-                    if (widget.subLabel.isNotEmpty) ...[
-                      const SizedBox(width: 2),
-                      Text(
-                        widget.subLabel,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: widget.textColor.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color(0xFFD7E8F7),
+                      width: 1.2,
+                    ),
+                  ),
+                  child: _QuickAddButtonContent(widget: widget),
+                )
+              : ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                    child: Container(
+                      height: 104,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.white.withValues(alpha: 0.50),
+                            Colors.white.withValues(alpha: 0.20),
+                          ],
                         ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          width: 1.2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 18,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
-                    ],
-                  ],
+                      child: _QuickAddButtonContent(widget: widget),
+                    ),
+                  ),
                 ),
-              ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickAddButtonContent extends StatelessWidget {
+  final _QuickAddButton widget;
+
+  const _QuickAddButtonContent({required this.widget});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (widget.svgPath != null)
+          SvgPicture.asset(
+            widget.svgPath!,
+            width: widget.iconSize ?? 24,
+            height: widget.iconSize ?? 24,
+            colorFilter: ColorFilter.mode(widget.textColor, BlendMode.srcIn),
+          )
+        else
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: widget.iconBgColor,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(widget.icon, color: widget.textColor, size: 20),
+          ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(
+              widget.label,
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.normal,
+                color: widget.textColor,
+                letterSpacing: -0.5,
+              ),
+            ),
+            if (widget.subLabel.isNotEmpty) ...[
+              const SizedBox(width: 2),
+              Text(
+                widget.subLabel,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.normal,
+                  color: widget.textColor.withValues(alpha: 0.7),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _UndoSnackBarContent extends ConsumerWidget {
+  final int volumeMl;
+  final ScaffoldMessengerState scaffoldMessenger;
+  final int logId;
+
+  const _UndoSnackBarContent({
+    required this.volumeMl,
+    required this.scaffoldMessenger,
+    required this.logId,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Row(
+      children: [
+        const Icon(
+          Icons.check_circle_rounded,
+          color: Color(0xFF1A73E8),
+          size: 20,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            'Berhasil ditambah +${volumeMl}ml',
+            style: GoogleFonts.inter(
+              fontWeight: FontWeight.normal,
+              fontSize: 13,
+              color: QuickAddButtons.kDarkText,
             ),
           ),
         ),
-      ),
+        TextButton(
+          onPressed: () {
+            ref.read(hydrationProvider.notifier).undoLog(logId);
+            scaffoldMessenger.hideCurrentSnackBar();
+          },
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          child: Text(
+            'Batal',
+            style: GoogleFonts.inter(
+              color: const Color(0xFFEF4444),
+              fontWeight: FontWeight.normal,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

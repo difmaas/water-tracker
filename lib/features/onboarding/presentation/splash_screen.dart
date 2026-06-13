@@ -7,7 +7,6 @@ import '../../profile/data/profile_repository.dart';
 import '../../profile/data/user_profile_model.dart';
 import '../../logging/data/logging_repository.dart';
 import '../../logging/data/daily_summary_model.dart';
-import '../../logging/data/hydration_log_model.dart';
 import '../../reminder/data/reminder_response_repository.dart';
 import '../../../core/services/sync_service.dart';
 import '../../../providers/reminder_provider.dart';
@@ -111,7 +110,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         loggingRepo,
         now,
       );
-      await _flushNotificationActions(profile, loggingRepo);
     } catch (e) {
       debugPrint('[SplashScreen] Startup reconciliation failed: $e');
     }
@@ -233,47 +231,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     }
   }
 
-  Future<void> _flushNotificationActions(
-    UserProfile profile,
-    LoggingRepository loggingRepo,
-  ) async {
-    try {
-      final committed = await loggingRepo.flushActionQueue(profile.userId);
-      if (committed.isEmpty) return;
-      final byDate = <String, List<HydrationLog>>{};
-      for (final log in committed) {
-        final key =
-            '${log.timestamp.year}-${log.timestamp.month}-${log.timestamp.day}';
-        byDate.putIfAbsent(key, () => []).add(log);
-      }
-      final targetMl = profile.targetManualMl ?? profile.dailyTargetMl;
-      for (final entry in byDate.entries) {
-        final dateRef = entry.value.first.timestamp;
-        final allLogsForDate = await loggingRepo.getLogsForDate(
-          profile.userId,
-          dateRef,
-        );
-        final totalMl = allLogsForDate.fold(0, (sum, log) => sum + log.volume);
-        final existing = await loggingRepo.getDailySummary(
-          profile.userId,
-          dateRef,
-        );
-        if (existing != null) {
-          final updated = existing.copyWith(
-            achievedMl: totalMl,
-            complianceRate: targetMl > 0 ? totalMl / targetMl : 0.0,
-            isSynced: false,
-          );
-          await loggingRepo.upsertDailySummary(updated);
-        }
-      }
-    } catch (e) {
-      debugPrint(
-        '[SplashScreen] _flushNotificationActions failed silently: $e',
-      );
-    }
-  }
-
   Future<void> _checkReminderResponses(String userId) async {
     try {
       final responseRepo = ref.read(reminderResponseRepositoryProvider);
@@ -299,7 +256,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       final logs = await loggingRepo.getLogsForDate(profile.userId, now);
       final currentMl = logs.fold(0, (sum, log) => sum + log.volume);
       final targetMl = profile.targetManualMl ?? profile.dailyTargetMl;
-      ref
+      await ref
           .read(reminderServiceProvider)
           .rescheduleIfNeeded(currentMl: currentMl, targetMl: targetMl);
     } catch (e) {
@@ -326,17 +283,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE8F4FF),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.water_drop_rounded,
-                        size: 64,
-                        color: Color(0xFF1A73E8),
-                      ),
+                    Image.asset(
+                      'assets/images/app_icon.png',
+                      width: 120,
+                      height: 120,
                     ),
                     const SizedBox(height: 32),
                     Text(
@@ -350,7 +300,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Teman minum air harianmu',
+                      'Jangan lupa minum air putih hari ini',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 16,

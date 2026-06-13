@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -35,169 +36,184 @@ class _EducationScreenState extends State<EducationScreen> {
     final filtered = _filteredArticles;
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          const _AnimatedWaterBackground(),
-          CustomScrollView(
-            slivers: [
-              SliverAppBar(
-                floating: false,
-                pinned: true,
-                centerTitle: false,
-                elevation: 0,
-                backgroundColor: Colors.white,
-                scrolledUnderElevation: 0,
-                automaticallyImplyLeading: false,
-                toolbarHeight: 100,
-                title: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Tips Minum Air',
-                      style: GoogleFonts.inter(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Info dan tips hidrasi sehat untuk tubuhmu',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF6B7280),
-                      ),
-                    ),
-                  ],
-                ),
-                titleSpacing: 24,
-              ),
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _CategoryHeaderDelegate(
-                  child: _buildCategoryFilter(),
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        centerTitle: false,
+        titleSpacing: 24,
+        toolbarHeight: 100,
+        title: Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Edukasi',
+                style: GoogleFonts.inter(
+                  fontSize: 26,
+                  fontWeight: FontWeight.normal,
+                  color: Colors.black,
+                  letterSpacing: -0.5,
                 ),
               ),
-              SliverPadding(
-                padding: const EdgeInsets.only(top: 12, bottom: 20),
-                sliver: kHydrationArticles.isEmpty
-                    ? SliverFillRemaining(child: _buildContentComingSoon())
-                    : filtered.isEmpty
-                    ? SliverFillRemaining(child: _buildEmptyFilter())
-                    : SliverList(
-                        delegate: SliverChildBuilderDelegate((context, index) {
-                          final article = filtered[index];
-
-                          return TweenAnimationBuilder<double>(
-                            duration: Duration(
-                              milliseconds: 400 + (index * 100),
-                            ),
-                            tween: Tween(begin: 0.0, end: 1.0),
-                            curve: Curves.easeOutCubic,
-                            builder: (context, value, child) {
-                              return Opacity(
-                                opacity: value,
-                                child: Transform.translate(
-                                  offset: Offset(0, 30 * (1 - value)),
-                                  child: child,
-                                ),
-                              );
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                              ),
-                              child: ArticleCard(
-                                article: article,
-                                isFeatured: false,
-                                onTap: () =>
-                                    context.push('/education/${article.id}'),
-                              ),
-                            ),
-                          );
-                        }, childCount: filtered.length),
-                      ),
+              const SizedBox(height: 4),
+              Text(
+                'Info dan tips hidrasi sehat untuk tubuhmu',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.normal,
+                  color: const Color(0xFF6B7280),
+                ),
               ),
             ],
           ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(70),
+          child: _buildCategoryFilter(context),
+        ),
+      ),
+      body: CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.only(top: 12, bottom: 12),
+            sliver: kHydrationArticles.isEmpty
+                ? SliverFillRemaining(child: _buildContentComingSoon())
+                : filtered.isEmpty
+                ? SliverFillRemaining(child: _buildEmptyFilter())
+                : SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final article = filtered[index];
+
+                      return TweenAnimationBuilder<double>(
+                        duration: Duration(milliseconds: 400 + (index * 100)),
+                        tween: Tween(begin: 0.0, end: 1.0),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, value, child) {
+                          return Opacity(
+                            opacity: value,
+                            child: Transform.translate(
+                              offset: Offset(0, 30 * (1 - value)),
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: ArticleCard(
+                            article: article,
+                            isFeatured: false,
+                            onTap: () =>
+                                context.push('/education/${article.id}'),
+                          ),
+                        ),
+                      );
+                    }, childCount: filtered.length),
+                  ),
+          ),
+          if (kHydrationArticles.isNotEmpty && filtered.isNotEmpty)
+            const SliverToBoxAdapter(
+              child: SizedBox(height: 96),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildCategoryFilter() {
-    const double tabWidth = 90.0;
-    final int selectedIndex = _kCategories.indexOf(_selectedCategory);
-
+  Widget _buildCategoryFilter(BuildContext context) {
     return Container(
-      height: 70,
       width: double.infinity,
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Container(
-          width: tabWidth * _kCategories.length + 8,
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Stack(
-            children: [
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 400),
-                curve: Curves.easeOutCubic,
-                left: selectedIndex * tabWidth,
-                width: tabWidth,
-                height: 42,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withValues(alpha: 0.60),
+                  Colors.white.withValues(alpha: 0.30),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.6),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
                 ),
+              ],
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.zero,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (int i = 0; i < _kCategories.length; i++) ...[
+                    _buildCategoryChip(_kCategories[i]),
+                    if (i != _kCategories.length - 1) const SizedBox(width: 8),
+                  ],
+                ],
               ),
-              Row(
-                children: _kCategories.map((cat) {
-                  final isSelected = _selectedCategory == cat;
-                  return GestureDetector(
-                    onTap: () => setState(() => _selectedCategory = cat),
-                    behavior: HitTestBehavior.opaque,
-                    child: SizedBox(
-                      width: tabWidth,
-                      height: 42,
-                      child: Center(
-                        child: Text(
-                          _kCategoryLabels[cat] ?? cat,
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.w600,
-                            color: isSelected
-                                ? const Color(0xFF0D47A1)
-                                : Colors.black54,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryChip(String cat) {
+    final isSelected = _selectedCategory == cat;
+
+    return InkWell(
+      onTap: () => setState(() => _selectedCategory = cat),
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Colors.white.withValues(alpha: 0.72)
+              : Colors.white.withValues(alpha: 0.20),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: isSelected
+                ? Colors.white.withValues(alpha: 0.85)
+                : Colors.white.withValues(alpha: 0.55),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isSelected
+                  ? Colors.black.withValues(alpha: 0.06)
+                  : Colors.black.withValues(alpha: 0.02),
+              blurRadius: isSelected ? 12 : 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Text(
+          _kCategoryLabels[cat] ?? cat,
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? const Color(0xFF0D47A1) : Colors.black54,
           ),
         ),
       ),
@@ -263,102 +279,4 @@ class _EducationScreenState extends State<EducationScreen> {
       ),
     );
   }
-}
-
-class _AnimatedWaterBackground extends StatefulWidget {
-  const _AnimatedWaterBackground();
-
-  @override
-  State<_AnimatedWaterBackground> createState() =>
-      _AnimatedWaterBackgroundState();
-}
-
-class _AnimatedWaterBackgroundState extends State<_AnimatedWaterBackground>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 15),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Stack(
-          children: [
-            Positioned(
-              top: -100 + (50 * _controller.value),
-              left: -50 + (100 * _controller.value),
-              child: _buildBlob(
-                300,
-                const Color(0xFFBDDDFD).withValues(alpha: 0.15),
-              ),
-            ),
-            Positioned(
-              bottom: 100 - (50 * _controller.value),
-              right: -100 + (150 * _controller.value),
-              child: _buildBlob(
-                400,
-                const Color(0xFFC4E8C2).withValues(alpha: 0.12),
-              ),
-            ),
-            Positioned(
-              top: 300 + (100 * (1 - _controller.value)),
-              right: 50 + (50 * _controller.value),
-              child: _buildBlob(
-                250,
-                const Color(0xFFFFE194).withValues(alpha: 0.1),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildBlob(double size, Color color) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(colors: [color, color.withValues(alpha: 0.0)]),
-      ),
-    );
-  }
-}
-
-class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
-  final Widget child;
-  _CategoryHeaderDelegate({required this.child});
-
-  @override
-  double get minExtent => 70;
-  @override
-  double get maxExtent => 70;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return child;
-  }
-
-  @override
-  bool shouldRebuild(covariant _CategoryHeaderDelegate oldDelegate) => true;
 }

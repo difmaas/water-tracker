@@ -11,29 +11,25 @@ import '../logging/data/logging_repository.dart';
 import 'data/reminder_response_repository.dart';
 import 'domain/reminder_logic.dart';
 
-/// Fixed notification ID — always replace, never stack.
-/// Prevents multiple notifications on aggressive OEM devices.
-const int _kNotificationId = 42;
-
 /// Channel ID for hydration reminders.
 const String _kChannelId = 'hydration_reminders';
 const String _kChannelName = 'Pengingat Minum Air';
 const String _kChannelDesc = 'Notifikasi pengingat minum air harian';
 
-/// Handles all local notification scheduling for the Reminder System (F-06)
-/// and Direct Action Notification (F-07).
+/// Handles all local notification scheduling for the Reminder System (F-06).
 ///
-/// Rules from AGENTS_V2.md §7:
+/// Rules from AGENTS_V3.md §7:
 /// - initialize() called once immediately after profile confirmation
 /// - rescheduleIfNeeded() called on every app open (Splash) + after every log
 /// - Never schedule if notificationPermissionGranted: false
 /// - AndroidScheduleMode.exactAllowWhileIdle required
 /// - remindersSent incremented at schedule time, not fire time
-/// - Action buttons (+250ml, +500ml, Buka App) on every notification (F-07)
+/// - Tapping the notification opens the app; logging is done manually inside the app
 class ReminderService {
   final ProfileRepository _profileRepo;
   final LoggingRepository _loggingRepo;
   final ReminderResponseRepository _responseRepo;
+  Future<void>? _scheduleOperation;
 
   ReminderService(this._profileRepo, this._loggingRepo, this._responseRepo);
 
@@ -99,104 +95,25 @@ class ReminderService {
   // ── Public API ──────────────────────────────────────────────────────────────
 
   /// Called immediately after profile confirmation (F-03).
-  /// Schedules the first reminder and activates the reminder system.
+  /// Schedules all remaining regular reminder slots for the current day.
   Future<void> initialize(int targetMl) async {
-    try {
-      final profile = await _profileRepo.getUserProfile();
-      if (profile == null) return;
-
-      // Guard: skip if user denied notification permission
-      if (!profile.notificationPermissionGranted) {
-        debugPrint('[ReminderService] Skipping init — permission not granted');
-        return;
-      }
-
-      // Ensure channel exists
-      await _createNotificationChannel();
-
-      final now = DateTime.now();
-      final scheduledTime = ReminderLogic.nextReminderTime(
-        now,
-        reminderType: profile.reminderType,
-        reminderIntervalHours: profile.reminderInterval,
-        startHour: profile.reminderWindowStart,
-        endHour: profile.reminderWindowEnd,
-        progress: 0.0,
-      );
-
-      await _scheduleNotification(
-        scheduledTime: scheduledTime,
-        currentMl: 0,
-        targetMl: targetMl,
-        userId: profile.userId,
-        today: now,
-      );
-
-      debugPrint(
-        '[ReminderService] Initialized — first reminder at $scheduledTime',
-      );
-    } catch (e) {
-      debugPrint('[ReminderService] initialize() failed silently: $e');
-    }
+    await rescheduleIfNeeded(currentMl: 0, targetMl: targetMl);
   }
 
   /// Called on every app open (Splash) and after every hydration log (addLog).
-  /// Fire-and-forget — failures are always silent.
+  /// Failures are silent, but scheduling work is serialized and awaited by callers.
   ///
-  /// Logic (from ARCHITECTURE_V3.md §4 Boot Recovery):
-  ///   - Check pending notifications
-  ///   - Pending exists → skip (already scheduled)
-  ///   - No pending + within window + progress < 80% → reschedule now
-  ///   - Progress > 80% → schedule tomorrow morning (overwrites today's)
+  /// Logic:
+  ///   - Cancel stored regular reminder IDs + legacy regular ID 42
+  ///   - Keep test ID 44 and re-engagement ID 43 untouched
+  ///   - Schedule all remaining fixed interval slots for the current local day
   Future<void> rescheduleIfNeeded({
     required int currentMl,
     required int targetMl,
   }) async {
-    try {
-      final profile = await _profileRepo.getUserProfile();
-      if (profile == null) return;
-
-      if (!profile.notificationPermissionGranted ||
-          !profile.reminderSystemActive) {
-        return;
-      }
-
-      // Check if a notification is already pending
-      final pending = await flutterLocalNotificationsPlugin
-          .pendingNotificationRequests();
-      final alreadyScheduled = pending.any((n) => n.id == _kNotificationId);
-
-      if (alreadyScheduled) {
-        debugPrint(
-          '[ReminderService] Pending notification exists — skipping reschedule',
-        );
-        return;
-      }
-
-      // No pending notification → schedule next one
-      final now = DateTime.now();
-      final progress = targetMl > 0 ? (currentMl / targetMl) : 0.0;
-      final scheduledTime = ReminderLogic.nextReminderTime(
-        now,
-        reminderType: profile.reminderType,
-        reminderIntervalHours: profile.reminderInterval,
-        startHour: profile.reminderWindowStart,
-        endHour: profile.reminderWindowEnd,
-        progress: progress,
-      );
-
-      await _scheduleNotification(
-        scheduledTime: scheduledTime,
-        currentMl: currentMl,
-        targetMl: targetMl,
-        userId: profile.userId,
-        today: now,
-      );
-
-      debugPrint('[ReminderService] Rescheduled — next at $scheduledTime');
-    } catch (e) {
-      debugPrint('[ReminderService] rescheduleIfNeeded() failed silently: $e');
-    }
+    await _runScheduleOperation(
+      () => _rebuildTodaySchedule(currentMl: currentMl, targetMl: targetMl),
+    );
   }
 
   /// Forcefully reschedule the next reminder using a new time window.
@@ -205,10 +122,10 @@ class ReminderService {
     debugPrint(
       '[ReminderService] Manual reschedule triggered via window change',
     );
-    await cancelAll();
-
     final profile = await _profileRepo.getUserProfile();
     if (profile == null) return;
+
+    await cancelAll();
 
     final today = DateTime.now();
     final logs = await _loggingRepo.getLogsForDate(profile.userId, today);
@@ -216,7 +133,7 @@ class ReminderService {
 
     await rescheduleIfNeeded(
       currentMl: currentMl,
-      targetMl: profile.dailyTargetMl,
+      targetMl: profile.targetManualMl ?? profile.dailyTargetMl,
     );
   }
 
@@ -239,9 +156,9 @@ class ReminderService {
       );
       const notificationDetails = NotificationDetails(android: androidDetails);
 
-      // Show immediately (using a unique ID 43 to avoid overwriting regular reminders)
+      // Show immediately using ID 43 to avoid touching regular/test reminders.
       await flutterLocalNotificationsPlugin.show(
-        id: 43,
+        id: NotificationIds.reEngagement,
         title: '💧 Mari kembali terhidrasi!',
         body:
             'Sudah 3 hari kamu tidak memantau hidrasimu. Yuk, mulai minum air lagi bersama teman kecilmu!',
@@ -255,80 +172,254 @@ class ReminderService {
     }
   }
 
-  /// Cancels all pending hydration reminder notifications.
+  /// QA Debug: Firing local notification immediately (id: NotificationIds.test)
+  /// with payload 'test_notification' and no action buttons.
+  Future<void> fireTestNotificationNow() async {
+    try {
+      const androidDetails = AndroidNotificationDetails(
+        _kChannelId,
+        _kChannelName,
+        channelDescription: _kChannelDesc,
+        importance: Importance.high,
+        priority: Priority.high,
+      );
+      const notificationDetails = NotificationDetails(android: androidDetails);
+
+      await flutterLocalNotificationsPlugin.show(
+        id: NotificationIds.test,
+        title: 'Tes Notifikasi SEHATI',
+        body: 'Notifikasi uji coba berhasil muncul.',
+        notificationDetails: notificationDetails,
+        payload: 'test_notification',
+      );
+      debugPrint('[ReminderService] Test notification fired immediately');
+    } catch (e) {
+      debugPrint('[ReminderService] fireTestNotificationNow failed: $e');
+    }
+  }
+
+  /// QA Debug: Scheduling local notification 1 minute from now (id: NotificationIds.test)
+  /// with payload 'test_notification' and no action buttons.
+  Future<void> scheduleTestNotification1Min() async {
+    try {
+      const androidDetails = AndroidNotificationDetails(
+        _kChannelId,
+        _kChannelName,
+        channelDescription: _kChannelDesc,
+        importance: Importance.high,
+        priority: Priority.high,
+      );
+      const notificationDetails = NotificationDetails(android: androidDetails);
+
+      final scheduledTime = DateTime.now().add(const Duration(minutes: 1));
+      final tzScheduledTime = tz.TZDateTime.from(scheduledTime, tz.local);
+
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        id: NotificationIds.test,
+        title: 'Tes Notifikasi Terjadwal',
+        body: 'Notifikasi uji coba 1 menit berhasil muncul.',
+        scheduledDate: tzScheduledTime,
+        notificationDetails: notificationDetails,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        payload: 'test_notification',
+      );
+      debugPrint('[ReminderService] Test notification scheduled in 1 minute');
+    } catch (e) {
+      debugPrint('[ReminderService] scheduleTestNotification1Min failed: $e');
+    }
+  }
+
+  /// Debug-only inspection helper for QA.
+  /// Returns a formatted summary of all pending local notifications.
+  Future<String> debugDescribePendingNotifications() async {
+    final pending = await flutterLocalNotificationsPlugin
+        .pendingNotificationRequests();
+    pending.sort((a, b) => a.id.compareTo(b.id));
+
+    final buffer = StringBuffer()
+      ..writeln('Pending notifications: ${pending.length}')
+      ..writeln('Regular reminder IDs use deterministic range: 10000+')
+      ..writeln('Legacy ID 42 should be absent after rebuild')
+      ..writeln('Protected IDs 43 and 44 are not touched by regular rebuild')
+      ..writeln();
+
+    if (pending.isEmpty) {
+      buffer.writeln('No pending notifications.');
+      return buffer.toString();
+    }
+
+    final regularIds = <int>[];
+    final protectedIds = <int>[];
+    final legacyIds = <int>[];
+    final unexpectedRegularIds = <int>[];
+
+    for (final request in pending) {
+      final id = request.id;
+      final isRegular = _isReservedRegularId(id);
+      final isProtected =
+          id == NotificationIds.reEngagement || id == NotificationIds.test;
+      final isLegacy = id == NotificationIds.legacyRegular;
+
+      if (isRegular) {
+        regularIds.add(id);
+      } else if (isProtected) {
+        protectedIds.add(id);
+      } else if (isLegacy) {
+        legacyIds.add(id);
+      } else {
+        unexpectedRegularIds.add(id);
+      }
+
+      buffer.writeln(
+        'id=${request.id} | title=${request.title ?? '-'} | body=${request.body ?? '-'} | payload=${request.payload ?? '-'}',
+      );
+    }
+
+    buffer
+      ..writeln()
+      ..writeln('Regular range pending: ${regularIds.join(', ')}')
+      ..writeln('Protected pending: ${protectedIds.join(', ')}')
+      ..writeln('Legacy 42 pending: ${legacyIds.join(', ')}')
+      ..writeln(
+        'Unexpected non-regular IDs: ${unexpectedRegularIds.join(', ')}',
+      );
+
+    return buffer.toString();
+  }
+
+  /// Cancels all pending regular reminder notifications.
   /// Called at: midnight reset.
   Future<void> cancelAll() async {
-    try {
-      await flutterLocalNotificationsPlugin.cancel(id: _kNotificationId);
-    } catch (e) {
-      debugPrint('[ReminderService] cancelAll() failed silently: $e');
-    }
+    await _runScheduleOperation(() async {
+      try {
+        final profile = await _profileRepo.getUserProfile();
+        final now = DateTime.now();
+        await _cancelStoredRegularNotifications();
+        if (profile != null) {
+          await _responseRepo.discardPendingScheduledAfter(profile.userId, now);
+        }
+      } catch (e) {
+        debugPrint('[ReminderService] cancelAll() failed silently: $e');
+      }
+    });
   }
 
   // ── Private Helpers ─────────────────────────────────────────────────────────
 
-  Future<void> _scheduleNotification({
-    required DateTime scheduledTime,
-    required int currentMl,
-    required int targetMl,
-    required String userId,
-    required DateTime today,
-  }) async {
-    final progressPercent = targetMl > 0
-        ? ((currentMl / targetMl) * 100).toInt()
-        : 0;
-    final remainingMl = (targetMl - currentMl).clamp(0, targetMl);
-    final String notificationBody;
-    if (progressPercent >= 80) {
-      notificationBody =
-          'Sedikit lagi menuju targetmu. Kurang ${remainingMl}ml lagi!';
-    } else {
-      notificationBody =
-          'Jangan lupa minum air hari ini. Kurang ${remainingMl}ml lagi.';
+  Future<void> _runScheduleOperation(Future<void> Function() action) async {
+    final inFlight = _scheduleOperation;
+    if (inFlight != null) {
+      await inFlight;
     }
 
-    final androidDetails = AndroidNotificationDetails(
+    final operation = Future<void>.sync(action);
+    _scheduleOperation = operation;
+    try {
+      await operation;
+    } finally {
+      if (identical(_scheduleOperation, operation)) {
+        _scheduleOperation = null;
+      }
+    }
+  }
+
+  Future<void> _rebuildTodaySchedule({
+    required int currentMl,
+    required int targetMl,
+  }) async {
+    try {
+      final profile = await _profileRepo.getUserProfile();
+      if (profile == null) return;
+
+      final now = DateTime.now();
+      await _createNotificationChannel();
+      await _cancelStoredRegularNotifications();
+
+      if (!profile.notificationPermissionGranted ||
+          !profile.reminderSystemActive) {
+        await _responseRepo.discardPendingScheduledAfter(profile.userId, now);
+        return;
+      }
+
+      if (targetMl > 0 && currentMl >= targetMl) {
+        await _discardPendingRegularResponsesForToday(profile.userId, now);
+        debugPrint(
+          '[ReminderService] Daily target reached — canceled remaining regular reminders today',
+        );
+        return;
+      }
+
+      final slots = ReminderLogic.remainingSlotsForToday(
+        now,
+        reminderIntervalHours: profile.reminderInterval,
+        startHour: profile.reminderWindowStart,
+        endHour: profile.reminderWindowEnd,
+      );
+
+      final (startHour, _) = ReminderLogic.normalizedWindow(
+        profile.reminderWindowStart,
+        profile.reminderWindowEnd,
+      );
+      final intervalHours = ReminderLogic.normalizeIntervalHours(
+        profile.reminderInterval,
+      );
+      final scheduledIds = <int>[];
+
+      for (final slot in slots) {
+        final id = _regularNotificationIdForSlot(
+          slot,
+          startHour: startHour,
+          intervalHours: intervalHours,
+        );
+        if (!_isReservedRegularId(id)) continue;
+
+        await _scheduleNotification(
+          notificationId: id,
+          scheduledTime: slot,
+          userId: profile.userId,
+        );
+        scheduledIds.add(id);
+      }
+
+      await _storeScheduledRegularIds(scheduledIds);
+      await _responseRepo.discardPendingScheduledAfterExcept(
+        profile.userId,
+        now,
+        keepScheduledTimes: slots,
+      );
+
+      debugPrint(
+        '[ReminderService] Rebuilt regular reminders — ${scheduledIds.length} slot(s) scheduled today',
+      );
+    } catch (e) {
+      debugPrint('[ReminderService] _rebuildTodaySchedule failed silently: $e');
+    }
+  }
+
+  Future<void> _scheduleNotification({
+    required int notificationId,
+    required DateTime scheduledTime,
+    required String userId,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
       _kChannelId,
       _kChannelName,
       channelDescription: _kChannelDesc,
       importance: Importance.high,
       priority: Priority.high,
-      // Expanded notification shows progress details
-      styleInformation: BigTextStyleInformation(
-        notificationBody,
-        contentTitle: '💧 Waktunya minum air!',
-        summaryText: 'Hidrasi Tracker',
-      ),
-      // F-07: Direct action buttons — user logs without opening app
-      actions: const [
-        AndroidNotificationAction(
-          kActionId250,
-          '+250ml',
-          showsUserInterface: false, // background log, no app open
-        ),
-        AndroidNotificationAction(
-          kActionId500,
-          '+500ml',
-          showsUserInterface: false, // background log, no app open
-        ),
-        AndroidNotificationAction(
-          kActionIdOpenApp,
-          'Buka App',
-          showsUserInterface: true, // opens app to dashboard
-        ),
-      ],
     );
 
-    final notificationDetails = NotificationDetails(android: androidDetails);
+    const notificationDetails = NotificationDetails(android: androidDetails);
     final tzScheduledTime = tz.TZDateTime.from(scheduledTime, tz.local);
 
     await flutterLocalNotificationsPlugin.zonedSchedule(
-      id: _kNotificationId,
-      title: '💧 Waktunya minum air!',
-      body: notificationBody,
+      id: notificationId,
+      title: 'Waktunya Minum Air',
+      body: 'Ambil jeda sebentar dan catat minummu di SEHATI.',
       scheduledDate: tzScheduledTime,
       notificationDetails: notificationDetails,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      payload: scheduledTime.toIso8601String(),
     );
 
     // F-08: Persist sentAt timestamp for ReminderResponse paths.
@@ -348,14 +439,75 @@ class ReminderService {
     // F-06/F-08: Create a pending ReminderResponse at schedule time (actionUsed: null).
     // This enables lazy no_response detection on next app open.
     // Per AGENTS_V3 §15 and §7.
-    await _responseRepo.createPending(
+    final pendingCreated = await _responseRepo.createPending(
       userId: userId,
       notificationScheduledAt: scheduledTime,
     );
 
-    // FIX C-02: Only increment remindersSent for the day the notification fires.
-    // If scheduledTime is tomorrow (outside today's window), attribute to that day.
-    await _incrementRemindersSent(userId, scheduledTime);
+    if (pendingCreated) {
+      await _incrementRemindersSent(userId, scheduledTime);
+    }
+  }
+
+  Future<void> _cancelStoredRegularNotifications() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getStringList(kScheduledRegularReminderIdsKey) ?? [];
+      final ids = <int>{
+        NotificationIds.legacyRegular,
+        for (final parsed in stored.map(int.tryParse).nonNulls) parsed,
+        for (var i = 0; i < NotificationIds.regularReminderMaxSlots; i++)
+          NotificationIds.regularReminderBase + i,
+      };
+
+      for (final id in ids) {
+        await flutterLocalNotificationsPlugin.cancel(id: id);
+      }
+      await prefs.remove(kScheduledRegularReminderIdsKey);
+    } catch (e) {
+      debugPrint(
+        '[ReminderService] _cancelStoredRegularNotifications failed silently: $e',
+      );
+    }
+  }
+
+  Future<void> _storeScheduledRegularIds(List<int> ids) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (ids.isEmpty) {
+      await prefs.remove(kScheduledRegularReminderIdsKey);
+      return;
+    }
+
+    await prefs.setStringList(
+      kScheduledRegularReminderIdsKey,
+      ids.map((id) => id.toString()).toList(growable: false),
+    );
+  }
+
+  Future<void> _discardPendingRegularResponsesForToday(
+    String userId,
+    DateTime now,
+  ) async {
+    final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
+    await _responseRepo.discardPendingScheduledBetween(userId, now, endOfToday);
+  }
+
+  int _regularNotificationIdForSlot(
+    DateTime slot, {
+    required int startHour,
+    required int intervalHours,
+  }) {
+    final firstSlot = DateTime(slot.year, slot.month, slot.day, startHour);
+    final slotIndex =
+        slot.difference(firstSlot).inMinutes ~/ (intervalHours * 60);
+    return NotificationIds.regularReminderBase + slotIndex;
+  }
+
+  bool _isReservedRegularId(int id) {
+    return id >= NotificationIds.regularReminderBase &&
+        id <
+            NotificationIds.regularReminderBase +
+                NotificationIds.regularReminderMaxSlots;
   }
 
   /// Upserts the DailySummary for [date], incrementing remindersSent by 1.

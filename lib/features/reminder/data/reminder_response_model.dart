@@ -11,7 +11,7 @@ part 'reminder_response_model.g.dart';
 ///
 /// Lifecycle:
 ///   1. Created when notification is SCHEDULED with actionUsed: null
-///   2. Updated when user responds (button tap, app open, log within 30 min)
+///   2. Updated when user taps the notification and opens the app
 ///   3. Updated by lazy detection on app open if still null after 60 min → 'no_response'
 @collection
 class ReminderResponse {
@@ -21,7 +21,7 @@ class ReminderResponse {
   late String userId;
 
   /// Whether the user responded to the notification.
-  /// true  → button tap, opened app, or logged within 30 min
+  /// true  → notification tap opened the app
   /// false → no response detected within 60 min
   late bool completed;
 
@@ -32,7 +32,7 @@ class ReminderResponse {
   int? delayMinutes;
 
   /// How the user responded. One of:
-  /// 'button_250' | 'button_500' | 'opened_app' | 'no_response' | null (pending)
+  /// 'opened_app' | 'no_response' | null (pending)
   String? actionUsed;
 
   /// AGENTS_V3 §15 — When the notification was SCHEDULED (device clock).

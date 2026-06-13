@@ -5,7 +5,11 @@ import 'package:uuid/uuid.dart';
 import '../features/profile/data/profile_repository.dart';
 import '../features/profile/data/user_profile_model.dart';
 import '../features/profile/domain/hydration_calculator.dart';
+import '../features/logging/data/daily_summary_model.dart';
+import '../features/logging/data/logging_repository.dart';
+import '../features/reminder/domain/reminder_logic.dart';
 import '../core/utils/date_utils.dart';
+import 'hydration_provider.dart';
 import 'onboarding_provider.dart';
 import 'reminder_provider.dart';
 
@@ -23,6 +27,7 @@ class ProfileFormState {
   final int reminderInterval;
   final int reminderWindowStart;
   final int reminderWindowEnd;
+  final bool reminderSystemActive;
 
   // ── Calculated result ────────────────────────────────────────────────────────
   final int calculatedTargetMl;
@@ -40,10 +45,11 @@ class ProfileFormState {
     this.levelAktivitas = '',
     this.letakGeografis = '',
     this.riwayatPenyakit = const [],
-    this.reminderType = 'interval',
+    this.reminderType = 'fixed',
     this.reminderInterval = 2,
     this.reminderWindowStart = 7,
     this.reminderWindowEnd = 21,
+    this.reminderSystemActive = true,
     this.calculatedTargetMl = 0,
     this.targetManualMl,
     this.isLoading = false,
@@ -62,6 +68,7 @@ class ProfileFormState {
     int? reminderInterval,
     int? reminderWindowStart,
     int? reminderWindowEnd,
+    bool? reminderSystemActive,
     int? calculatedTargetMl,
     int? targetManualMl,
     bool clearManualTarget = false,
@@ -80,6 +87,7 @@ class ProfileFormState {
       reminderInterval: reminderInterval ?? this.reminderInterval,
       reminderWindowStart: reminderWindowStart ?? this.reminderWindowStart,
       reminderWindowEnd: reminderWindowEnd ?? this.reminderWindowEnd,
+      reminderSystemActive: reminderSystemActive ?? this.reminderSystemActive,
       calculatedTargetMl: calculatedTargetMl ?? this.calculatedTargetMl,
       targetManualMl: clearManualTarget
           ? null
@@ -99,11 +107,12 @@ class ProfileFormState {
     final aktivitasOk = levelAktivitas.isNotEmpty;
     final geografisOk = letakGeografis.isNotEmpty;
     final windowOk =
-        reminderWindowEnd - reminderWindowStart >= 8 &&
-        reminderWindowStart >= 6 &&
-        reminderWindowStart <= 22 &&
-        reminderWindowEnd >= 6 &&
-        reminderWindowEnd <= 22;
+        !reminderSystemActive ||
+        (reminderWindowEnd - reminderWindowStart >= 8 &&
+            reminderWindowStart >= 6 &&
+            reminderWindowStart <= 22 &&
+            reminderWindowEnd >= 6 &&
+            reminderWindowEnd <= 22);
     return namaOk &&
         lahirOk &&
         kelaminOk &&
@@ -124,9 +133,29 @@ class ProfileNotifier extends Notifier<ProfileFormState> {
   @override
   ProfileFormState build() => ProfileFormState();
 
+  void reset() {
+    state = ProfileFormState(
+      tinggiBadan: 160.0,
+      letakGeografis: 'dataran_rendah',
+    );
+  }
+
   // ── Field Updaters ───────────────────────────────────────────────────────────
 
-  void updateNama(String value) => state = state.copyWith(nama: value);
+  void updateNama(String value) {
+    if (value.isEmpty) {
+      state = state.copyWith(nama: value);
+      return;
+    }
+    final capitalized = value
+        .split(' ')
+        .map((word) {
+          if (word.isEmpty) return word;
+          return word[0].toUpperCase() + word.substring(1);
+        })
+        .join(' ');
+    state = state.copyWith(nama: capitalized);
+  }
 
   void updateTanggalLahir(DateTime? value) {
     state = state.copyWith(tanggalLahir: value);
@@ -162,7 +191,13 @@ class ProfileNotifier extends Notifier<ProfileFormState> {
   }
 
   void updateReminderInterval(int value) {
-    state = state.copyWith(reminderInterval: value);
+    state = state.copyWith(
+      reminderInterval: ReminderLogic.normalizeIntervalHours(value),
+    );
+  }
+
+  void updateReminderSystemActive(bool value) {
+    state = state.copyWith(reminderSystemActive: value);
   }
 
   void toggleRiwayatPenyakit(String condition) {
@@ -194,10 +229,13 @@ class ProfileNotifier extends Notifier<ProfileFormState> {
       levelAktivitas: profile.levelAktivitas,
       letakGeografis: profile.letakGeografis,
       riwayatPenyakit: profile.riwayatPenyakit,
-      reminderType: profile.reminderType,
-      reminderInterval: profile.reminderInterval,
+      reminderType: 'fixed',
+      reminderInterval: ReminderLogic.normalizeIntervalHours(
+        profile.reminderInterval,
+      ),
       reminderWindowStart: profile.reminderWindowStart,
       reminderWindowEnd: profile.reminderWindowEnd,
+      reminderSystemActive: profile.reminderSystemActive,
       calculatedTargetMl: profile.dailyTargetMl, // initial guess
       targetManualMl: profile.targetManualMl,
     );
@@ -209,6 +247,8 @@ class ProfileNotifier extends Notifier<ProfileFormState> {
   }
 
   Future<void> updateReminderWindow(int start, int end) async {
+    if (!AppDateUtils.isValidReminderWindow(start, end)) return;
+
     final repo = ref.read(profileRepositoryProvider);
     final profile = await repo.getUserProfile();
     if (profile == null) return;
@@ -253,6 +293,10 @@ class ProfileNotifier extends Notifier<ProfileFormState> {
   Future<void> submitProfile() async {
     state = state.copyWith(isLoading: true);
     try {
+      if (!state.isValid) {
+        throw StateError('Data profil atau jendela pengingat tidak valid');
+      }
+
       final repo = ref.read(profileRepositoryProvider);
       final existing = await repo.getUserProfile();
 
@@ -272,11 +316,27 @@ class ProfileNotifier extends Notifier<ProfileFormState> {
 
       final finalTarget = state.targetManualMl ?? state.calculatedTargetMl;
       final isManualOverride = state.targetManualMl != null;
+      final reminderInterval = ReminderLogic.normalizeIntervalHours(
+        state.reminderInterval,
+      );
 
-      // 2.5 Request all necessary permissions (no-op if already granted)
-      final notifGranted = await ref
-          .read(reminderServiceProvider)
-          .requestPermissions();
+      final oldReminderActive = existing?.reminderSystemActive ?? false;
+      final oldReminderInterval = existing?.reminderInterval;
+      final oldReminderStart = existing?.reminderWindowStart;
+      final oldReminderEnd = existing?.reminderWindowEnd;
+      final oldTarget = existing == null
+          ? null
+          : (existing.targetManualMl ?? existing.dailyTargetMl);
+      final reminderToggleChanged =
+          existing == null || oldReminderActive != state.reminderSystemActive;
+      final reminderActive = state.reminderSystemActive;
+
+      // Permission and the user's reminder toggle are separate state.
+      final shouldRequestPermission =
+          reminderActive && (existing == null || reminderToggleChanged);
+      final notifGranted = shouldRequestPermission
+          ? await ref.read(reminderServiceProvider).requestPermissions()
+          : (existing?.notificationPermissionGranted ?? false);
 
       // 3. Construct or Update UserProfile
       final profile = (existing ?? UserProfile())
@@ -293,32 +353,90 @@ class ProfileNotifier extends Notifier<ProfileFormState> {
         ..targetDiterima = !isManualOverride
         ..targetManualMl = state.targetManualMl
         ..notificationPermissionGranted = notifGranted
-        ..reminderSystemActive = notifGranted
+        ..reminderSystemActive = reminderActive
         ..reminderWindowStart = state.reminderWindowStart
         ..reminderWindowEnd = state.reminderWindowEnd
-        ..reminderType = state.reminderType
-        ..reminderInterval = state.reminderInterval
+        ..reminderType = 'fixed'
+        ..reminderInterval = reminderInterval
         ..createdAt = existing?.createdAt ?? DateTime.now()
         ..isSynced = false;
 
       // 4. Persist
       await repo.saveProfile(profile);
+      await _recalculateTodaySummary(profile);
 
       // 5. Mark profile as created
       await ref.read(profileStatusProvider.notifier).setProfileCreated();
 
-      // 6. Initialize or Reschedule reminder system
+      // 6. Initialize, Reschedule, or Cancel reminder system
       if (existing == null) {
-        await ref.read(reminderServiceProvider).initialize(finalTarget);
+        if (reminderActive && notifGranted) {
+          await ref.read(reminderServiceProvider).initialize(finalTarget);
+        }
       } else {
-        await ref.read(reminderServiceProvider).rescheduleWithNewWindow();
+        final reminderScheduleChanged =
+            reminderActive &&
+            notifGranted &&
+            (reminderToggleChanged ||
+                oldReminderInterval != reminderInterval ||
+                oldReminderStart != state.reminderWindowStart ||
+                oldReminderEnd != state.reminderWindowEnd ||
+                oldTarget != finalTarget);
+
+        if (reminderToggleChanged && !reminderActive) {
+          await ref.read(reminderServiceProvider).cancelAll();
+        } else if (reminderScheduleChanged) {
+          await ref.read(reminderServiceProvider).rescheduleWithNewWindow();
+        }
       }
+
+      ref.invalidate(hydrationProvider);
     } catch (e) {
       debugPrint('[ProfileProvider] Profile submission error: $e');
       rethrow;
     } finally {
       state = state.copyWith(isLoading: false);
     }
+  }
+
+  Future<void> _recalculateTodaySummary(UserProfile profile) async {
+    final loggingRepo = ref.read(loggingRepositoryProvider);
+    final now = DateTime.now();
+    final logs = await loggingRepo.getLogsForDate(profile.userId, now);
+    final totalMl = logs.fold<int>(0, (sum, log) => sum + log.volume);
+    final targetMl = profile.targetManualMl ?? profile.dailyTargetMl;
+    final firstLogTimestamp = logs.isNotEmpty ? logs.first.timestamp : null;
+    final existing = await loggingRepo.getDailySummary(profile.userId, now);
+
+    if (existing != null) {
+      final updated = existing.copyWith(
+        targetMl: targetMl,
+        achievedMl: totalMl,
+        complianceRate: targetMl > 0 ? totalMl / targetMl : 0.0,
+        firstLogTimestamp: firstLogTimestamp,
+        clearFirstLogTimestamp: logs.isEmpty,
+        isSynced: false,
+      );
+      await loggingRepo.upsertDailySummary(updated);
+      return;
+    }
+
+    if (logs.isEmpty) return;
+
+    final summary = DailySummary()
+      ..userId = profile.userId
+      ..date = now
+      ..targetMl = targetMl
+      ..achievedMl = totalMl
+      ..complianceRate = targetMl > 0 ? totalMl / targetMl : 0.0
+      ..remindersSent = 0
+      ..remindersResponded = 0
+      ..sessionCount = 1
+      ..streakMaintained = false
+      ..firstLogTimestamp = firstLogTimestamp
+      ..isSynced = false
+      ..createdAt = DateTime.now();
+    await loggingRepo.upsertDailySummary(summary);
   }
 }
 

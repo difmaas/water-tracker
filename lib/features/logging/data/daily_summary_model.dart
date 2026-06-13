@@ -34,6 +34,7 @@ class DailySummary {
     int? sessionCount,
     bool? streakMaintained,
     DateTime? firstLogTimestamp,
+    bool clearFirstLogTimestamp = false,
     int? streakBreakHour,
     bool? dropoutFlag,
     bool? isSynced,
@@ -50,7 +51,9 @@ class DailySummary {
       ..remindersResponded = remindersResponded ?? this.remindersResponded
       ..sessionCount = sessionCount ?? this.sessionCount
       ..streakMaintained = streakMaintained ?? this.streakMaintained
-      ..firstLogTimestamp = firstLogTimestamp ?? this.firstLogTimestamp
+      ..firstLogTimestamp = clearFirstLogTimestamp
+          ? null
+          : (firstLogTimestamp ?? this.firstLogTimestamp)
       ..streakBreakHour = streakBreakHour ?? this.streakBreakHour
       ..dropoutFlag = dropoutFlag ?? this.dropoutFlag
       ..isSynced = isSynced ?? this.isSynced

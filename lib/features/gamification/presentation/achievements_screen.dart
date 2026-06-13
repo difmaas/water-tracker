@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/data/user_profile_model.dart';
+import '../../../core/widgets/app_button.dart';
 
 final achievementsProfileProvider = FutureProvider<UserProfile?>((ref) async {
   final repo = ref.watch(profileRepositoryProvider);
@@ -20,22 +21,37 @@ class AchievementsScreen extends ConsumerWidget {
       backgroundColor: Colors.white,
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        toolbarHeight: 70,
-        title: Text(
-          'Buku Medali',
-          style: GoogleFonts.inter(
-            fontSize: 26,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-            letterSpacing: -0.5,
-          ),
-        ),
-        centerTitle: false,
-        titleSpacing: 24,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
+        centerTitle: false,
+        titleSpacing: 24,
+        toolbarHeight: 100,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Buku Medali',
+              style: GoogleFonts.inter(
+                fontSize: 26,
+                fontWeight: FontWeight.normal,
+                color: Colors.black,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Lihat pencapaian dan streak harianmu',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.normal,
+                color: const Color(0xFF6B7280),
+              ),
+            ),
+          ],
+        ),
       ),
       body: profileAsync.when(
         loading: () => const Center(
@@ -350,22 +366,9 @@ class _MedalCardState extends State<_MedalCard> {
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
-                  height: 48,
-                  child: TextButton(
+                  child: AppButton.secondary(
+                    label: 'Tutup',
                     onPressed: () => Navigator.pop(context),
-                    style: TextButton.styleFrom(
-                      backgroundColor: Colors.black.withValues(alpha: 0.03),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      'Tutup',
-                      style: GoogleFonts.inter(
-                        color: Colors.black87,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
                   ),
                 ),
               ],

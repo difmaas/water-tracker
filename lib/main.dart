@@ -12,12 +12,10 @@ import 'app/app.dart';
 import 'providers/isar_provider.dart';
 import 'providers/onboarding_provider.dart';
 import 'core/constants/app_constants.dart';
-import 'features/reminder/data/notification_action_log.dart';
-import 'features/reminder/data/reminder_response_model.dart';
-import 'features/profile/data/user_profile_model.dart';
 import 'features/logging/data/daily_summary_model.dart';
 import 'features/logging/data/hydration_log_model.dart';
-import 'features/logging/data/logging_repository.dart';
+import 'features/reminder/data/reminder_response_model.dart';
+import 'features/profile/data/user_profile_model.dart';
 import 'features/reminder/data/reminder_response_repository.dart';
 
 /// Global plugin instance — must be initialized before runApp().
@@ -25,124 +23,77 @@ import 'features/reminder/data/reminder_response_repository.dart';
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
-// ── F-07: Background notification action callback ────────────────────────────
+// ── Notification tap callbacks ───────────────────────────────────────────────────────────────────
 
-/// Handles notification action taps when the app is TERMINATED.
+/// Handles notification taps when the app is TERMINATED.
 ///
 /// MUST be a top-level function — runs in a separate isolate.
-/// Cannot access Riverpod providers, Isar, or any app state.
-/// Writes to SharedPreferences directly using the pending action queue pattern.
+/// Notification has no action buttons — tapping the body opens the app via OS.
+/// Test notifications are silently ignored.
 @pragma('vm:entry-point')
 Future<void> _onBackgroundNotificationResponse(
   NotificationResponse response,
 ) async {
-  final actionId = response.actionId;
-  if (actionId == null) return;
-
-  // Only handle +250ml and +500ml — "Buka App" (showsUserInterface: true)
-  // is handled by the OS opening the app directly.
-  if (actionId != kActionId250 && actionId != kActionId500) return;
-
-  final volume = actionId == kActionId250 ? 250 : 500;
-  final actionUsed = actionId == kActionId250 ? 'button_250' : 'button_500';
-
-  try {
-    final prefs = await SharedPreferences.getInstance();
-
-    // F-07: Queue the hydration log
-    await LoggingRepository.queueActionLog(
-      prefs: prefs,
-      action: NotificationActionLog(
-        volume: volume,
-        timestamp: DateTime.now(),
-        actionId: actionId,
-      ),
-    );
-
-    // F-08: Queue the ReminderResponse (button tap — delayMinutes always 0)
-    final sentAtStr = prefs.getString(kLastReminderSentAtKey);
-    final sentAt = sentAtStr != null
-        ? DateTime.parse(sentAtStr)
-        : DateTime.now();
-    await ReminderResponseRepository.queueResponse(
-      prefs: prefs,
-      response: PendingReminderResponse(
-        completed: true,
-        delayMinutes: 0,
-        actionUsed: actionUsed,
-        timestamp: DateTime.now(),
-        sentAt: sentAt,
-      ),
-    );
-
-    debugPrint(
-      '[Background] Queued ${volume}ml + ReminderResponse($actionUsed)',
-    );
-  } catch (e) {
-    debugPrint('[Background] Failed to queue action: $e');
-  }
+  await _queueOpenedAppResponse(response);
 }
 
-// ── F-07: Foreground notification action callback ────────────────────────────
-
-/// Handles notification action taps when the app is OPEN or BACKGROUNDED.
+/// Handles notification taps when the app is OPEN or BACKGROUNDED.
 ///
-/// Uses the same queue pattern for consistency — Splash flushes on next visit
-/// to the foreground (which happens immediately for foreground taps).
+/// Notifications have no action buttons. Only path: user taps the notification
+/// body — OS brings app to foreground and this callback fires with actionId == null.
+/// Queues a ReminderResponse(actionUsed: 'opened_app') for research tracking.
 void _onForegroundNotificationResponse(NotificationResponse response) {
-  final actionId = response.actionId;
+  _queueOpenedAppResponse(response);
+}
+
+Future<void> _queueOpenedAppResponse(NotificationResponse response) async {
+  // Ignore test notifications—no data writes
+  if (response.id == NotificationIds.test ||
+      response.payload == 'test_notification') {
+    return;
+  }
+
+  final responseId = response.id;
+  final isRegularReminder =
+      responseId == NotificationIds.legacyRegular ||
+      (responseId != null &&
+          responseId >= NotificationIds.regularReminderBase &&
+          responseId <
+              NotificationIds.regularReminderBase +
+                  NotificationIds.regularReminderMaxSlots);
+  if (!isRegularReminder) return;
+
+  // Only handle body taps (actionId == null)
+  // There are no action buttons, so any non-null actionId is unexpected—ignore.
+  if (response.actionId != null) return;
+
   final now = DateTime.now();
+  final prefs = await SharedPreferences.getInstance();
+  final payloadSentAt = response.payload != null
+      ? DateTime.tryParse(response.payload!)
+      : null;
+  final fallbackSentAtStr = prefs.getString(kLastReminderSentAtKey);
+  final fallbackSentAt = fallbackSentAtStr != null
+      ? DateTime.tryParse(fallbackSentAtStr)
+      : null;
+  final sentAt = payloadSentAt ?? fallbackSentAt ?? now;
+  final elapsed = now.difference(sentAt).inMinutes;
+  final safeElapsed = elapsed < 0 ? 0 : elapsed;
 
-  SharedPreferences.getInstance().then((prefs) async {
-    final sentAtStr = prefs.getString(kLastReminderSentAtKey);
-    final sentAt = sentAtStr != null ? DateTime.parse(sentAtStr) : now;
-    final elapsed = now.difference(sentAt).inMinutes;
-
-    if (actionId == kActionId250 || actionId == kActionId500) {
-      // F-07: Button tap — queue hydration log
-      final volume = actionId == kActionId250 ? 250 : 500;
-      final actionUsed = actionId == kActionId250 ? 'button_250' : 'button_500';
-
-      await LoggingRepository.queueActionLog(
-        prefs: prefs,
-        action: NotificationActionLog(
-          volume: volume,
-          timestamp: now,
-          actionId: actionId!, // non-null: guarded by enclosing if condition
-        ),
-      );
-
-      // F-08: Queue ReminderResponse for button tap
-      await ReminderResponseRepository.queueResponse(
-        prefs: prefs,
-        response: PendingReminderResponse(
-          completed: true,
-          delayMinutes: 0,
-          actionUsed: actionUsed,
-          timestamp: now,
-          sentAt: sentAt,
-        ),
-      );
-      debugPrint(
-        '[Foreground] Queued ${volume}ml + ReminderResponse($actionUsed)',
-      );
-    } else if (actionId == null) {
-      // F-08: Notification body tap (no actionId) — user opens app
-      await ReminderResponseRepository.queueResponse(
-        prefs: prefs,
-        response: PendingReminderResponse(
-          completed: true,
-          delayMinutes: elapsed,
-          actionUsed: 'opened_app',
-          timestamp: now,
-          sentAt: sentAt,
-        ),
-      );
-      debugPrint(
-        '[Foreground] Queued ReminderResponse(opened_app, delay=${elapsed}min)',
-      );
-    }
-  });
+  // F-08: Body tap — user opens app via notification
+  await ReminderResponseRepository.queueResponse(
+    prefs: prefs,
+    response: PendingReminderResponse(
+      completed: true,
+      delayMinutes: safeElapsed,
+      actionUsed: 'opened_app',
+      timestamp: now,
+      sentAt: sentAt,
+    ),
+  );
+  debugPrint(
+    '[Notification] Queued ReminderResponse(opened_app, delay=${safeElapsed}min)',
+  );
 }
 
 void main() async {
@@ -166,7 +117,7 @@ void main() async {
   // Use device local timezone — no switching support per FEATURES_V2.md
   tz.setLocalLocation(tz.local);
 
-  // 2. Initialize flutter_local_notifications with F-07 callbacks
+  // 2. Initialize flutter_local_notifications with notification callbacks
   const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
   const initSettings = InitializationSettings(android: androidSettings);
   await flutterLocalNotificationsPlugin.initialize(

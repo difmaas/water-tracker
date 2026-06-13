@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:isar_community/isar.dart';
@@ -7,8 +6,6 @@ import 'hydration_log_model.dart';
 import 'daily_summary_model.dart';
 import '../../../providers/isar_provider.dart';
 import '../../../providers/onboarding_provider.dart';
-import '../../../core/constants/app_constants.dart';
-import '../../reminder/data/notification_action_log.dart';
 
 /// Persists HydrationLogs and DailySummaries in Isar.
 class LoggingRepository {
@@ -34,6 +31,22 @@ class LoggingRepository {
           log.timestamp.year == date.year &&
           log.timestamp.month == date.month &&
           log.timestamp.day == date.day;
+    }).toList();
+    logs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    return logs;
+  }
+
+  Future<List<HydrationLog>> getLogsInRange(
+    String userId, {
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    await _migrateLegacyLogsIfNeeded();
+    final allLogs = await _getAllLogs();
+    final logs = allLogs.where((log) {
+      return log.userId == userId &&
+          !log.timestamp.isBefore(start) &&
+          log.timestamp.isBefore(end);
     }).toList();
     logs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
     return logs;
@@ -178,70 +191,6 @@ class LoggingRepository {
       });
     }
     await _prefs.setBool(_summariesMigrationKey, true);
-  }
-
-  // ── Notification Action Queue (F-07) ────────────────────────────────────────
-
-  /// Appends a notification action to the pending queue in SharedPreferences.
-  ///
-  /// Safe to call from a background isolate — reads/writes raw prefs only.
-  /// The [prefs] parameter must be obtained via [SharedPreferences.getInstance()]
-  /// directly (not via a provider) when called from background isolate.
-  static Future<void> queueActionLog({
-    required SharedPreferences prefs,
-    required NotificationActionLog action,
-  }) async {
-    final existing = prefs.getString(kPendingActionsKey);
-    final list = existing != null
-        ? NotificationActionLog.decodeList(existing)
-        : <NotificationActionLog>[];
-    list.add(action);
-    await prefs.setString(
-      kPendingActionsKey,
-      NotificationActionLog.encodeList(list),
-    );
-  }
-
-  /// Reads all queued notification action logs, saves each as a [HydrationLog]
-  /// with [loggedVia] = `'notification_action'`, then clears the queue.
-  ///
-  /// FIX H-01: Loads all existing logs ONCE, appends all queued items,
-  /// saves ONCE — avoiding O(N²) read/write cycles on large datasets.
-  ///
-  /// Called from Splash screen's startup chain (Step 4.5) before dashboard
-  /// navigation, after userId is available from the profile.
-  Future<List<HydrationLog>> flushActionQueue(String userId) async {
-    final jsonString = _prefs.getString(kPendingActionsKey);
-    if (jsonString == null || jsonString.isEmpty) return [];
-
-    final actions = NotificationActionLog.decodeList(jsonString);
-    if (actions.isEmpty) return [];
-
-    await _migrateLegacyLogsIfNeeded();
-    final committed = <HydrationLog>[];
-
-    for (final action in actions) {
-      final log = HydrationLog()
-        ..userId = userId
-        ..volume = action.volume
-        ..timestamp = action.timestamp
-        ..loggedVia = 'notification_action'
-        ..isSynced = false
-        ..createdAt = action.timestamp;
-      committed.add(log);
-    }
-
-    await _isar.writeTxn(() async {
-      await _isar.hydrationLogs.putAll(committed);
-    });
-
-    // Clear the queue after successful flush
-    await _prefs.remove(kPendingActionsKey);
-
-    debugPrint(
-      '[LoggingRepository] Flushed ${committed.length} queued notification action(s)',
-    );
-    return committed;
   }
 }
 

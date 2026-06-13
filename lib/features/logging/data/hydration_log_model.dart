@@ -9,7 +9,7 @@ class HydrationLog {
   late String userId;
   late int volume;
   late DateTime timestamp;
-  late String loggedVia; // 'app' | 'notification_action'
+  late String loggedVia; // Current scope: 'app' only.
   bool isSynced = false;
   late DateTime createdAt;
 

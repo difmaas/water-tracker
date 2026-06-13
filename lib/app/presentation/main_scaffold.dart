@@ -1,15 +1,23 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../providers/app_settings_provider.dart';
+
 /// Main scaffold with a persistent bottom navigation bar.
-class MainScaffold extends StatelessWidget {
+class MainScaffold extends ConsumerWidget {
   final Widget child;
 
   const MainScaffold({super.key, required this.child});
 
   @override
-  Widget build(BuildContext context) {
-    // Get the current location to determine the active tab index.
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lightweightMode = ref.watch(
+      appSettingsProvider.select((state) => state.lightweightMode),
+    );
     final location = GoRouterState.of(context).uri.path;
 
     int currentIndex = 0;
@@ -23,116 +31,447 @@ class MainScaffold extends StatelessWidget {
       currentIndex = 3;
     }
 
-    return Scaffold(
-      extendBody:
-          false, // Prevents body content from going behind bottom nav bar
-      body: child,
-      bottomNavigationBar: Container(
-        color: Colors.white,
-        child: SafeArea(
-          child: Container(
-            height: 68,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(
-                top: BorderSide(color: Color(0xFFEFEFEF), width: 1),
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: HydrationBackground(lightweightMode: lightweightMode),
+        ),
+        Scaffold(
+          backgroundColor: Colors.transparent,
+          extendBody: true,
+          body: child,
+          bottomNavigationBar: SafeArea(
+            child: Container(
+              margin: const EdgeInsets.only(
+                left: 24,
+                right: 24,
+                bottom: 16,
+                top: 8,
               ),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: lightweightMode
+                    ? const []
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 15,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+              ),
+              child: lightweightMode
+                  ? _BottomNavSurface(
+                      currentIndex: currentIndex,
+                      lightweightMode: true,
+                    )
+                  : ClipRRect(
+                      borderRadius: BorderRadius.circular(30),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                        child: _BottomNavSurface(
+                          currentIndex: currentIndex,
+                          lightweightMode: false,
+                        ),
+                      ),
+                    ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildNavItem(
-                  context,
-                  index: 0,
-                  currentIndex: currentIndex,
-                  selectedIcon: Icons.home_rounded,
-                  unselectedIcon: Icons.home_outlined,
-                  label: 'Beranda',
-                  route: '/dashboard',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BottomNavSurface extends StatelessWidget {
+  final int currentIndex;
+  final bool lightweightMode;
+
+  const _BottomNavSurface({
+    required this.currentIndex,
+    required this.lightweightMode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 72,
+      decoration: BoxDecoration(
+        color: lightweightMode
+            ? Colors.white.withValues(alpha: 0.92)
+            : Colors.white.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: lightweightMode
+              ? const Color(0xFFD7E8F7)
+              : Colors.white.withValues(alpha: 0.5),
+          width: lightweightMode ? 1.2 : 1.5,
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final totalWidth = constraints.maxWidth;
+          final tabWidth = totalWidth / 4;
+          final indicatorHeight = 44.0;
+          final indicatorWidth = tabWidth - 24.0;
+          final topMargin = (72.0 - indicatorHeight) / 2;
+          final leftOffset = currentIndex * tabWidth + 12.0;
+
+          return Stack(
+            children: [
+              AnimatedPositioned(
+                duration: lightweightMode
+                    ? const Duration(milliseconds: 120)
+                    : const Duration(milliseconds: 350),
+                curve: Curves.easeOutCubic,
+                left: leftOffset,
+                top: topMargin,
+                width: indicatorWidth,
+                height: indicatorHeight,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: lightweightMode
+                        ? const Color(0xFFE8F4FF)
+                        : Colors.white.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: lightweightMode
+                          ? const Color(0xFFB8DDF8)
+                          : Colors.white.withValues(alpha: 0.45),
+                      width: 1.2,
+                    ),
+                    boxShadow: lightweightMode
+                        ? const []
+                        : [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.02),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                  ),
                 ),
-                _buildNavItem(
-                  context,
-                  index: 1,
-                  currentIndex: currentIndex,
-                  selectedIcon: Icons.bar_chart_rounded,
-                  unselectedIcon: Icons.bar_chart_outlined,
-                  label: 'Riwayat',
-                  route: '/progress',
-                ),
-                _buildNavItem(
-                  context,
-                  index: 2,
-                  currentIndex: currentIndex,
-                  selectedIcon: Icons.auto_stories_rounded,
-                  unselectedIcon: Icons.auto_stories_outlined,
-                  label: 'Tips',
-                  route: '/education',
-                ),
-                _buildNavItem(
-                  context,
-                  index: 3,
-                  currentIndex: currentIndex,
-                  selectedIcon: Icons.settings_rounded,
-                  unselectedIcon: Icons.settings_outlined,
-                  label: 'Pengaturan',
-                  route: '/settings',
-                ),
-              ],
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _NavItem(
+                      index: 0,
+                      currentIndex: currentIndex,
+                      svgPath: 'assets/icons/dashboard.svg',
+                      label: 'Beranda',
+                      route: '/dashboard',
+                      lightweightMode: lightweightMode,
+                    ),
+                  ),
+                  Expanded(
+                    child: _NavItem(
+                      index: 1,
+                      currentIndex: currentIndex,
+                      svgPath: 'assets/icons/history.svg',
+                      label: 'Riwayat',
+                      route: '/progress',
+                      lightweightMode: lightweightMode,
+                    ),
+                  ),
+                  Expanded(
+                    child: _NavItem(
+                      index: 2,
+                      currentIndex: currentIndex,
+                      svgPath: 'assets/icons/education.svg',
+                      label: 'Tips',
+                      route: '/education',
+                      lightweightMode: lightweightMode,
+                    ),
+                  ),
+                  Expanded(
+                    child: _NavItem(
+                      index: 3,
+                      currentIndex: currentIndex,
+                      svgPath: 'assets/icons/settings.svg',
+                      label: 'Pengaturan',
+                      route: '/settings',
+                      lightweightMode: lightweightMode,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final int index;
+  final int currentIndex;
+  final String svgPath;
+  final String label;
+  final String route;
+  final bool lightweightMode;
+
+  const _NavItem({
+    required this.index,
+    required this.currentIndex,
+    required this.svgPath,
+    required this.label,
+    required this.route,
+    required this.lightweightMode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = currentIndex == index;
+    return GestureDetector(
+      onTap: () => context.go(route),
+      behavior: HitTestBehavior.opaque,
+      child: Center(
+        child: Tooltip(
+          message: label,
+          preferBelow: false,
+          child: AnimatedScale(
+            scale: lightweightMode ? 1.0 : (isSelected ? 1.08 : 1.0),
+            duration: lightweightMode
+                ? Duration.zero
+                : const Duration(milliseconds: 200),
+            curve: Curves.easeOutBack,
+            child: SvgPicture.asset(
+              svgPath,
+              colorFilter: ColorFilter.mode(
+                isSelected ? const Color(0xFF1A73E8) : const Color(0xFF4A5568),
+                BlendMode.srcIn,
+              ),
+              width: 24,
+              height: 24,
             ),
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildNavItem(
-    BuildContext context, {
-    required int index,
-    required int currentIndex,
-    required IconData selectedIcon,
-    required IconData unselectedIcon,
-    required String label,
-    required String route,
-  }) {
-    final isSelected = currentIndex == index;
-    return GestureDetector(
-      onTap: () => context.go(route),
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF2F3F5) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Tooltip(
-          message: label,
-          preferBelow: false,
-          child: AnimatedScale(
-            scale: isSelected ? 1.08 : 1.0,
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOutBack,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 150),
-              transitionBuilder: (child, animation) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: ScaleTransition(scale: animation, child: child),
-                );
-              },
-              child: Icon(
-                isSelected ? selectedIcon : unselectedIcon,
-                key: ValueKey<bool>(isSelected),
-                color: isSelected
-                    ? const Color(0xFF1A1A2E)
-                    : Colors.grey.shade500,
-                size: 25,
-              ),
-            ),
-          ),
-        ),
+class HydrationBackground extends StatelessWidget {
+  final bool lightweightMode;
+
+  const HydrationBackground({super.key, this.lightweightMode = false});
+
+  @override
+  Widget build(BuildContext context) {
+    const decoration = BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFFBBE5FF), Color(0xFFF2F8FD), Color(0xFFE5F1FA)],
+        stops: [0.0, 0.5, 1.0],
       ),
     );
+
+    if (lightweightMode) {
+      return const DecoratedBox(decoration: decoration);
+    }
+
+    return const DecoratedBox(
+      decoration: decoration,
+      child: CustomPaint(painter: _HydrationBackgroundPainter()),
+    );
+  }
+}
+
+class _HydrationBackgroundPainter extends CustomPainter {
+  const _HydrationBackgroundPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final topLeftShapePath = Path()
+      ..moveTo(0, 0)
+      ..lineTo(0, size.height * 0.24)
+      ..cubicTo(
+        size.width * 0.15,
+        size.height * 0.28,
+        size.width * 0.22,
+        size.height * 0.14,
+        size.width * 0.35,
+        size.height * 0.16,
+      )
+      ..cubicTo(
+        size.width * 0.42,
+        size.height * 0.18,
+        size.width * 0.48,
+        size.height * 0.06,
+        size.width * 0.52,
+        0,
+      )
+      ..close();
+
+    final topLeftShapePaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          const Color(0xFFC8EEFF).withValues(alpha: 0.60),
+          const Color(0xFFADDFFF).withValues(alpha: 0.10),
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width * 0.52, size.height * 0.28))
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(topLeftShapePath, topLeftShapePaint);
+
+    final cornerPaint = Paint()
+      ..shader =
+          RadialGradient(
+            center: Alignment.topRight,
+            radius: 1.0,
+            colors: [
+              const Color(0xFFADDFFF).withValues(alpha: 0.8),
+              const Color(0xFFC8EEFF).withValues(alpha: 0.3),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.7, 1.0],
+          ).createShader(
+            Rect.fromLTRB(size.width * 0.60, 0, size.width, size.height * 0.20),
+          )
+      ..style = PaintingStyle.fill;
+
+    final cornerPath = Path()
+      ..moveTo(size.width * 0.72, 0)
+      ..cubicTo(
+        size.width * 0.82,
+        size.height * 0.08,
+        size.width * 0.92,
+        size.height * 0.12,
+        size.width,
+        size.height * 0.14,
+      )
+      ..lineTo(size.width, 0)
+      ..close();
+    canvas.drawPath(cornerPath, cornerPaint);
+
+    final bubblePaint = Paint()
+      ..shader =
+          RadialGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.25),
+              const Color(0xFF90CAF9).withValues(alpha: 0.10),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.7, 1.0],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(size.width * 0.15, size.height * 0.22),
+              radius: size.width * 0.08,
+            ),
+          );
+    canvas.drawCircle(
+      Offset(size.width * 0.15, size.height * 0.22),
+      size.width * 0.08,
+      bubblePaint,
+    );
+
+    final blobPaint = Paint()
+      ..shader =
+          RadialGradient(
+            colors: [
+              const Color(0xFF7EC8E3).withValues(alpha: 0.35),
+              const Color(0xFF90CAF9).withValues(alpha: 0.15),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.6, 1.0],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(size.width * 0.20, size.height * 0.35),
+              radius: size.width * 0.28,
+            ),
+          );
+    canvas.drawCircle(
+      Offset(size.width * 0.20, size.height * 0.35),
+      size.width * 0.28,
+      blobPaint,
+    );
+
+    _drawWave(
+      canvas,
+      size,
+      top: 0.76,
+      control1: const Offset(0.28, 0.72),
+      control2: const Offset(0.65, 0.84),
+      end: const Offset(1.0, 0.78),
+      colors: [
+        const Color(0xFFADDFFF).withValues(alpha: 0.18),
+        const Color(0xFF90CAF9).withValues(alpha: 0.35),
+      ],
+    );
+    _drawWave(
+      canvas,
+      size,
+      top: 0.83,
+      control1: const Offset(0.32, 0.85),
+      control2: const Offset(0.68, 0.76),
+      end: const Offset(1.0, 0.83),
+      colors: [
+        const Color(0xFF95CBFF).withValues(alpha: 0.28),
+        const Color(0xFF64B5F6).withValues(alpha: 0.50),
+      ],
+    );
+    _drawWave(
+      canvas,
+      size,
+      top: 0.90,
+      control1: const Offset(0.35, 0.88),
+      control2: const Offset(0.65, 0.96),
+      end: const Offset(1.0, 0.91),
+      colors: [
+        const Color(0xFF1E88E5).withValues(alpha: 0.78),
+        const Color(0xFF0D47A1).withValues(alpha: 0.90),
+      ],
+    );
+  }
+
+  void _drawWave(
+    Canvas canvas,
+    Size size, {
+    required double top,
+    required Offset control1,
+    required Offset control2,
+    required Offset end,
+    required List<Color> colors,
+  }) {
+    final path = Path()
+      ..moveTo(0, size.height * top)
+      ..cubicTo(
+        size.width * control1.dx,
+        size.height * control1.dy,
+        size.width * control2.dx,
+        size.height * control2.dy,
+        size.width * end.dx,
+        size.height * end.dy,
+      )
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+
+    final paint = Paint()
+      ..shader =
+          LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: colors,
+          ).createShader(
+            Rect.fromLTWH(
+              0,
+              size.height * (top - 0.06),
+              size.width,
+              size.height,
+            ),
+          )
+      ..style = PaintingStyle.fill;
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _HydrationBackgroundPainter oldDelegate) {
+    return false;
   }
 }

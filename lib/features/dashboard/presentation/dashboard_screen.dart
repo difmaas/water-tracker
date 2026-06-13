@@ -1,8 +1,10 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../../providers/hydration_provider.dart';
-import '../../../providers/reminder_provider.dart';
+import 'package:go_router/go_router.dart';
+import '../../../providers/app_settings_provider.dart';
+import '../../../providers/hydration_provider.dart';
 import '../../logging/data/hydration_log_model.dart';
 import 'widgets/progress_ring.dart';
 import 'widgets/quick_add_buttons.dart';
@@ -47,492 +49,231 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         .join(' ');
   }
 
-  Widget _buildNextReminderSection(
-    BuildContext context,
-    WidgetRef ref,
-    HydrationState state,
-  ) {
-    final now = DateTime.now();
-    final startFormatted =
-        '${state.reminderWindowStart.toString().padLeft(2, '0')}.00';
-    final endFormatted =
-        '${state.reminderWindowEnd.toString().padLeft(2, '0')}.00';
+  String _formatVolume(int volume) {
+    final value = volume.toString();
+    if (value.length > 3) {
+      return '${value.substring(0, value.length - 3)}.${value.substring(value.length - 3)}';
+    }
+    return value;
+  }
 
-    // State 1: Permission not enabled
-    if (!state.notificationPermissionGranted) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFF9E6), // Soft warning amber
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFFFE599), width: 1.5),
+  Widget _buildCardShell({
+    required bool lightweightMode,
+    required double borderRadius,
+    required Widget child,
+  }) {
+    final card = Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: lightweightMode
+              ? [Colors.white.withValues(alpha: 0.88), const Color(0xFFF4FAFF)]
+              : [
+                  Colors.white.withValues(alpha: 0.50),
+                  Colors.white.withValues(alpha: 0.20),
+                ],
         ),
+        borderRadius: BorderRadius.circular(borderRadius),
+        border: Border.all(
+          color: lightweightMode
+              ? const Color(0xFFD7E8F7)
+              : Colors.white.withValues(alpha: 0.6),
+          width: 1.2,
+        ),
+        boxShadow: lightweightMode
+            ? const []
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+      ),
+      child: child,
+    );
+
+    if (lightweightMode) {
+      return card;
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: card,
+      ),
+    );
+  }
+
+  Widget _buildTodaySummaryCard(HydrationState state, bool lightweightMode) {
+    return _buildCardShell(
+      lightweightMode: lightweightMode,
+      borderRadius: 20,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                const Icon(
-                  Icons.notifications_off_rounded,
-                  color: Color(0xFFD48800),
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Notifikasi belum aktif',
-                        style: GoogleFonts.inter(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF873800),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Aktifkan pengingat minum',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: const Color(0xFF873800),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            Text(
+              'Kebutuhan Harian',
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.normal,
+                color: Colors.black.withValues(alpha: 0.6),
+              ),
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () async {
-                  await ref.read(reminderServiceProvider).requestPermissions();
-                  ref.read(hydrationProvider.notifier).refresh();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF9AB00), // Warning orange
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                child: Text(
-                  'Aktifkan Pengingat',
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
+            const SizedBox(height: 2),
+            Text(
+              '${_formatVolume(state.targetMl)} ml',
+              style: GoogleFonts.inter(
+                fontSize: 15,
+                fontWeight: FontWeight.normal,
+                color: Colors.black,
+                letterSpacing: -0.3,
               ),
             ),
           ],
         ),
-      );
-    }
+      ),
+    );
+  }
 
-    // State 2: Target achieved
-    if (state.isTargetReached) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFEBF8EE), // Soft green background
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFA3E2B5), width: 1.5),
-        ),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.check_circle_rounded,
-              color: Color(0xFF34A853),
-              size: 28,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Target hari ini tercapai',
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF236132),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Tidak ada pengingat tambahan',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: const Color(0xFF236132),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // State 3: Outside active reminder window
-    final isWithinWindow =
-        now.hour >= state.reminderWindowStart &&
-        now.hour < state.reminderWindowEnd;
-    if (!isWithinWindow) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9), // Soft grey background
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
-        ),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.nights_stay_rounded,
-              color: Color(0xFF64748B),
-              size: 28,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Reminder aktif kembali besok $startFormatted',
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF334155),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // State 4: Within active reminder window (Active next reminder)
-    String reminderText = 'Segera';
-    if (state.nextReminderTime != null) {
+  Widget _buildNextReminderCard(HydrationState state, bool lightweightMode) {
+    String reminderText;
+    if (!state.reminderSystemActive) {
+      reminderText = 'Notifikasi dimatikan';
+    } else if (!state.notificationPermissionGranted) {
+      reminderText = 'Izin notifikasi belum aktif';
+    } else if (state.nextReminderTime == null) {
+      reminderText = 'Belum ada jadwal pengingat';
+    } else {
       final nextHour = state.nextReminderTime!.hour.toString().padLeft(2, '0');
       final nextMin = state.nextReminderTime!.minute.toString().padLeft(2, '0');
-      reminderText = '$nextHour.$nextMin';
+      final now = DateTime.now();
+      final isToday =
+          state.nextReminderTime!.year == now.year &&
+          state.nextReminderTime!.month == now.month &&
+          state.nextReminderTime!.day == now.day;
+      reminderText = isToday
+          ? '$nextHour.$nextMin'
+          : 'Besok, $nextHour.$nextMin';
     }
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8F4FF), // Soft blue background #E8F4FF
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFBAE6FD), width: 1.5),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.notifications_active_rounded,
-            color: Color(0xFF1A73E8),
-            size: 28,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Reminder berikutnya',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF1A73E8).withValues(alpha: 0.8),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  reminderText,
-                  style: GoogleFonts.inter(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF1A73E8), // Primary blue #1A73E8
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Aktif $startFormatted - $endFormatted',
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    color: const Color(0xFF6B7280),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+    return _buildCardShell(
+      lightweightMode: lightweightMode,
+      borderRadius: 20,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Pengingat Berikutnya',
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.normal,
+                color: Colors.black.withValues(alpha: 0.6),
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTodaySummarySection(HydrationState state) {
-    String lastDrinkTime = '-';
-    if (state.todayLogs.isNotEmpty) {
-      final sortedLogs = List<HydrationLog>.from(state.todayLogs)
-        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-      final lastLog = sortedLogs.last;
-      final hour = lastLog.timestamp.hour.toString().padLeft(2, '0');
-      final min = lastLog.timestamp.minute.toString().padLeft(2, '0');
-      lastDrinkTime = '$hour.$min';
-    }
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE8F4FF), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1A73E8).withValues(alpha: 0.02),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Hari Ini',
-            style: GoogleFonts.inter(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF1F2937),
+            const SizedBox(height: 2),
+            Text(
+              reminderText,
+              style: GoogleFonts.inter(
+                fontSize: reminderText.length > 12 ? 12 : 15,
+                fontWeight: FontWeight.normal,
+                color: Colors.black,
+                letterSpacing: -0.3,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              const Icon(
-                Icons.local_drink_rounded,
-                color: Color(0xFF1A73E8),
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${state.todayLogs.length}x minum tercatat',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1F2937),
-                ),
-              ),
-              const Spacer(),
-              const Icon(
-                Icons.access_time_filled_rounded,
-                color: Color(0xFF6B7280),
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Terakhir: $lastDrinkTime',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF6B7280),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCalendarProgressSection(HydrationState state) {
-    const daysName = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE8F4FF), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1A73E8).withValues(alpha: 0.02),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Progres Mingguan',
-            style: GoogleFonts.inter(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFF1F2937),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: List.generate(7, (index) {
-              final progress = state.weeklyProgress.length > index
-                  ? state.weeklyProgress[index]
-                  : null;
-              final dayName = daysName[index];
-
-              Color cellColor = const Color(0xFFF1F5F9);
-              Color borderCol = Colors.transparent;
-              Widget statusWidget = const SizedBox(height: 16);
-
-              if (progress != null) {
-                switch (progress.status) {
-                  case WeekDayStatus.achieved:
-                    cellColor = const Color(0xFFEBF8EE);
-                    borderCol = const Color(0xFFA3E2B5);
-                    statusWidget = const Icon(
-                      Icons.check_rounded,
-                      size: 14,
-                      color: Color(0xFF34A853),
-                    );
-                    break;
-                  case WeekDayStatus.partial:
-                    cellColor = const Color(0xFFFFF9E6);
-                    borderCol = const Color(0xFFFFE599);
-                    statusWidget = const Icon(
-                      Icons.fiber_manual_record_rounded,
-                      size: 10,
-                      color: Color(0xFFF9AB00),
-                    );
-                    break;
-                  case WeekDayStatus.empty:
-                    cellColor = const Color(0xFFF3F4F6);
-                    borderCol = const Color(0xFFE5E7EB);
-                    statusWidget = const Icon(
-                      Icons.radio_button_unchecked_rounded,
-                      size: 10,
-                      color: Color(0xFFD1D5DB),
-                    );
-                    break;
-                  case WeekDayStatus.future:
-                    cellColor = Colors.white;
-                    borderCol = const Color(0xFFF3F4F6);
-                    statusWidget = const Text(
-                      '○',
-                      style: TextStyle(fontSize: 12, color: Color(0xFFD1D5DB)),
-                    );
-                    break;
-                }
-
-                if (progress.isToday) {
-                  borderCol = const Color(0xFF1A73E8);
-                }
-              }
-
-              return Column(
-                children: [
-                  Text(
-                    dayName,
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: progress?.isToday == true
-                          ? FontWeight.bold
-                          : FontWeight.w500,
-                      color: progress?.isToday == true
-                          ? const Color(0xFF1A73E8)
-                          : const Color(0xFF6B7280),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: cellColor,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: borderCol, width: 1.5),
-                    ),
-                    alignment: Alignment.center,
-                    child: statusWidget,
-                  ),
-                ],
-              );
-            }),
-          ),
-          const SizedBox(height: 14),
-          // Small legend
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildLegendItem(
-                color: const Color(0xFF34A853),
-                label: 'Tercapai',
-                icon: Icons.check_rounded,
-              ),
-              const SizedBox(width: 16),
-              _buildLegendItem(
-                color: const Color(0xFFF9AB00),
-                label: 'Sebagian',
-                icon: Icons.fiber_manual_record_rounded,
-                iconSize: 8,
-              ),
-              const SizedBox(width: 16),
-              _buildLegendItem(
-                color: const Color(0xFFD1D5DB),
-                label: 'Belum ada',
-                icon: Icons.radio_button_unchecked_rounded,
-                iconSize: 8,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLegendItem({
-    required Color color,
-    required String label,
-    required IconData icon,
-    double iconSize = 12,
-  }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: iconSize, color: color),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-            color: const Color(0xFF6B7280),
-          ),
+          ],
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildHistoryCard(HydrationState state, bool lightweightMode) {
+    return _buildCardShell(
+      lightweightMode: lightweightMode,
+      borderRadius: 24,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 4, top: 4, bottom: 8),
+              child: Text(
+                'Riwayat Minum Hari Ini',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  fontWeight: FontWeight.normal,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+            Divider(height: 1, color: Colors.black.withValues(alpha: 0.05)),
+            const SizedBox(height: 4),
+            if (state.todayLogs.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 24,
+                  horizontal: 16,
+                ),
+                child: Center(
+                  child: Text(
+                    'Kamu belum minum hari ini',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.normal,
+                      color: Colors.black.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ),
+              )
+            else
+              ...(() {
+                final sortedLogs = List<HydrationLog>.from(state.todayLogs)
+                  ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+                final List<Widget> children = [];
+                for (int i = 0; i < sortedLogs.length; i++) {
+                  children.add(
+                    HydrationLogTile(
+                      log: sortedLogs[i],
+                      isFirst: i == 0,
+                      isLast: i == sortedLogs.length - 1,
+                    ),
+                  );
+                  if (i < sortedLogs.length - 1) {
+                    children.add(const SizedBox(height: 8));
+                  }
+                }
+                return children;
+              })(),
+          ],
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(hydrationProvider);
+    final lightweightMode = ref.watch(
+      appSettingsProvider.select((state) => state.lightweightMode),
+    );
 
     if (state.isLoading) {
       return const Scaffold(
-        backgroundColor: Color(0xFFF8FBFF),
+        backgroundColor: Colors.transparent,
         body: Center(
           child: CircularProgressIndicator(color: Color(0xFF1A73E8)),
         ),
@@ -546,12 +287,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8FBFF), // Light background #F8FBFF
+        backgroundColor: Colors.transparent,
+        extendBody: true,
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          backgroundColor: const Color(0xFFF8FBFF),
+          backgroundColor:
+              Colors.transparent, // Transparent to show background painter
           elevation: 0,
           scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
           centerTitle: false,
           titleSpacing: 24,
           toolbarHeight: 100,
@@ -563,7 +307,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 'Halo, $capitalizeName! 👋',
                 style: GoogleFonts.inter(
                   fontSize: 26,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.normal,
                   color: Colors.black,
                   letterSpacing: -0.5,
                 ),
@@ -573,65 +317,98 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 'Yuk minum air hari ini',
                 style: GoogleFonts.inter(
                   fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF6B7280),
+                  fontWeight: FontWeight.normal,
+                  color: Colors.black.withValues(alpha: 0.6),
                 ),
               ),
             ],
           ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 24),
+              child: GestureDetector(
+                onTap: () => context.push('/profile-setup?edit=true'),
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F4FF),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFF1A73E8).withValues(alpha: 0.15),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: Transform.scale(
+                            scale: 1.2,
+                            child: Image.asset(
+                              state.jenisKelamin == 'laki_laki'
+                                  ? 'assets/images/man.webp'
+                                  : 'assets/images/woman.webp',
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
         body: SafeArea(
-          top: false, // AppBar is already safe
+          top: false,
+          bottom: false,
           child: RefreshIndicator(
             color: const Color(0xFF1A73E8),
             onRefresh: () => ref.read(hydrationProvider.notifier).refresh(),
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // 1. Main Daily Progress Section
-                  const ProgressRing(),
+                  ProgressRing(lightweightMode: lightweightMode),
+                  const SizedBox(height: 24),
+
+                  // Side-by-side Grid Metrics Section
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildNextReminderCard(state, lightweightMode),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildTodaySummaryCard(state, lightweightMode),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 24),
 
                   // 2. Quick Add Water Section
-                  const QuickAddButtons(),
+                  QuickAddButtons(lightweightMode: lightweightMode),
                   const SizedBox(height: 24),
 
-                  // 3. Next Reminder Section (Below Quick Add Buttons)
-                  _buildNextReminderSection(context, ref, state),
-                  const SizedBox(height: 24),
-
-                  // 4. Calendar Progress Card
-                  _buildCalendarProgressSection(state),
-                  const SizedBox(height: 24),
-
-                  // 5. Today Summary Section
-                  _buildTodaySummarySection(state),
-                  const SizedBox(height: 24),
-
-                  // 5. Today's Logs List (Catatan Hari Ini)
-                  if (state.todayLogs.isNotEmpty) ...[
-                    Text(
-                      'Catatan Hari Ini',
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF1F2937),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ...(() {
-                      final sortedLogs = List<HydrationLog>.from(
-                        state.todayLogs,
-                      )..sort((a, b) => b.timestamp.compareTo(a.timestamp));
-                      return sortedLogs.map(
-                        (log) => HydrationLogTile(log: log),
-                      );
-                    })(),
-                    const SizedBox(height: 24),
-                  ],
+                  // 5. Today's Logs List (Riwayat Minum Hari Ini)
+                  _buildHistoryCard(state, lightweightMode),
+                  const SizedBox(height: 120),
                 ],
               ),
             ),

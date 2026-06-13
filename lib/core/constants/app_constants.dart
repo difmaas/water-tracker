@@ -25,26 +25,23 @@ const int kTargetClampMin = 1500;
 /// Maximum daily target in ml (clamp upper bound).
 const int kTargetClampMax = 4000;
 
+/// Shared preset volumes used by add and edit hydration log flows.
+const List<int> kHydrationVolumePresets = [250, 500, 750, 1000];
+
 /// Reminder active window start hour (inclusive).
 const int kReminderWindowStart = 7; // 07:00
 
 /// Reminder active window end hour (inclusive).
 const int kReminderWindowEnd = 21; // 21:00
 
-// ── Notification Action IDs (F-07) ───────────────────────────────────────────
-
-/// Action button ID for the +250ml quick-log button on reminder notifications.
-const String kActionId250 = 'action_250';
-
-/// Action button ID for the +500ml quick-log button on reminder notifications.
-const String kActionId500 = 'action_500';
-
-/// Action button ID for the "Buka App" button on reminder notifications.
-const String kActionIdOpenApp = 'action_open';
-
-/// SharedPreferences key for the pending notification action queue.
-/// Background isolate writes here; Splash screen flushes on next open.
-const String kPendingActionsKey = 'pending_notification_actions';
+/// IDs for notifications.
+class NotificationIds {
+  static const int legacyRegular = 42;
+  static const int reEngagement = 43;
+  static const int test = 44;
+  static const int regularReminderBase = 10000;
+  static const int regularReminderMaxSlots = 32;
+}
 
 // ── Reminder Response Tracking Keys (F-08) ───────────────────────────────────
 
@@ -52,6 +49,10 @@ const String kPendingActionsKey = 'pending_notification_actions';
 /// scheduled reminder notification. Used to compute delayMinutes in all
 /// ReminderResponse paths.
 const String kLastReminderSentAtKey = 'last_reminder_sent_at';
+
+/// SharedPreferences key storing pending regular reminder notification IDs.
+/// Used to cancel all scheduled interval slots before rebuilding the schedule.
+const String kScheduledRegularReminderIdsKey = 'scheduled_regular_reminder_ids';
 
 /// SharedPreferences key for the pending ReminderResponse queue.
 /// Written by notification callbacks; flushed by Splash Step 4.6.

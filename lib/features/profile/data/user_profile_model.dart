@@ -42,7 +42,7 @@ class UserProfile {
   bool reminderSystemActive = false;
   int reminderWindowStart = 7; // V3: hour (06–22, default 7)
   int reminderWindowEnd = 21; // V3: hour (06–22, default 21, min 8h gap)
-  String reminderType = 'interval'; // 'smart' | 'interval'
+  String reminderType = 'fixed'; // MVP: fixed 2-hour reminders
   int reminderInterval = 2; // 1, 2, or 3 (hours)
 
   // ── Lifecycle ────────────────────────────────────────────────────────────────
@@ -165,7 +165,7 @@ class UserProfile {
       ..reminderSystemActive = json['reminderSystemActive'] as bool
       ..reminderWindowStart = json['reminderWindowStart'] as int? ?? 7
       ..reminderWindowEnd = json['reminderWindowEnd'] as int? ?? 21
-      ..reminderType = json['reminderType'] as String? ?? 'interval'
+      ..reminderType = json['reminderType'] as String? ?? 'fixed'
       ..reminderInterval = json['reminderInterval'] as int? ?? 2
       ..createdAt = DateTime.parse(json['createdAt'] as String)
       ..lastOpenedAt = json['lastOpenedAt'] != null

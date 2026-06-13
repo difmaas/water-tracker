@@ -1,28 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../core/constants/app_constants.dart';
 import '../features/profile/data/profile_repository.dart';
 import '../features/logging/data/logging_repository.dart';
 import '../features/logging/data/hydration_log_model.dart';
 import '../features/logging/data/daily_summary_model.dart';
-import '../features/reminder/data/reminder_response_repository.dart';
 import '../features/reminder/domain/reminder_logic.dart';
 import 'reminder_provider.dart';
-
-enum WeekDayStatus { achieved, partial, empty, future }
-
-class WeekDayProgress {
-  final DateTime date;
-  final WeekDayStatus status;
-  final bool isToday;
-
-  const WeekDayProgress({
-    required this.date,
-    required this.status,
-    required this.isToday,
-  });
-}
 
 /// Display state for the Daily Dashboard.
 class HydrationState {
@@ -31,6 +14,7 @@ class HydrationState {
   final List<HydrationLog> todayLogs;
   final bool isLoading;
   final String userName;
+  final String jenisKelamin;
   final int currentStreak;
   final bool notificationPermissionGranted;
   final DateTime? nextReminderTime;
@@ -39,7 +23,6 @@ class HydrationState {
   final int reminderWindowEnd;
   final bool reminderSystemActive;
   final int researchDay;
-  final List<WeekDayProgress> weeklyProgress;
 
   double get progressPercent =>
       targetMl > 0 ? (currentMl / targetMl).clamp(0.0, 1.0) : 0.0;
@@ -52,6 +35,7 @@ class HydrationState {
     this.todayLogs = const [],
     this.isLoading = true,
     this.userName = '',
+    this.jenisKelamin = '',
     this.currentStreak = 0,
     this.notificationPermissionGranted = false,
     this.nextReminderTime,
@@ -60,7 +44,6 @@ class HydrationState {
     this.reminderWindowEnd = 21,
     this.reminderSystemActive = false,
     this.researchDay = 1,
-    this.weeklyProgress = const [],
   });
 
   HydrationState copyWith({
@@ -69,6 +52,7 @@ class HydrationState {
     List<HydrationLog>? todayLogs,
     bool? isLoading,
     String? userName,
+    String? jenisKelamin,
     int? currentStreak,
     bool? notificationPermissionGranted,
     DateTime? nextReminderTime,
@@ -77,7 +61,6 @@ class HydrationState {
     int? reminderWindowEnd,
     bool? reminderSystemActive,
     int? researchDay,
-    List<WeekDayProgress>? weeklyProgress,
     bool clearNextReminder = false,
   }) {
     return HydrationState(
@@ -86,6 +69,7 @@ class HydrationState {
       todayLogs: todayLogs ?? this.todayLogs,
       isLoading: isLoading ?? this.isLoading,
       userName: userName ?? this.userName,
+      jenisKelamin: jenisKelamin ?? this.jenisKelamin,
       currentStreak: currentStreak ?? this.currentStreak,
       notificationPermissionGranted:
           notificationPermissionGranted ?? this.notificationPermissionGranted,
@@ -97,7 +81,6 @@ class HydrationState {
       reminderWindowEnd: reminderWindowEnd ?? this.reminderWindowEnd,
       reminderSystemActive: reminderSystemActive ?? this.reminderSystemActive,
       researchDay: researchDay ?? this.researchDay,
-      weeklyProgress: weeklyProgress ?? this.weeklyProgress,
     );
   }
 }
@@ -149,19 +132,28 @@ class HydrationNotifier extends Notifier<HydrationState> {
       final logs = await _loggingRepo.getLogsForDate(profile.userId, now);
       int totalMl = logs.fold(0, (sum, log) => sum + log.volume);
       final target = profile.targetManualMl ?? profile.dailyTargetMl;
-      final progress = target > 0 ? (totalMl / target) : 0.0;
 
       DateTime? nextReminder;
       if (profile.reminderSystemActive &&
           profile.notificationPermissionGranted) {
-        nextReminder = ReminderLogic.nextReminderTime(
-          now,
-          reminderType: profile.reminderType,
-          reminderIntervalHours: profile.reminderInterval,
-          startHour: profile.reminderWindowStart,
-          endHour: profile.reminderWindowEnd,
-          progress: progress,
-        );
+        final remainingSlots = totalMl < target
+            ? ReminderLogic.remainingSlotsForToday(
+                now,
+                reminderIntervalHours: profile.reminderInterval,
+                startHour: profile.reminderWindowStart,
+                endHour: profile.reminderWindowEnd,
+              )
+            : const <DateTime>[];
+
+        if (remainingSlots.isNotEmpty) {
+          nextReminder = remainingSlots.first;
+        } else {
+          final (startHour, _) = ReminderLogic.normalizedWindow(
+            profile.reminderWindowStart,
+            profile.reminderWindowEnd,
+          );
+          nextReminder = DateTime(now.year, now.month, now.day + 1, startHour);
+        }
       }
 
       int researchDay = 1;
@@ -174,69 +166,12 @@ class HydrationNotifier extends Notifier<HydrationState> {
       final elapsed = todayDate.difference(startDate).inDays + 1;
       researchDay = elapsed.clamp(1, 14);
 
-      // Calculate Monday-to-Sunday weekly progress
-      final monday = todayDate.subtract(Duration(days: todayDate.weekday - 1));
-      final List<WeekDayProgress> weeklyProgressList = [];
-      for (int i = 0; i < 7; i++) {
-        final dayDate = monday.add(Duration(days: i));
-        final isFuture = dayDate.isAfter(todayDate);
-        final isToday =
-            dayDate.year == todayDate.year &&
-            dayDate.month == todayDate.month &&
-            dayDate.day == todayDate.day;
-
-        if (isFuture) {
-          weeklyProgressList.add(
-            WeekDayProgress(
-              date: dayDate,
-              status: WeekDayStatus.future,
-              isToday: false,
-            ),
-          );
-        } else {
-          int dayMl = 0;
-          int dayTarget = target;
-          if (isToday) {
-            dayMl = totalMl;
-            dayTarget = target;
-          } else {
-            final summary = await _loggingRepo.getDailySummary(
-              profile.userId,
-              dayDate,
-            );
-            if (summary != null) {
-              dayMl = summary.achievedMl;
-              dayTarget = summary.targetMl;
-            } else {
-              final logsForDay = await _loggingRepo.getLogsForDate(
-                profile.userId,
-                dayDate,
-              );
-              dayMl = logsForDay.fold(0, (sum, log) => sum + log.volume);
-              dayTarget = profile.targetManualMl ?? profile.dailyTargetMl;
-            }
-          }
-
-          WeekDayStatus status;
-          if (dayMl == 0) {
-            status = WeekDayStatus.empty;
-          } else if (dayMl >= dayTarget) {
-            status = WeekDayStatus.achieved;
-          } else {
-            status = WeekDayStatus.partial;
-          }
-
-          weeklyProgressList.add(
-            WeekDayProgress(date: dayDate, status: status, isToday: isToday),
-          );
-        }
-      }
-
       state = state.copyWith(
         currentMl: totalMl,
         targetMl: target,
         todayLogs: logs,
         userName: profile.nama,
+        jenisKelamin: profile.jenisKelamin,
         currentStreak: profile.currentStreak,
         notificationPermissionGranted: profile.notificationPermissionGranted,
         nextReminderTime: nextReminder,
@@ -246,7 +181,6 @@ class HydrationNotifier extends Notifier<HydrationState> {
         reminderWindowEnd: profile.reminderWindowEnd,
         reminderSystemActive: profile.reminderSystemActive,
         researchDay: researchDay,
-        weeklyProgress: weeklyProgressList,
         isLoading: false,
       );
     } catch (e, st) {
@@ -263,6 +197,11 @@ class HydrationNotifier extends Notifier<HydrationState> {
   /// This is a user-initiated write — NOT a startup mutation.
   Future<HydrationLog?> addLog(int volumeMl, {String loggedVia = 'app'}) async {
     try {
+      if (volumeMl <= 0) {
+        debugPrint('[HydrationNotifier] Ignoring invalid volume: $volumeMl');
+        return null;
+      }
+
       final profile = await _profileRepo.getUserProfile();
       if (profile == null) return null;
 
@@ -279,19 +218,14 @@ class HydrationNotifier extends Notifier<HydrationState> {
 
       await _loggingRepo.saveLog(log);
 
-      // F-08: If logged within 30 min of last notification, record ReminderResponse.
-      // Fire-and-forget — never blocks the log save.
-      _checkAndRecordOpenedAppResponse(profile.userId, now);
-
       // 2. Upsert DailySummary (canonical pattern per AGENTS_V2.md §15)
       await _upsertDailySummaryAfterLog(profile.userId, now);
 
       // 3. Refresh display state
       await _loadToday();
 
-      // 4. Recalculate reminder interval based on new progress (fire-and-forget)
-      // This is the post-log reschedule per ARCHITECTURE_V2.md §4
-      ref
+      // 4. Rebuild today's remaining reminder slots after the new total.
+      await ref
           .read(reminderServiceProvider)
           .rescheduleIfNeeded(
             currentMl: state.currentMl,
@@ -322,6 +256,14 @@ class HydrationNotifier extends Notifier<HydrationState> {
 
       // 3. Refresh display state
       await _loadToday();
+
+      // 4. Rebuild reminders because undo can drop total below target.
+      await ref
+          .read(reminderServiceProvider)
+          .rescheduleIfNeeded(
+            currentMl: state.currentMl,
+            targetMl: state.targetMl,
+          );
     } catch (e, st) {
       debugPrint('Error in undoLog: $e\n$st');
     }
@@ -347,7 +289,7 @@ class HydrationNotifier extends Notifier<HydrationState> {
       if (logTimestamp.year == now.year &&
           logTimestamp.month == now.month &&
           logTimestamp.day == now.day) {
-        ref
+        await ref
             .read(reminderServiceProvider)
             .rescheduleIfNeeded(
               currentMl: state.currentMl,
@@ -366,6 +308,11 @@ class HydrationNotifier extends Notifier<HydrationState> {
     DateTime logTimestamp,
   ) async {
     try {
+      if (newVolume <= 0) {
+        debugPrint('[HydrationNotifier] Ignoring invalid update: $newVolume');
+        return;
+      }
+
       final profile = await _profileRepo.getUserProfile();
       if (profile == null) return;
 
@@ -389,7 +336,7 @@ class HydrationNotifier extends Notifier<HydrationState> {
       if (logTimestamp.year == now.year &&
           logTimestamp.month == now.month &&
           logTimestamp.day == now.day) {
-        ref
+        await ref
             .read(reminderServiceProvider)
             .rescheduleIfNeeded(
               currentMl: state.currentMl,
@@ -412,11 +359,15 @@ class HydrationNotifier extends Notifier<HydrationState> {
     final existing = await _loggingRepo.getDailySummary(userId, date);
 
     if (existing != null) {
-      // UPDATE: recalculate achievedMl and complianceRate,
-      // preserve sessionCount, firstLogTimestamp, remindersSent
+      final firstLogTimestamp = logs.isNotEmpty ? logs.first.timestamp : null;
+
+      // UPDATE: recalculate achievedMl, complianceRate, and firstLogTimestamp,
+      // preserve sessionCount and reminder counters.
       final updated = existing.copyWith(
         achievedMl: totalMl,
         complianceRate: targetMl > 0 ? totalMl / targetMl : 0.0,
+        firstLogTimestamp: firstLogTimestamp,
+        clearFirstLogTimestamp: logs.isEmpty,
         isSynced: false, // mark dirty on every update
       );
       await _loggingRepo.upsertDailySummary(updated);
@@ -443,45 +394,6 @@ class HydrationNotifier extends Notifier<HydrationState> {
   /// Called externally to refresh display state (e.g. after navigation back).
   Future<void> refresh() async {
     await _loadToday();
-  }
-
-  /// F-08: Checks if this app-initiated log falls within 30 minutes of the
-  /// last scheduled notification. If so, updates the ReminderResponse with
-  /// actionUsed='opened_app' and completed=true.
-  ///
-  /// Fire-and-forget — called from addLog() without await.
-  Future<void> _checkAndRecordOpenedAppResponse(
-    String userId,
-    DateTime loggedAt,
-  ) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final sentAtStr = prefs.getString(kLastReminderSentAtKey);
-      if (sentAtStr == null) return;
-
-      final sentAt = DateTime.parse(sentAtStr);
-      final elapsed = loggedAt.difference(sentAt).inMinutes;
-
-      // Only record if within 30-minute response window
-      if (elapsed < 0 || elapsed > 30) return;
-
-      // Check deduplication guard — skip if already responded to this notification
-      final lastRecorded = prefs.getString(kLastResponseRecordedAtKey);
-      if (lastRecorded != null && lastRecorded == sentAtStr) return;
-
-      final responseRepo = ref.read(reminderResponseRepositoryProvider);
-      await responseRepo.markResponded(
-        userId: userId,
-        completed: true,
-        delayMinutes: elapsed,
-        actionUsed: 'opened_app',
-        notificationScheduledAt: sentAt,
-      );
-    } catch (e) {
-      debugPrint(
-        '[HydrationNotifier] _checkAndRecordOpenedAppResponse failed: $e',
-      );
-    }
   }
 }
 

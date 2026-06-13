@@ -28,7 +28,7 @@ class ReminderResponseRepository {
   ///
   /// Per AGENTS_V3 §15: ReminderResponse is created at schedule time with
   /// actionUsed: null. It is later updated when user responds or lazy detection runs.
-  Future<void> createPending({
+  Future<bool> createPending({
     required String userId,
     required DateTime notificationScheduledAt,
   }) async {
@@ -45,6 +45,21 @@ class ReminderResponseRepository {
         ..createdAt = now;
 
       await _migrateLegacyResponsesIfNeeded();
+      final existing = await _isar.reminderResponses.where().findAll();
+      final alreadyExists = existing.any(
+        (r) =>
+            r.userId == userId &&
+            r.actionUsed == null &&
+            r.notificationScheduledAt.toIso8601String() ==
+                notificationScheduledAt.toIso8601String(),
+      );
+      if (alreadyExists) {
+        debugPrint(
+          '[ReminderResponseRepository] Pending already exists for scheduledAt=$notificationScheduledAt',
+        );
+        return false;
+      }
+
       await _isar.writeTxn(() async {
         await _isar.reminderResponses.put(response);
       });
@@ -52,8 +67,10 @@ class ReminderResponseRepository {
       debugPrint(
         '[ReminderResponseRepository] Created pending for scheduledAt=$notificationScheduledAt',
       );
+      return true;
     } catch (e) {
       debugPrint('[ReminderResponseRepository] createPending() failed: $e');
+      return false;
     }
   }
 
@@ -73,6 +90,7 @@ class ReminderResponseRepository {
   }) async {
     try {
       final now = DateTime.now();
+      final safeDelayMinutes = delayMinutes < 0 ? 0 : delayMinutes;
       await _migrateLegacyResponsesIfNeeded();
       final all = await _getAll();
 
@@ -89,7 +107,7 @@ class ReminderResponseRepository {
         // Update existing pending record
         all[idx] = all[idx].copyWith(
           completed: completed,
-          delayMinutes: delayMinutes,
+          delayMinutes: safeDelayMinutes,
           actionUsed: actionUsed,
           timestamp: now,
           isSynced: false,
@@ -99,7 +117,7 @@ class ReminderResponseRepository {
         final response = ReminderResponse()
           ..userId = userId
           ..completed = completed
-          ..delayMinutes = delayMinutes
+          ..delayMinutes = safeDelayMinutes
           ..actionUsed = actionUsed
           ..notificationScheduledAt = notificationScheduledAt
           ..timestamp = now
@@ -127,7 +145,7 @@ class ReminderResponseRepository {
 
       debugPrint(
         '[ReminderResponseRepository] Marked: actionUsed=$actionUsed, '
-        'completed=$completed, delay=${delayMinutes}min',
+        'completed=$completed, delay=${safeDelayMinutes}min',
       );
     } catch (e) {
       debugPrint('[ReminderResponseRepository] markResponded() failed: $e');
@@ -146,6 +164,10 @@ class ReminderResponseRepository {
     final list = existing != null
         ? PendingReminderResponse.decodeList(existing)
         : <PendingReminderResponse>[];
+    final responseKey = response.sentAt.toIso8601String();
+    if (list.any((item) => item.sentAt.toIso8601String() == responseKey)) {
+      return;
+    }
     list.add(response);
     await prefs.setString(
       kPendingReminderResponsesKey,
@@ -169,9 +191,17 @@ class ReminderResponseRepository {
     final all = await _getAll();
     bool modified = false;
     String? latestRecordedKey;
+    final processedQueuedKeys = <String>{};
 
     for (final p in pending) {
       final sentAtKey = p.sentAt.toIso8601String();
+
+      if (!processedQueuedKeys.add(sentAtKey)) {
+        debugPrint(
+          '[ReminderResponseRepository] Skipping duplicate queued response for sentAt=${p.sentAt}',
+        );
+        continue;
+      }
 
       // Skip if we already recorded a response for this sentAt timestamp
       if (lastRecorded != null && lastRecorded == sentAtKey) {
@@ -182,6 +212,7 @@ class ReminderResponseRepository {
       }
 
       final now = DateTime.now();
+      final safeDelayMinutes = p.delayMinutes < 0 ? 0 : p.delayMinutes;
 
       // Find and update matching pending record
       final idx = all.lastIndexWhere(
@@ -194,7 +225,7 @@ class ReminderResponseRepository {
       if (idx >= 0) {
         all[idx] = all[idx].copyWith(
           completed: p.completed,
-          delayMinutes: p.delayMinutes,
+          delayMinutes: safeDelayMinutes,
           actionUsed: p.actionUsed,
           timestamp: now,
           isSynced: false,
@@ -204,7 +235,7 @@ class ReminderResponseRepository {
         final response = ReminderResponse()
           ..userId = userId
           ..completed = p.completed
-          ..delayMinutes = p.delayMinutes
+          ..delayMinutes = safeDelayMinutes
           ..actionUsed = p.actionUsed
           ..notificationScheduledAt = p.sentAt
           ..timestamp = now
@@ -279,6 +310,118 @@ class ReminderResponseRepository {
     } catch (e) {
       debugPrint(
         '[ReminderResponseRepository] checkAndMarkNoResponses() failed: $e',
+      );
+    }
+  }
+
+  /// Drops pending records for notifications that were scheduled but canceled
+  /// before firing, preventing false no_response rows after settings changes.
+  Future<void> discardPendingScheduledAfter(
+    String userId,
+    DateTime cutoff,
+  ) async {
+    try {
+      await _migrateLegacyResponsesIfNeeded();
+      final all = await _getAll();
+      final toDelete = all
+          .where(
+            (r) =>
+                r.userId == userId &&
+                r.actionUsed == null &&
+                r.notificationScheduledAt.isAfter(cutoff),
+          )
+          .map((r) => r.id)
+          .toList();
+
+      if (toDelete.isEmpty) return;
+
+      await _isar.writeTxn(() async {
+        await _isar.reminderResponses.deleteAll(toDelete);
+      });
+
+      debugPrint(
+        '[ReminderResponseRepository] Discarded ${toDelete.length} canceled pending response(s)',
+      );
+    } catch (e) {
+      debugPrint(
+        '[ReminderResponseRepository] discardPendingScheduledAfter() failed: $e',
+      );
+    }
+  }
+
+  /// Drops future pending records except the scheduled times that are still
+  /// backed by a rebuilt regular reminder notification.
+  Future<void> discardPendingScheduledAfterExcept(
+    String userId,
+    DateTime cutoff, {
+    required Iterable<DateTime> keepScheduledTimes,
+  }) async {
+    try {
+      await _migrateLegacyResponsesIfNeeded();
+      final keep = keepScheduledTimes
+          .map((time) => time.toIso8601String())
+          .toSet();
+      final all = await _getAll();
+      final toDelete = all
+          .where(
+            (r) =>
+                r.userId == userId &&
+                r.actionUsed == null &&
+                r.notificationScheduledAt.isAfter(cutoff) &&
+                !keep.contains(r.notificationScheduledAt.toIso8601String()),
+          )
+          .map((r) => r.id)
+          .toList();
+
+      if (toDelete.isEmpty) return;
+
+      await _isar.writeTxn(() async {
+        await _isar.reminderResponses.deleteAll(toDelete);
+      });
+
+      debugPrint(
+        '[ReminderResponseRepository] Discarded ${toDelete.length} stale pending response(s)',
+      );
+    } catch (e) {
+      debugPrint(
+        '[ReminderResponseRepository] discardPendingScheduledAfterExcept() failed: $e',
+      );
+    }
+  }
+
+  /// Drops pending records for canceled regular reminders inside a local time
+  /// range, preventing false no_response rows after target-achieved cleanup.
+  Future<void> discardPendingScheduledBetween(
+    String userId,
+    DateTime start,
+    DateTime end,
+  ) async {
+    try {
+      await _migrateLegacyResponsesIfNeeded();
+      final all = await _getAll();
+      final toDelete = all
+          .where(
+            (r) =>
+                r.userId == userId &&
+                r.actionUsed == null &&
+                r.notificationScheduledAt.isAfter(start) &&
+                !r.notificationScheduledAt.isAfter(end),
+          )
+          .map((r) => r.id)
+          .toList();
+
+      if (toDelete.isEmpty) return;
+
+      await _isar.writeTxn(() async {
+        await _isar.reminderResponses.deleteAll(toDelete);
+      });
+
+      debugPrint(
+        '[ReminderResponseRepository] Discarded ${toDelete.length} canceled same-day pending response(s)',
+      );
+    } catch (e) {
+      debugPrint(
+        '[ReminderResponseRepository] discardPendingScheduledBetween() failed: $e',
       );
     }
   }

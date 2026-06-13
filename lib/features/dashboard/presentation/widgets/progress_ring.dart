@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,56 +9,26 @@ import '../../../../providers/hydration_provider.dart';
 double? _persistedPreviousProgress;
 
 class ProgressRing extends ConsumerStatefulWidget {
-  const ProgressRing({super.key});
+  final bool lightweightMode;
+
+  const ProgressRing({super.key, this.lightweightMode = false});
 
   @override
   ConsumerState<ProgressRing> createState() => _ProgressRingState();
 }
 
-class _ProgressRingState extends ConsumerState<ProgressRing>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _waveController;
-
-  @override
-  void initState() {
-    super.initState();
-    _waveController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _waveController.dispose();
-    super.dispose();
-  }
-
-  String _formatVolume(int volume) {
-    final value = volume.toString();
-    if (value.length > 3) {
-      return '${value.substring(0, value.length - 3)}.${value.substring(value.length - 3)}';
-    }
-    return value;
-  }
-
+class _ProgressRingState extends ConsumerState<ProgressRing> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(hydrationProvider);
 
     if (state.isLoading) {
       return const SizedBox(
-        height: 300,
+        height: 320,
         child: Center(
           child: CircularProgressIndicator(color: Color(0xFF1A73E8)),
         ),
       );
-    }
-
-    final isReached = state.isTargetReached;
-
-    if (!_waveController.isAnimating) {
-      _waveController.repeat();
     }
 
     final double beginProgress =
@@ -65,242 +36,225 @@ class _ProgressRingState extends ConsumerState<ProgressRing>
     _persistedPreviousProgress = state.progressPercent;
     final double endProgress = state.progressPercent;
 
-    final currentMl = state.currentMl;
-    final targetMl = state.targetMl;
-    final remainingMl = state.remainingMl;
-
-    String mainText = '';
-    String subText = '';
-    Color subTextColor = const Color(0xFF6B7280);
-
-    if (currentMl == 0) {
-      mainText = 'Belum ada catatan hari ini';
-      subText = 'Mulai dengan segelas air';
-    } else if (currentMl >= targetMl) {
-      mainText = '${_formatVolume(currentMl)} / ${_formatVolume(targetMl)} ml';
-      subText = currentMl == targetMl
-          ? 'Target hari ini tercapai'
-          : 'Target tercapai';
-      subTextColor = const Color(0xFF34A853); // Success green
-    } else if (targetMl - currentMl <= 250) {
-      mainText = '${_formatVolume(currentMl)} / ${_formatVolume(targetMl)} ml';
-      subText = 'Sedikit lagi, kurang ${_formatVolume(remainingMl)} ml';
-      subTextColor = const Color(0xFF1A73E8); // Highlight with primary blue
-    } else {
-      mainText = '${_formatVolume(currentMl)} / ${_formatVolume(targetMl)} ml';
-      subText = 'Kurang ${_formatVolume(remainingMl)} ml lagi';
+    String formatVolume(int volume) {
+      final value = volume.toString();
+      if (value.length > 3) {
+        return '${value.substring(0, value.length - 3)}.${value.substring(value.length - 3)}';
+      }
+      return value;
     }
 
-    final percentText = '${(state.progressPercent * 100).toInt()}% tercapai';
+    String progressStatus() {
+      if (state.todayLogs.isEmpty && state.currentMl == 0) {
+        return 'Belum ada catatan';
+      }
+      if (state.isTargetReached) {
+        return 'Target tercapai';
+      }
+      if (state.progressPercent >= 0.8) {
+        return 'Sedikit lagi';
+      }
+      return 'Masih perlu ditambah';
+    }
 
-    return Container(
+    final card = Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+      height: 340,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE8F4FF), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1A73E8).withValues(alpha: 0.04),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 1. Optional Small Badge at the top right of the card
-          Align(
-            alignment: Alignment.topRight,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: isReached
-                    ? const Color(0xFFEBF8EE) // Success green bg
-                    : const Color(0xFFE8F4FF), // Soft blue bg
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                percentText,
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: isReached
-                      ? const Color(0xFF34A853)
-                      : const Color(0xFF1A73E8),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: widget.lightweightMode
+              ? [Colors.white.withValues(alpha: 0.88), const Color(0xFFF4FAFF)]
+              : [
+                  Colors.white.withValues(alpha: 0.50),
+                  Colors.white.withValues(alpha: 0.20),
+                ],
+        ),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: widget.lightweightMode
+              ? const Color(0xFFD7E8F7)
+              : Colors.white.withValues(alpha: 0.6),
+          width: 1.2,
+        ),
+        boxShadow: widget.lightweightMode
+            ? const []
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
                 ),
+              ],
+      ),
+      child: Center(
+        child: SizedBox(
+          width: 270,
+          height: 270,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: beginProgress, end: endProgress),
+                duration: widget.lightweightMode
+                    ? Duration.zero
+                    : const Duration(milliseconds: 1200),
+                curve: Curves.easeOutCubic,
+                builder: (context, animProgress, child) {
+                  return CustomPaint(
+                    size: const Size(270, 270),
+                    painter: _RingPainter(
+                      progress: animProgress,
+                      strokeWidth: 22,
+                      lightweightMode: widget.lightweightMode,
+                    ),
+                  );
+                },
               ),
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // 2. Large Water Glass Graphic
-          SizedBox(
-            height: 180,
-            width: double.infinity,
-            child: TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: beginProgress, end: endProgress),
-              duration: const Duration(milliseconds: 1200),
-              curve: Curves.easeOutCubic,
-              builder: (context, animProgress, child) {
-                return AnimatedBuilder(
-                  animation: _waveController,
-                  builder: (context, child) {
-                    return CustomPaint(
-                      painter: _WaterGlassPainter(
-                        progress: animProgress,
-                        wavePhase: _waveController.value * 2 * math.pi,
-                        isReached: isReached,
+              TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: beginProgress, end: endProgress),
+                duration: widget.lightweightMode
+                    ? Duration.zero
+                    : const Duration(milliseconds: 1200),
+                curve: Curves.easeOutCubic,
+                builder: (context, animProgress, child) {
+                  final percent = (animProgress * 100).toInt();
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$percent%',
+                        style: GoogleFonts.inter(
+                          fontSize: 54,
+                          fontWeight: FontWeight.normal,
+                          color: Colors.black,
+                        ),
                       ),
-                    );
-                  },
-                );
-              },
-            ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${formatVolume(state.currentMl)} ml',
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.normal,
+                          color: Colors.black.withValues(alpha: 0.6),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        progressStatus(),
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.normal,
+                          color: Colors.black.withValues(alpha: 0.55),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
+        ),
+      ),
+    );
 
-          // 3. Main Text (Today's total intake)
-          Text(
-            mainText,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
-              color: const Color(0xFF1F2937),
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 6),
+    if (widget.lightweightMode) {
+      return card;
+    }
 
-          // 4. Subtext (Remaining amount status)
-          Text(
-            subText,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: subTextColor,
-            ),
-          ),
-        ],
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: card,
       ),
     );
   }
 }
 
-class _WaterGlassPainter extends CustomPainter {
+class _RingPainter extends CustomPainter {
   final double progress; // 0.0 to 1.0
-  final double wavePhase;
-  final bool isReached;
+  final double strokeWidth;
+  final bool lightweightMode;
 
-  _WaterGlassPainter({
+  _RingPainter({
     required this.progress,
-    required this.wavePhase,
-    required this.isReached,
+    this.strokeWidth = 20.0,
+    this.lightweightMode = false,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final double cx = size.width / 2;
-    final double cy = size.height / 2;
-    final double w = 110.0; // glass top width
-    final double h = 160.0; // glass height
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - strokeWidth) / 2;
 
-    // Glass path (outer outline)
-    final glassPath = Path();
-    glassPath.moveTo(cx - w / 2, cy - h / 2);
-    glassPath.lineTo(cx - w * 0.4, cy + h / 2 - 8);
-    // bottom rounded curve
-    glassPath.quadraticBezierTo(
-      cx,
-      cy + h / 2 + 2,
-      cx + w * 0.4,
-      cy + h / 2 - 8,
-    );
-    glassPath.lineTo(cx + w / 2, cy - h / 2);
+    // 1. Draw semi-transparent glass background track
+    final trackPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.15)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+    canvas.drawCircle(center, radius, trackPaint);
 
-    // Water level path (clipped inside the glass)
-    final clampedProgress = progress.clamp(0.0, 1.0);
-    if (clampedProgress > 0.0) {
-      canvas.save();
-      canvas.clipPath(glassPath);
+    // 2. Draw 3D Glass Pipe Frames (Thin concentric white outlines)
+    final glassOutlinePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    canvas.drawCircle(center, radius + (strokeWidth / 2), glassOutlinePaint);
+    canvas.drawCircle(center, radius - (strokeWidth / 2), glassOutlinePaint);
 
-      // water height goes from bottom (cy + h / 2) to top (cy - h / 2)
-      final double waterTopY = (cy + h / 2) - (clampedProgress * h * 0.9);
-      final waterPath = Path();
-      waterPath.moveTo(cx - w, cy + h);
-      waterPath.lineTo(cx - w, waterTopY);
-
-      // Waves on top of water surface
-      for (double x = cx - w; x <= cx + w; x += 4) {
-        final double waveHeight = (1.0 - clampedProgress) * 5.0 + 1.5;
-        final double y =
-            waterTopY + waveHeight * math.sin((x / 14) + wavePhase);
-        waterPath.lineTo(x, y);
-      }
-      waterPath.lineTo(cx + w, cy + h);
-      waterPath.close();
-
-      // Cyan to Blue water gradient
-      final waterPaint = Paint()
+    // 3. Draw active progress arc with glassmorphic gradient
+    if (progress > 0) {
+      final rect = Rect.fromCircle(center: center, radius: radius);
+      final activePaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: isReached
-              ? [
-                  const Color(0xFF34A853), // Success green
-                  const Color(0xFF2E7D32),
-                ]
-              : [
-                  const Color(0xFF4FC3F7), // Cyan accent
-                  const Color(0xFF1A73E8), // Primary blue
-                ],
-        ).createShader(Rect.fromLTWH(cx - w / 2, waterTopY, w, h));
+          colors: [
+            const Color(0xFF1A73E8).withValues(alpha: 0.70),
+            const Color(0xFF1A73E8).withValues(alpha: 0.20),
+          ],
+        ).createShader(rect);
 
-      canvas.drawPath(waterPath, waterPaint);
+      canvas.drawArc(
+        rect,
+        -math.pi / 2,
+        2 * math.pi * progress.clamp(0.0, 1.0),
+        false,
+        activePaint,
+      );
 
-      // Rising Bubbles inside the water
-      final bubblePaint = Paint()..color = Colors.white.withValues(alpha: 0.4);
-      for (int i = 0; i < 6; i++) {
-        final double bubbleX = cx + (math.sin(wavePhase * 0.8 + i) * w * 0.22);
-        double bubbleY =
-            (cy + h / 2) -
-            (((wavePhase * 15 + i * 30) % (h * clampedProgress * 0.9)));
-        if (bubbleY < waterTopY) continue;
-        final double radius = (i % 2 + 2.0);
-        canvas.drawCircle(Offset(bubbleX, bubbleY), radius, bubblePaint);
+      // 4. Draw Glowing Orbiting Indicator Dot at the end of the progress arc
+      final double angle =
+          -math.pi / 2 + 2 * math.pi * progress.clamp(0.0, 1.0);
+      final double dotX = center.dx + radius * math.cos(angle);
+      final double dotY = center.dy + radius * math.sin(angle);
+      final Offset dotCenter = Offset(dotX, dotY);
+
+      if (!lightweightMode) {
+        final dotGlow = Paint()
+          ..color = const Color(0xFF1A73E8).withValues(alpha: 0.6)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+        canvas.drawCircle(dotCenter, 8.0, dotGlow);
       }
 
-      canvas.restore();
+      // Inner White Core
+      final dotPaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(dotCenter, 4.5, dotPaint);
     }
-
-    // Glass outline stroke
-    final glassOutlinePaint = Paint()
-      ..color = const Color(0xFF1A73E8).withValues(alpha: 0.25)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.0
-      ..strokeCap = StrokeCap.round;
-    canvas.drawPath(glassPath, glassOutlinePaint);
-
-    // Glass highlight reflection
-    final highlightPath = Path();
-    highlightPath.moveTo(cx - w / 2 + 8, cy - h / 2 + 10);
-    highlightPath.lineTo(cx - w * 0.4 + 6, cy + h / 2 - 15);
-    final highlightPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.35)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round;
-    canvas.drawPath(highlightPath, highlightPaint);
   }
 
   @override
-  bool shouldRepaint(covariant _WaterGlassPainter oldDelegate) {
+  bool shouldRepaint(covariant _RingPainter oldDelegate) {
     return oldDelegate.progress != progress ||
-        oldDelegate.wavePhase != wavePhase ||
-        oldDelegate.isReached != isReached;
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.lightweightMode != lightweightMode;
   }
 }

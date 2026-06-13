@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_constants.dart';
@@ -9,14 +11,14 @@ const _kCategoryStyles = {
     fg: Color(0xFF1565C0),
   ),
   'fakta_unik': (
-    color: Color(0xFFFFE194),
+    color: Color(0xFFA5F3FC),
     chipBg: Colors.white,
-    fg: Color(0xFF795548),
+    fg: Color(0xFF0E7490),
   ),
   'kesehatan': (
-    color: Color(0xFFC4E8C2),
+    color: Color(0xFFC7D2FE),
     chipBg: Colors.white,
-    fg: Color(0xFF2E7D32),
+    fg: Color(0xFF4338CA),
   ),
 };
 
@@ -54,113 +56,139 @@ class _ArticleCardState extends State<ArticleCard> {
         scale: _isPressed ? 0.98 : 1.0,
         duration: const Duration(milliseconds: 100),
         child: Container(
-          margin: EdgeInsets.only(bottom: widget.isFeatured ? 24 : 16),
+          margin: const EdgeInsets.only(bottom: 24),
           decoration: BoxDecoration(
-            color: style.color,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.5),
-              width: 1.5,
-            ),
             boxShadow: [
               BoxShadow(
-                color: style.fg.withValues(alpha: 0.08),
-                blurRadius: 15,
+                color: style.fg.withValues(alpha: 0.04),
+                blurRadius: 18,
                 offset: const Offset(0, 8),
               ),
             ],
           ),
-          child: Padding(
-            padding: EdgeInsets.all(widget.isFeatured ? 32 : 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 6,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      style.color.withValues(alpha: 0.45),
+                      style.color.withValues(alpha: 0.18),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.55),
+                    width: 1.2,
+                  ),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(widget.isFeatured ? 32 : 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.45),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.55),
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              _categoryLabel(widget.article.category),
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.normal,
+                                color: style.fg,
+                                letterSpacing: 0.5,
+                                                      ),
+                            ),
+                          ),
+                          Text(
+                            widget.article.emoji,
+                            style: GoogleFonts.inter(
+                              fontSize: widget.isFeatured ? 32 : 24,
+                            ),
+                          ),
+                        ],
                       ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        _categoryLabel(widget.article.category),
+                      SizedBox(height: widget.isFeatured ? 32 : 20),
+                      Text(
+                        widget.article.title,
                         style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                          fontSize: widget.isFeatured ? 24 : 20,
+                          fontWeight: FontWeight.normal,
                           color: style.fg,
-                          letterSpacing: 0.5,
+                          height: 1.25,
+                          letterSpacing: -0.5,
                         ),
                       ),
-                    ),
-                    Text(
-                      widget.article.emoji,
-                      style: GoogleFonts.inter(
-                        fontSize: widget.isFeatured ? 32 : 24,
+                      const SizedBox(height: 12),
+                      Text(
+                        widget.article.summary,
+                        maxLines: widget.isFeatured ? 4 : 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.normal,
+                          color: style.fg.withValues(alpha: 0.7),
+                          height: 1.5,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: widget.isFeatured ? 32 : 20),
-                Text(
-                  widget.article.title,
-                  style: GoogleFonts.inter(
-                    fontSize: widget.isFeatured ? 24 : 20,
-                    fontWeight: FontWeight.w900,
-                    color: style.fg,
-                    height: 1.25,
-                    letterSpacing: -0.5,
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.access_time_rounded,
+                            size: 14,
+                            color: style.fg.withValues(alpha: 0.5),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '2 menit baca',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.normal,
+                              color: style.fg.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.45),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.55),
+                                width: 1,
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.arrow_forward_rounded,
+                              size: 16,
+                              color: style.fg,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  widget.article.summary,
-                  maxLines: widget.isFeatured ? 4 : 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: style.fg.withValues(alpha: 0.7),
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.access_time_rounded,
-                      size: 14,
-                      color: style.fg.withValues(alpha: 0.5),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '2 menit baca',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: style.fg.withValues(alpha: 0.5),
-                      ),
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.4),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.arrow_forward_rounded,
-                        size: 16,
-                        color: style.fg,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
         ),

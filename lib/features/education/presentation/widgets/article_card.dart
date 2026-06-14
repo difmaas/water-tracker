@@ -1,28 +1,30 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../providers/app_settings_provider.dart';
 
 const _kCategoryStyles = {
   'sains': (
-    color: Color(0xFFBDDDFD),
+    color: Color(0xFFEAF5FF),
     chipBg: Colors.white,
     fg: Color(0xFF1565C0),
   ),
   'fakta_unik': (
-    color: Color(0xFFA5F3FC),
+    color: Color(0xFFFEFCE8),
     chipBg: Colors.white,
-    fg: Color(0xFF0E7490),
+    fg: Color(0xFF854D0E),
   ),
   'kesehatan': (
-    color: Color(0xFFC7D2FE),
+    color: Color(0xFFECFDF5),
     chipBg: Colors.white,
-    fg: Color(0xFF4338CA),
+    fg: Color(0xFF047857),
   ),
 };
 
-class ArticleCard extends StatefulWidget {
+class ArticleCard extends ConsumerStatefulWidget {
   final HydrationArticle article;
   final VoidCallback onTap;
   final bool isFeatured;
@@ -35,10 +37,10 @@ class ArticleCard extends StatefulWidget {
   });
 
   @override
-  State<ArticleCard> createState() => _ArticleCardState();
+  ConsumerState<ArticleCard> createState() => _ArticleCardState();
 }
 
-class _ArticleCardState extends State<ArticleCard> {
+class _ArticleCardState extends ConsumerState<ArticleCard> {
   bool _isPressed = false;
 
   @override
@@ -46,6 +48,148 @@ class _ArticleCardState extends State<ArticleCard> {
     final style =
         _kCategoryStyles[widget.article.category.toLowerCase()] ??
         _kCategoryStyles['sains']!;
+
+    final lightweightMode = ref.watch(
+      appSettingsProvider.select((state) => state.lightweightMode),
+    );
+
+    final cardContent = Container(
+      decoration: BoxDecoration(
+        color: lightweightMode ? style.color : null,
+        gradient: lightweightMode
+            ? null
+            : LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  style.color.withValues(alpha: 0.45),
+                  style.color.withValues(alpha: 0.18),
+                ],
+              ),
+        borderRadius: BorderRadius.circular(16),
+        border: lightweightMode
+            ? null
+            : Border.all(
+                color: Colors.white.withValues(alpha: 0.55),
+                width: 1.2,
+              ),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(widget.isFeatured ? 32 : 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: lightweightMode
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: lightweightMode
+                          ? style.color.withValues(alpha: 0.5)
+                          : Colors.white.withValues(alpha: 0.55),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    _categoryLabel(widget.article.category),
+                    style: GoogleFonts.manrope(
+                      fontSize: 12,
+                      fontWeight: FontWeight.normal,
+                      color: style.fg,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                Text(
+                  widget.article.emoji,
+                  style: GoogleFonts.manrope(
+                    fontSize: widget.isFeatured ? 32 : 24,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: widget.isFeatured ? 32 : 20),
+            Text(
+              widget.article.title,
+              style: GoogleFonts.manrope(
+                fontSize: widget.isFeatured ? 24 : 20,
+                fontWeight: FontWeight.normal,
+                color: style.fg,
+                height: 1.25,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              widget.article.summary,
+              maxLines: widget.isFeatured ? 4 : 2,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.manrope(
+                fontSize: 14,
+                fontWeight: FontWeight.normal,
+                color: lightweightMode
+                    ? style.fg.withValues(alpha: 0.8)
+                    : style.fg.withValues(alpha: 0.7),
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Icon(
+                  Icons.access_time_rounded,
+                  size: 14,
+                  color: lightweightMode
+                      ? style.fg.withValues(alpha: 0.7)
+                      : style.fg.withValues(alpha: 0.5),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '2 menit baca',
+                  style: GoogleFonts.manrope(
+                    fontSize: 12,
+                    fontWeight: FontWeight.normal,
+                    color: lightweightMode
+                        ? style.fg.withValues(alpha: 0.7)
+                        : style.fg.withValues(alpha: 0.5),
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: lightweightMode
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.45),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: lightweightMode
+                          ? style.fg.withValues(alpha: 0.15)
+                          : Colors.white.withValues(alpha: 0.55),
+                      width: 1,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 16,
+                    color: style.fg,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _isPressed = true),
@@ -58,138 +202,32 @@ class _ArticleCardState extends State<ArticleCard> {
         child: Container(
           margin: const EdgeInsets.only(bottom: 24),
           decoration: BoxDecoration(
+            color: lightweightMode ? style.color : null,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: style.fg.withValues(alpha: 0.04),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
+            border: lightweightMode
+                ? Border.all(
+                    color: style.fg.withValues(alpha: 0.15),
+                    width: 1.0,
+                  )
+                : null,
+            boxShadow: lightweightMode
+                ? const []
+                : [
+                    BoxShadow(
+                      color: style.fg.withValues(alpha: 0.04),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      style.color.withValues(alpha: 0.45),
-                      style.color.withValues(alpha: 0.18),
-                    ],
+            child: lightweightMode
+                ? cardContent
+                : BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                    child: cardContent,
                   ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.55),
-                    width: 1.2,
-                  ),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(widget.isFeatured ? 32 : 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.45),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.55),
-                                width: 1,
-                              ),
-                            ),
-                            child: Text(
-                              _categoryLabel(widget.article.category),
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                fontWeight: FontWeight.normal,
-                                color: style.fg,
-                                letterSpacing: 0.5,
-                                                      ),
-                            ),
-                          ),
-                          Text(
-                            widget.article.emoji,
-                            style: GoogleFonts.inter(
-                              fontSize: widget.isFeatured ? 32 : 24,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: widget.isFeatured ? 32 : 20),
-                      Text(
-                        widget.article.title,
-                        style: GoogleFonts.inter(
-                          fontSize: widget.isFeatured ? 24 : 20,
-                          fontWeight: FontWeight.normal,
-                          color: style.fg,
-                          height: 1.25,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        widget.article.summary,
-                        maxLines: widget.isFeatured ? 4 : 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.normal,
-                          color: style.fg.withValues(alpha: 0.7),
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.access_time_rounded,
-                            size: 14,
-                            color: style.fg.withValues(alpha: 0.5),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '2 menit baca',
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              fontWeight: FontWeight.normal,
-                              color: style.fg.withValues(alpha: 0.5),
-                            ),
-                          ),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.45),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.55),
-                                width: 1,
-                              ),
-                            ),
-                            child: Icon(
-                              Icons.arrow_forward_rounded,
-                              size: 16,
-                              color: style.fg,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
           ),
         ),
       ),

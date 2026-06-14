@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../features/logging/data/hydration_log_model.dart';
 import '../../../../providers/hydration_provider.dart';
+import '../../../../providers/app_settings_provider.dart';
 import '../../../../core/widgets/app_button.dart';
 
 class HydrationLogTile extends ConsumerWidget {
@@ -77,7 +78,7 @@ class HydrationLogTile extends ConsumerWidget {
           // Time of logging
           Text(
             timeString,
-            style: GoogleFonts.inter(
+            style: GoogleFonts.manrope(
               fontSize: 15,
               fontWeight: FontWeight.normal,
               color: kObsidian,
@@ -87,7 +88,7 @@ class HydrationLogTile extends ConsumerWidget {
           // Volume logged
           Text(
             '+${log.volume} ml',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.manrope(
               fontSize: 15,
               fontWeight: FontWeight.normal,
               color: Colors.black,
@@ -118,20 +119,18 @@ class HydrationLogTile extends ConsumerWidget {
   }
 
   void _showDeleteDialog(BuildContext context, WidgetRef ref) {
+    final lightweightMode = ref.read(appSettingsProvider).lightweightMode;
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
+        final dialogContent = Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: lightweightMode ? Colors.white : null,
+            gradient: lightweightMode
+                ? null
+                : LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
@@ -139,91 +138,146 @@ class HydrationLogTile extends ConsumerWidget {
                       Colors.white.withValues(alpha: 0.75),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    width: 1.2,
-                  ),
-                  boxShadow: [
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: lightweightMode
+                  ? const Color(0xFFE2E8F0)
+                  : Colors.white.withValues(alpha: 0.7),
+              width: 1.2,
+            ),
+            boxShadow: lightweightMode
+                ? const []
+                : [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.08),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
                   ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Hapus Catatan?',
+                style: GoogleFonts.manrope(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFFEF4444),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Hapus Catatan?',
-                      style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFFEF4444),
-                      ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Apakah Anda yakin ingin menghapus catatan minum air sebesar ${log.volume} ml ini?',
+                style: GoogleFonts.manrope(
+                  fontSize: 14,
+                  color: const Color(0xFF5F6368),
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: AppButton.secondary(
+                      label: 'Batal',
+                      isTransparent: true,
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Apakah Anda yakin ingin menghapus catatan minum air sebesar ${log.volume} ml ini?',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: const Color(0xFF5F6368),
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: AppButton.secondary(
-                            label: 'Batal',
-                            isTransparent: true,
-                            onPressed: () => Navigator.of(context).pop(),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: AppButton.main(
-                            label: 'Hapus',
-                            color: const Color(0xFFEF4444),
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                              ref
-                                  .read(hydrationProvider.notifier)
-                                  .deleteLog(log.id, log.timestamp);
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: AppButton.main(
+                      label: 'Hapus',
+                      color: const Color(0xFFEF4444),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        ref
+                            .read(hydrationProvider.notifier)
+                            .deleteLog(log.id, log.timestamp);
 
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  behavior: SnackBarBehavior.floating,
-                                  backgroundColor: Colors.transparent,
-                                  elevation: 0,
-                                  margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                                  padding: EdgeInsets.zero,
-                                  content: ClipRRect(
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            behavior: SnackBarBehavior.floating,
+                            backgroundColor: Colors.transparent,
+                            elevation: 0,
+                            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            padding: EdgeInsets.zero,
+                            content: lightweightMode
+                                ? Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 14,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: const Color(0xFFE2E8F0),
+                                        width: 1.2,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.delete_outline_rounded,
+                                          color: Color(0xFFEF4444),
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            'Catatan ${log.volume} ml berhasil dihapus',
+                                            style: GoogleFonts.manrope(
+                                              color: Colors.black87,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : ClipRRect(
                                     borderRadius: BorderRadius.circular(16),
                                     child: BackdropFilter(
-                                      filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                                      filter: ImageFilter.blur(
+                                        sigmaX: 16,
+                                        sigmaY: 16,
+                                      ),
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 20,
+                                          vertical: 14,
+                                        ),
                                         decoration: BoxDecoration(
                                           gradient: LinearGradient(
                                             begin: Alignment.topLeft,
                                             end: Alignment.bottomRight,
                                             colors: [
-                                              Colors.white.withValues(alpha: 0.65),
-                                              Colors.white.withValues(alpha: 0.35),
+                                              Colors.white.withValues(
+                                                alpha: 0.65,
+                                              ),
+                                              Colors.white.withValues(
+                                                alpha: 0.35,
+                                              ),
                                             ],
                                           ),
-                                          borderRadius: BorderRadius.circular(16),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
                                           border: Border.all(
-                                            color: Colors.white.withValues(alpha: 0.6),
+                                            color: Colors.white.withValues(
+                                              alpha: 0.6,
+                                            ),
                                             width: 1.2,
                                           ),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Colors.black.withValues(alpha: 0.08),
+                                              color: Colors.black.withValues(
+                                                alpha: 0.08,
+                                              ),
                                               blurRadius: 16,
                                               offset: const Offset(0, 4),
                                             ),
@@ -240,7 +294,7 @@ class HydrationLogTile extends ConsumerWidget {
                                             Expanded(
                                               child: Text(
                                                 'Catatan ${log.volume} ml berhasil dihapus',
-                                                style: GoogleFonts.inter(
+                                                style: GoogleFonts.manrope(
                                                   color: Colors.black87,
                                                   fontSize: 14,
                                                   fontWeight: FontWeight.w500,
@@ -252,17 +306,28 @@ class HydrationLogTile extends ConsumerWidget {
                                       ),
                                     ),
                                   ),
-                                ),
-                              );
-                            },
                           ),
-                        ),
-                      ],
+                        );
+                      },
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ),
+            ],
+          ),
+        );
+
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: lightweightMode
+                ? dialogContent
+                : BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                    child: dialogContent,
+                  ),
           ),
         );
       },
@@ -276,22 +341,22 @@ class HydrationLogTile extends ConsumerWidget {
     ];
     var selectedVolume = log.volume;
 
+    final lightweightMode = ref.read(
+      appSettingsProvider.select((state) => state.lightweightMode),
+    );
+
     showDialog(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (dialogContext, setDialogState) {
-            return Dialog(
-              backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-                  child: Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
+            final dialogContent = Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: lightweightMode ? Colors.white : null,
+                gradient: lightweightMode
+                    ? null
+                    : LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
@@ -299,143 +364,225 @@ class HydrationLogTile extends ConsumerWidget {
                           Colors.white.withValues(alpha: 0.75),
                         ],
                       ),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.7),
-                        width: 1.2,
-                      ),
-                      boxShadow: [
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: lightweightMode
+                      ? const Color(0xFFE2E8F0)
+                      : Colors.white.withValues(alpha: 0.7),
+                  width: 1.2,
+                ),
+                boxShadow: lightweightMode
+                    ? const []
+                    : [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.08),
                           blurRadius: 20,
                           offset: const Offset(0, 8),
                         ),
                       ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Edit Catatan Minum',
+                    style: GoogleFonts.manrope(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF1A73E8),
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Edit Catatan Minum',
-                          style: GoogleFonts.inter(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF1A73E8),
-                          ),
+                  ),
+                  const SizedBox(height: 16),
+                  GridView.count(
+                    shrinkWrap: true,
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.8,
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: volumeOptions
+                        .map((volume) {
+                          final isTemporaryOldValue =
+                              volume == log.volume &&
+                              !kHydrationVolumePresets.contains(volume);
+                          return _EditVolumeCard(
+                            volume: volume,
+                            isSelected: selectedVolume == volume,
+                            helperText: isTemporaryOldValue
+                                ? 'Nilai lama'
+                                : null,
+                            iconPath: _getIconPath(volume),
+                            iconSize: _getVisualIconSize(volume),
+                            lightweightMode: lightweightMode,
+                            onTap: () {
+                              setDialogState(() {
+                                selectedVolume = volume;
+                              });
+                            },
+                          );
+                        })
+                        .toList(growable: false),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: AppButton.secondary(
+                          label: 'Batal',
+                          isTransparent: true,
+                          onPressed: () => Navigator.of(dialogContext).pop(),
                         ),
-                        const SizedBox(height: 16),
-                        GridView.count(
-                          shrinkWrap: true,
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 1.8,
-                          physics: const NeverScrollableScrollPhysics(),
-                          children: volumeOptions
-                              .map((volume) {
-                                final isTemporaryOldValue =
-                                    volume == log.volume &&
-                                    !kHydrationVolumePresets.contains(volume);
-                                return _EditVolumeCard(
-                                  volume: volume,
-                                  isSelected: selectedVolume == volume,
-                                  helperText: isTemporaryOldValue
-                                      ? 'Nilai lama'
-                                      : null,
-                                  iconPath: _getIconPath(volume),
-                                  iconSize: _getVisualIconSize(volume),
-                                  onTap: () {
-                                    setDialogState(() {
-                                      selectedVolume = volume;
-                                    });
-                                  },
-                                );
-                              })
-                              .toList(growable: false),
-                        ),
-                        const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: AppButton.secondary(
-                                label: 'Batal',
-                                isTransparent: true,
-                                onPressed: () =>
-                                    Navigator.of(dialogContext).pop(),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: AppButton.main(
-                                label: 'Simpan',
-                                onPressed: selectedVolume == log.volume
-                                    ? null
-                                    : () async {
-                                        final newVolume = selectedVolume;
-                                        Navigator.of(dialogContext).pop();
-                                        await ref
-                                            .read(hydrationProvider.notifier)
-                                            .updateLog(
-                                              log.id,
-                                              newVolume,
-                                              log.timestamp,
-                                            );
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: AppButton.main(
+                          label: 'Simpan',
+                          onPressed: selectedVolume == log.volume
+                              ? null
+                              : () async {
+                                  final newVolume = selectedVolume;
+                                  Navigator.of(dialogContext).pop();
+                                  await ref
+                                      .read(hydrationProvider.notifier)
+                                      .updateLog(
+                                        log.id,
+                                        newVolume,
+                                        log.timestamp,
+                                      );
 
-                                        if (!context.mounted) return;
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            behavior: SnackBarBehavior.floating,
-                                            backgroundColor: Colors.transparent,
-                                            elevation: 0,
-                                            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                                            padding: EdgeInsets.zero,
-                                            content: ClipRRect(
-                                              borderRadius: BorderRadius.circular(16),
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      behavior: SnackBarBehavior.floating,
+                                      backgroundColor: Colors.transparent,
+                                      elevation: 0,
+                                      margin: const EdgeInsets.fromLTRB(
+                                        16,
+                                        0,
+                                        16,
+                                        16,
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      content: lightweightMode
+                                          ? Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 20,
+                                                    vertical: 14,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
+                                                border: Border.all(
+                                                  color: const Color(
+                                                    0xFFE2E8F0,
+                                                  ),
+                                                  width: 1.2,
+                                                ),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  const Icon(
+                                                    Icons
+                                                        .check_circle_outline_rounded,
+                                                    color: Color(0xFF1A73E8),
+                                                    size: 20,
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                    child: Text(
+                                                      'Volume berhasil diubah menjadi $newVolume ml',
+                                                      style:
+                                                          GoogleFonts.manrope(
+                                                            color:
+                                                                Colors.black87,
+                                                            fontSize: 14,
+                                                            fontWeight:
+                                                                FontWeight.w500,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            )
+                                          : ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
                                               child: BackdropFilter(
-                                                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                                                filter: ImageFilter.blur(
+                                                  sigmaX: 16,
+                                                  sigmaY: 16,
+                                                ),
                                                 child: Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 20,
+                                                        vertical: 14,
+                                                      ),
                                                   decoration: BoxDecoration(
                                                     gradient: LinearGradient(
                                                       begin: Alignment.topLeft,
-                                                      end: Alignment.bottomRight,
+                                                      end:
+                                                          Alignment.bottomRight,
                                                       colors: [
-                                                        Colors.white.withValues(alpha: 0.65),
-                                                        Colors.white.withValues(alpha: 0.35),
+                                                        Colors.white.withValues(
+                                                          alpha: 0.65,
+                                                        ),
+                                                        Colors.white.withValues(
+                                                          alpha: 0.35,
+                                                        ),
                                                       ],
                                                     ),
-                                                    borderRadius: BorderRadius.circular(16),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          16,
+                                                        ),
                                                     border: Border.all(
-                                                      color: Colors.white.withValues(alpha: 0.6),
+                                                      color: Colors.white
+                                                          .withValues(
+                                                            alpha: 0.6,
+                                                          ),
                                                       width: 1.2,
                                                     ),
                                                     boxShadow: [
                                                       BoxShadow(
-                                                        color: Colors.black.withValues(alpha: 0.08),
+                                                        color: Colors.black
+                                                            .withValues(
+                                                              alpha: 0.08,
+                                                            ),
                                                         blurRadius: 16,
-                                                        offset: const Offset(0, 4),
+                                                        offset: const Offset(
+                                                          0,
+                                                          4,
+                                                        ),
                                                       ),
                                                     ],
                                                   ),
                                                   child: Row(
                                                     children: [
                                                       const Icon(
-                                                        Icons.check_circle_outline_rounded,
-                                                        color: Color(0xFF1A73E8),
+                                                        Icons
+                                                            .check_circle_outline_rounded,
+                                                        color: Color(
+                                                          0xFF1A73E8,
+                                                        ),
                                                         size: 20,
                                                       ),
                                                       const SizedBox(width: 12),
                                                       Expanded(
                                                         child: Text(
                                                           'Volume berhasil diubah menjadi $newVolume ml',
-                                                          style: GoogleFonts.inter(
-                                                            color: Colors.black87,
-                                                            fontSize: 14,
-                                                            fontWeight: FontWeight.w500,
-                                                          ),
+                                                          style:
+                                                              GoogleFonts.manrope(
+                                                                color: Colors
+                                                                    .black87,
+                                                                fontSize: 14,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w500,
+                                                              ),
                                                         ),
                                                       ),
                                                     ],
@@ -443,17 +590,28 @@ class HydrationLogTile extends ConsumerWidget {
                                                 ),
                                               ),
                                             ),
-                                          ),
-                                        );
-                                      },
-                              ),
-                            ),
-                          ],
+                                    ),
+                                  );
+                                },
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ),
+                ],
+              ),
+            );
+
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: lightweightMode
+                    ? dialogContent
+                    : BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                        child: dialogContent,
+                      ),
               ),
             );
           },
@@ -463,6 +621,8 @@ class HydrationLogTile extends ConsumerWidget {
   }
 
   void _showActionsBottomSheet(BuildContext context, WidgetRef ref) {
+    final lightweightMode = ref.read(appSettingsProvider).lightweightMode;
+
     showModalBottomSheet(
       context: context,
       useRootNavigator: true,
@@ -470,96 +630,103 @@ class HydrationLogTile extends ConsumerWidget {
       elevation: 0,
       barrierColor: Colors.black.withValues(alpha: 0.15),
       builder: (sheetContext) {
-        return ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white.withValues(alpha: 0.60),
-                    Colors.white.withValues(alpha: 0.30),
-                  ],
-                ),
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(24),
-                ),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.7),
-                  width: 1.2,
-                ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade400,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+        final sheetContent = Container(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
+          decoration: BoxDecoration(
+            color: lightweightMode ? Colors.white : null,
+            gradient: lightweightMode
+                ? null
+                : LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.60),
+                      Colors.white.withValues(alpha: 0.30),
+                    ],
                   ),
-                  const SizedBox(height: 24),
-                  ListTile(
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.edit_rounded,
-                        color: Colors.blue.shade700,
-                        size: 20,
-                      ),
-                    ),
-                    title: Text(
-                      'Edit Catatan',
-                      style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    onTap: () {
-                      Navigator.pop(sheetContext);
-                      _showEditDialog(context, ref);
-                    },
-                  ),
-                  const Divider(height: 16),
-                  ListTile(
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.delete_rounded,
-                        color: Colors.red.shade700,
-                        size: 20,
-                      ),
-                    ),
-                    title: Text(
-                      'Hapus Catatan',
-                      style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.red.shade700,
-                      ),
-                    ),
-                    onTap: () {
-                      Navigator.pop(sheetContext);
-                      _showDeleteDialog(context, ref);
-                    },
-                  ),
-                ],
-              ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border.all(
+              color: lightweightMode
+                  ? const Color(0xFFE2E8F0)
+                  : Colors.white.withValues(alpha: 0.7),
+              width: 1.2,
             ),
           ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade400,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 24),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.edit_rounded,
+                    color: Colors.blue.shade700,
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  'Edit Catatan',
+                  style: GoogleFonts.manrope(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _showEditDialog(context, ref);
+                },
+              ),
+              const Divider(height: 16),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.delete_rounded,
+                    color: Colors.red.shade700,
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  'Hapus Catatan',
+                  style: GoogleFonts.manrope(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.red.shade700,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _showDeleteDialog(context, ref);
+                },
+              ),
+            ],
+          ),
+        );
+
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: lightweightMode
+              ? sheetContent
+              : BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                  child: sheetContent,
+                ),
         );
       },
     );
@@ -573,6 +740,7 @@ class _EditVolumeCard extends StatelessWidget {
   final String iconPath;
   final double iconSize;
   final VoidCallback onTap;
+  final bool lightweightMode;
 
   const _EditVolumeCard({
     required this.volume,
@@ -580,6 +748,7 @@ class _EditVolumeCard extends StatelessWidget {
     required this.iconPath,
     required this.iconSize,
     required this.onTap,
+    required this.lightweightMode,
     this.helperText,
   });
 
@@ -587,7 +756,9 @@ class _EditVolumeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final borderColor = isSelected
         ? const Color(0xFF1A73E8)
-        : Colors.white.withValues(alpha: 0.6);
+        : (lightweightMode
+              ? const Color(0xFFE2E8F0)
+              : Colors.white.withValues(alpha: 0.6));
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
@@ -598,18 +769,27 @@ class _EditVolumeCard extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withValues(alpha: isSelected ? 0.62 : 0.40),
-                  Colors.white.withValues(alpha: isSelected ? 0.26 : 0.15),
-                ],
-              ),
+              color: lightweightMode
+                  ? (isSelected ? const Color(0xFFEAF5FF) : Colors.white)
+                  : null,
+              gradient: lightweightMode
+                  ? null
+                  : LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withValues(
+                          alpha: isSelected ? 0.62 : 0.40,
+                        ),
+                        Colors.white.withValues(
+                          alpha: isSelected ? 0.26 : 0.15,
+                        ),
+                      ],
+                    ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: borderColor,
-                width: isSelected ? 1.8 : 1.2,
+                width: isSelected ? 1.8 : (lightweightMode ? 1.0 : 1.2),
               ),
             ),
             child: Column(
@@ -641,7 +821,7 @@ class _EditVolumeCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   '$volume ml',
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.manrope(
                     fontSize: 15,
                     fontWeight: FontWeight.normal,
                     color: Colors.black,
@@ -651,7 +831,7 @@ class _EditVolumeCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     helperText!,
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.manrope(
                       fontSize: 10,
                       fontWeight: FontWeight.normal,
                       color: const Color(0xFF6B7280),

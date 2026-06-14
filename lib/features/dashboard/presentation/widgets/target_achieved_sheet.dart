@@ -60,19 +60,22 @@ class _SheetContent extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(24, 18, 24, 18),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: lightweightMode
-              ? [Colors.white.withValues(alpha: 0.95), const Color(0xFFF4FAFF)]
-              : [
+        color: lightweightMode ? Colors.white : null,
+        gradient: lightweightMode
+            ? null
+            : LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
                   Colors.white.withValues(alpha: 0.60),
                   Colors.white.withValues(alpha: 0.30),
                 ],
-        ),
+              ),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.6),
+          color: lightweightMode
+              ? const Color(0xFFE2E8F0)
+              : Colors.white.withValues(alpha: 0.6),
           width: 1.2,
         ),
       ),
@@ -109,7 +112,7 @@ class _SheetContent extends StatelessWidget {
                     Text(
                       'Yeayy! Target minummu hari ini tercapai! 🎉',
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(
+                      style: GoogleFonts.manrope(
                         fontSize: 20,
                         fontWeight: FontWeight.w500,
                         color: const Color(0xFF1F2937),
@@ -120,7 +123,7 @@ class _SheetContent extends StatelessWidget {
                     Text(
                       'Tubuhmu pasti berterima kasih karena sudah terhidrasi dengan baik. Pertahankan terus ya!',
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(
+                      style: GoogleFonts.manrope(
                         fontSize: 14,
                         fontWeight: FontWeight.w400,
                         color: const Color(0xFF4B5563),

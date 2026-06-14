@@ -145,19 +145,21 @@ class ProgressNotifier extends Notifier<ProgressState> {
       for (int i = 6; i >= 0; i--) {
         final dayDate = todayMidnight.subtract(Duration(days: i));
         final isAvailable = !dayDate.isBefore(startDate);
-        
+
         final summary = summaryMap[dayDate];
         final achievedMl = summary?.achievedMl ?? 0;
         final targetMl = summary?.targetMl ?? profile.dailyTargetMl;
         final hasData = summary != null;
 
-        dailyTotals.add(WeeklyDayTotal(
-          date: dayDate,
-          achievedMl: achievedMl,
-          targetMl: targetMl,
-          isAvailable: isAvailable,
-          hasData: hasData,
-        ));
+        dailyTotals.add(
+          WeeklyDayTotal(
+            date: dayDate,
+            achievedMl: achievedMl,
+            targetMl: targetMl,
+            isAvailable: isAvailable,
+            hasData: hasData,
+          ),
+        );
       }
 
       // Filter available/valid days
@@ -165,26 +167,39 @@ class ProgressNotifier extends Notifier<ProgressState> {
       final validDays = availableDays.length;
 
       // Calculate total intake of available days
-      final totalIntake = availableDays.fold<int>(0, (sum, dt) => sum + dt.achievedMl);
-      final averageDailyMl = validDays > 0 ? (totalIntake / validDays).round() : 0;
+      final totalIntake = availableDays.fold<int>(
+        0,
+        (sum, dt) => sum + dt.achievedMl,
+      );
+      final averageDailyMl = validDays > 0
+          ? (totalIntake / validDays).round()
+          : 0;
 
       // Calculate achieved days (days where achievedMl >= targetMl)
-      final achievedDays = availableDays.where((dt) => dt.achievedMl >= dt.targetMl).length;
+      final achievedDays = availableDays
+          .where((dt) => dt.achievedMl >= dt.targetMl)
+          .length;
 
       // Consistency percentage
-      final consistencyPercentage = validDays > 0 ? ((achievedDays / validDays) * 100).round() : 0;
+      final consistencyPercentage = validDays > 0
+          ? ((achievedDays / validDays) * 100).round()
+          : 0;
 
       // Highest day (maximum achievedMl among available days with data)
       final daysWithData = availableDays.where((dt) => dt.hasData).toList();
       WeeklyDayTotal? highestDay;
       if (daysWithData.isNotEmpty) {
-        highestDay = daysWithData.reduce((curr, next) => curr.achievedMl > next.achievedMl ? curr : next);
+        highestDay = daysWithData.reduce(
+          (curr, next) => curr.achievedMl > next.achievedMl ? curr : next,
+        );
       }
 
       // Lowest recorded day (minimum achievedMl among available days with data)
       WeeklyDayTotal? lowestRecordedDay;
       if (daysWithData.isNotEmpty) {
-        lowestRecordedDay = daysWithData.reduce((curr, next) => curr.achievedMl < next.achievedMl ? curr : next);
+        lowestRecordedDay = daysWithData.reduce(
+          (curr, next) => curr.achievedMl < next.achievedMl ? curr : next,
+        );
       }
 
       final weeklyStats = WeeklyStats(
@@ -198,9 +213,11 @@ class ProgressNotifier extends Notifier<ProgressState> {
       );
 
       // Keep old variables populated for backwards compatibility if needed
-      final newest7 = allSummaries.length > 7 ? allSummaries.sublist(0, 7) : allSummaries;
+      final newest7 = allSummaries.length > 7
+          ? allSummaries.sublist(0, 7)
+          : allSummaries;
       final ordered = newest7.reversed.toList();
-      
+
       double totalCompliance = 0;
       int daysAbove80 = 0;
       int activeDays = 0;
@@ -209,7 +226,9 @@ class ProgressNotifier extends Notifier<ProgressState> {
         if (s.complianceRate >= 0.8) daysAbove80++;
         if (s.achievedMl > 0) activeDays++;
       }
-      final avgCompliance = ordered.isEmpty ? 0.0 : totalCompliance / ordered.length;
+      final avgCompliance = ordered.isEmpty
+          ? 0.0
+          : totalCompliance / ordered.length;
 
       state = state.copyWith(
         weekSummaries: ordered,

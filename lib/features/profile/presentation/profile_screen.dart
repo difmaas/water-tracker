@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../app/presentation/main_scaffold.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../providers/profile_provider.dart';
+import '../../../providers/app_settings_provider.dart';
 import '../../../core/widgets/app_button.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -101,6 +102,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         s.levelAktivitas.isNotEmpty &&
         isWindowValid) {
       try {
+        if (!widget.isEditing) {
+          final selectedLightweightMode = ref
+              .read(appSettingsProvider)
+              .lightweightMode;
+          await ref
+              .read(appSettingsProvider.notifier)
+              .setLightweightMode(selectedLightweightMode);
+        }
         await ref.read(profileProvider.notifier).submitProfile();
         if (mounted) {
           if (widget.isEditing) {
@@ -123,149 +132,170 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final controller = TextEditingController(
       text: (s.targetManualMl ?? s.calculatedTargetMl).toString(),
     );
+    final lightweightMode = ref.read(appSettingsProvider).lightweightMode;
+
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white.withValues(alpha: 0.90),
-                    Colors.white.withValues(alpha: 0.75),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.7),
-                  width: 1.2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Target Hidrasi Manual',
-                    style: GoogleFonts.inter(
-                      fontSize: 18,
-                      fontWeight: FontWeight.normal,
-                      color: const Color(0xFF1F2937),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Masukkan target minum harian sendiri, terutama jika kamu memiliki anjuran khusus dari tenaga kesehatan.',
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      color: const Color(0xFF6B7280),
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: controller,
-                    keyboardType: TextInputType.number,
-                    autofocus: true,
-                    style: GoogleFonts.inter(
-                      fontSize: 18,
-                      fontWeight: FontWeight.normal,
-                      color: const Color(0xFF1F2937),
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Volume target (ml)',
-                      filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.4),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.5),
-                          width: 1.2,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.4),
-                          width: 1.2,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF1A73E8),
-                          width: 1.5,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.end,
-                    children: [
-                      AppButton.secondary(
-                        label: 'Batal',
-                        isTransparent: true,
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                      if (s.targetManualMl != null) ...[
-                        AppButton.secondary(
-                          label: 'Reset Rekomendasi',
-                          color: const Color(0xFFEF4444),
-                          isTransparent: true,
-                          onPressed: () {
-                            notifier.updateManualTarget(null);
-                            Navigator.pop(context);
-                          },
-                        ),
-                      ],
-                      AppButton.main(
-                        label: 'Simpan',
-                        onPressed: () {
-                          final val = int.tryParse(controller.text);
-                          if (val != null && val >= 1500 && val <= 4000) {
-                            notifier.updateManualTarget(val);
-                            Navigator.pop(context);
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Target manual harus antara 1500–4000 ml',
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                      ),
+      builder: (context) {
+        final dialogContent = Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: lightweightMode ? Colors.white : null,
+            gradient: lightweightMode
+                ? null
+                : LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.90),
+                      Colors.white.withValues(alpha: 0.75),
                     ],
                   ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: lightweightMode
+                  ? const Color(0xFFE2E8F0)
+                  : Colors.white.withValues(alpha: 0.7),
+              width: 1.2,
+            ),
+            boxShadow: lightweightMode
+                ? const []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Target Hidrasi Manual',
+                style: GoogleFonts.manrope(
+                  fontSize: 18,
+                  fontWeight: FontWeight.normal,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Masukkan target minum harian sendiri, terutama jika kamu memiliki anjuran khusus dari tenaga kesehatan.',
+                style: GoogleFonts.manrope(
+                  fontSize: 13,
+                  color: const Color(0xFF6B7280),
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                autofocus: true,
+                style: GoogleFonts.manrope(
+                  fontSize: 18,
+                  fontWeight: FontWeight.normal,
+                  color: const Color(0xFF1F2937),
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Volume target (ml)',
+                  filled: true,
+                  fillColor: lightweightMode
+                      ? const Color(0xFFF8FAFC)
+                      : Colors.white.withValues(alpha: 0.4),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(
+                      color: lightweightMode
+                          ? const Color(0xFFE2E8F0)
+                          : Colors.white.withValues(alpha: 0.5),
+                      width: 1.2,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(
+                      color: lightweightMode
+                          ? const Color(0xFFE2E8F0)
+                          : Colors.white.withValues(alpha: 0.4),
+                      width: 1.2,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF1A73E8),
+                      width: 1.5,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.end,
+                children: [
+                  AppButton.secondary(
+                    label: 'Batal',
+                    isTransparent: true,
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  if (s.targetManualMl != null) ...[
+                    AppButton.secondary(
+                      label: 'Reset Rekomendasi',
+                      color: const Color(0xFFEF4444),
+                      isTransparent: true,
+                      onPressed: () {
+                        notifier.updateManualTarget(null);
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ],
+                  AppButton.main(
+                    label: 'Simpan',
+                    onPressed: () {
+                      final val = int.tryParse(controller.text);
+                      if (val != null && val >= 1500 && val <= 4000) {
+                        notifier.updateManualTarget(val);
+                        Navigator.pop(context);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Target manual harus antara 1500–4000 ml',
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                  ),
                 ],
               ),
-            ),
+            ],
           ),
-        ),
-      ),
+        );
+
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: lightweightMode
+                ? dialogContent
+                : BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                    child: dialogContent,
+                  ),
+          ),
+        );
+      },
     );
   }
 
@@ -275,116 +305,133 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     required int initialValue,
     required ValueChanged<int> onSelected,
   }) {
+    final lightweightMode = ref.read(appSettingsProvider).lightweightMode;
+
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white.withValues(alpha: 0.90),
-                    Colors.white.withValues(alpha: 0.75),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.7),
-                  width: 1.2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
+      builder: (context) {
+        final dialogContent = Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: lightweightMode ? Colors.white : null,
+            gradient: lightweightMode
+                ? null
+                : LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.90),
+                      Colors.white.withValues(alpha: 0.75),
+                    ],
                   ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.normal,
-                      color: const Color(0xFF1F2937),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 4,
-                          crossAxisSpacing: 8,
-                          mainAxisSpacing: 8,
-                          childAspectRatio: 1.4,
-                        ),
-                    itemCount: 17, // 6 to 22
-                    itemBuilder: (context, index) {
-                      final hour = index + 6;
-                      final isSelected = hour == initialValue;
-                      final displayHour =
-                          '${hour.toString().padLeft(2, '0')}.00';
-                      return GestureDetector(
-                        onTap: () {
-                          onSelected(hour);
-                          Navigator.pop(context);
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? const Color(0xFF1A73E8)
-                                : Colors.white.withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isSelected
-                                  ? const Color(0xFF1A73E8)
-                                  : Colors.white.withValues(alpha: 0.8),
-                              width: 1.2,
-                            ),
-                          ),
-                          child: Text(
-                            displayHour,
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.normal,
-                              color: isSelected
-                                  ? Colors.white
-                                  : const Color(0xFF1F2937),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: AppButton.secondary(
-                      label: 'Batal',
-                      isTransparent: true,
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ),
-                ],
-              ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: lightweightMode
+                  ? const Color(0xFFE2E8F0)
+                  : Colors.white.withValues(alpha: 0.7),
+              width: 1.2,
             ),
+            boxShadow: lightweightMode
+                ? const []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
           ),
-        ),
-      ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                style: GoogleFonts.manrope(
+                  fontSize: 16,
+                  fontWeight: FontWeight.normal,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
+              const SizedBox(height: 16),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                  childAspectRatio: 1.4,
+                ),
+                itemCount: 17, // 6 to 22
+                itemBuilder: (context, index) {
+                  final hour = index + 6;
+                  final isSelected = hour == initialValue;
+                  final displayHour = '${hour.toString().padLeft(2, '0')}.00';
+                  return GestureDetector(
+                    onTap: () {
+                      onSelected(hour);
+                      Navigator.pop(context);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? const Color(0xFF1A73E8)
+                            : (lightweightMode
+                                  ? const Color(0xFFF8FAFC)
+                                  : Colors.white.withValues(alpha: 0.5)),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isSelected
+                              ? const Color(0xFF1A73E8)
+                              : (lightweightMode
+                                    ? const Color(0xFFE2E8F0)
+                                    : Colors.white.withValues(alpha: 0.8)),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Text(
+                        displayHour,
+                        style: GoogleFonts.manrope(
+                          fontSize: 13,
+                          fontWeight: FontWeight.normal,
+                          color: isSelected
+                              ? Colors.white
+                              : const Color(0xFF1F2937),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: AppButton.secondary(
+                  label: 'Batal',
+                  isTransparent: true,
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ],
+          ),
+        );
+
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: lightweightMode
+                ? dialogContent
+                : BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                    child: dialogContent,
+                  ),
+          ),
+        );
+      },
     );
   }
 
@@ -392,6 +439,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget build(BuildContext context) {
     final s = ref.watch(profileProvider);
     final notifier = ref.read(profileProvider.notifier);
+    final lightweightMode = ref.watch(
+      appSettingsProvider.select((state) => state.lightweightMode),
+    );
 
     final displayTarget = s.targetManualMl ?? s.calculatedTargetMl;
     final recommendationTarget = s.calculatedTargetMl;
@@ -407,7 +457,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return Stack(
       children: [
-        const Positioned.fill(child: HydrationBackground()),
+        Positioned.fill(
+          child: HydrationBackground(lightweightMode: lightweightMode),
+        ),
         Scaffold(
           backgroundColor: Colors.transparent,
           extendBody: true,
@@ -426,7 +478,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               children: [
                 Text(
                   widget.isEditing ? 'Ubah Profil' : 'Lengkapi Profil',
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.manrope(
                     fontSize: 26,
                     fontWeight: FontWeight.normal,
                     color: Colors.black,
@@ -438,7 +490,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   widget.isEditing
                       ? 'Sesuaikan data diri untuk target hidrasi baru'
                       : 'Yuk, hitung kebutuhan cairan harianmu',
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.manrope(
                     fontSize: 13,
                     fontWeight: FontWeight.normal,
                     color: Colors.black.withValues(alpha: 0.6),
@@ -461,880 +513,822 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (!widget.isEditing) ...[
+                          _buildVisualThemeSelectionCard(lightweightMode),
+                          const SizedBox(height: 20),
+                        ],
+
                         // 2. Main Form Card
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(24),
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Colors.white.withValues(alpha: 0.50),
-                                    Colors.white.withValues(alpha: 0.20),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.6),
-                                  width: 1.2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.04),
-                                    blurRadius: 18,
-                                    offset: const Offset(0, 6),
-                                  ),
-                                ],
+                        _ConditionalBackdropFilter(
+                          enabled: !lightweightMode,
+                          borderRadius: 24,
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: lightweightMode ? Colors.white : null,
+                              gradient: lightweightMode
+                                  ? null
+                                  : LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        Colors.white.withValues(alpha: 0.50),
+                                        Colors.white.withValues(alpha: 0.20),
+                                      ],
+                                    ),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: lightweightMode
+                                    ? const Color(0xFFE2E8F0)
+                                    : Colors.white.withValues(alpha: 0.6),
+                                width: 1.2,
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Nama Panggilan
-                                  Text(
-                                    'Nama Panggilan',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.normal,
-                                      color: const Color(0xFF1F2937),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  TextFormField(
-                                    controller: _namaController,
-                                    maxLength: 10,
-                                    validator: _validateNama,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.normal,
-                                      color: const Color(0xFF1F2937),
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText: 'Nama Panggilan',
-                                      counterText: '',
-                                      filled: true,
-                                      fillColor: Colors.white.withValues(
-                                        alpha: 0.4,
-                                      ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: BorderSide(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.5,
-                                          ),
-                                          width: 1.2,
+                              boxShadow: lightweightMode
+                                  ? const []
+                                  : [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.04,
                                         ),
+                                        blurRadius: 18,
+                                        offset: const Offset(0, 6),
                                       ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: BorderSide(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.4,
-                                          ),
-                                          width: 1.2,
-                                        ),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: const BorderSide(
-                                          color: Color(0xFF1A73E8),
-                                          width: 1.5,
-                                        ),
-                                      ),
-                                      errorBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: const BorderSide(
-                                          color: Color(0xFFEF4444),
-                                          width: 1.2,
-                                        ),
-                                      ),
-                                      focusedErrorBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: const BorderSide(
-                                          color: Color(0xFFEF4444),
-                                          width: 1.5,
-                                        ),
-                                      ),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 14,
-                                          ),
-                                    ),
-                                    onChanged: (val) {
-                                      notifier.updateNama(val.trim());
-                                    },
-                                  ),
-                                  const SizedBox(height: 18),
-
-                                  // Usia input field
-                                  Text(
-                                    'Usia (Tahun)',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.normal,
-                                      color: const Color(0xFF1F2937),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  TextFormField(
-                                    controller: _usiaController,
-                                    keyboardType: TextInputType.number,
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.digitsOnly,
                                     ],
-                                    validator: _validateUsia,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.normal,
-                                      color: const Color(0xFF1F2937),
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText: 'Usia (Tahun)',
-                                      filled: true,
-                                      fillColor: Colors.white.withValues(
-                                        alpha: 0.4,
-                                      ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: BorderSide(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.5,
-                                          ),
-                                          width: 1.2,
-                                        ),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: BorderSide(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.4,
-                                          ),
-                                          width: 1.2,
-                                        ),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: const BorderSide(
-                                          color: Color(0xFF1A73E8),
-                                          width: 1.5,
-                                        ),
-                                      ),
-                                      errorBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: const BorderSide(
-                                          color: Color(0xFFEF4444),
-                                          width: 1.2,
-                                        ),
-                                      ),
-                                      focusedErrorBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: const BorderSide(
-                                          color: Color(0xFFEF4444),
-                                          width: 1.5,
-                                        ),
-                                      ),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 14,
-                                          ),
-                                    ),
-                                    onChanged: (val) {
-                                      final age = int.tryParse(val.trim());
-                                      if (age != null &&
-                                          age >= 10 &&
-                                          age <= 80) {
-                                        notifier.updateTanggalLahir(
-                                          DateTime(
-                                            DateTime.now().year - age,
-                                            1,
-                                            1,
-                                          ),
-                                        );
-                                      } else {
-                                        notifier.updateTanggalLahir(null);
-                                      }
-                                    },
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Nama Panggilan
+                                Text(
+                                  'Nama Panggilan',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.normal,
+                                    color: const Color(0xFF1F2937),
                                   ),
-                                  const SizedBox(height: 18),
+                                ),
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  controller: _namaController,
+                                  maxLength: 10,
+                                  validator: _validateNama,
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.normal,
+                                    color: const Color(0xFF1F2937),
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: 'Nama Panggilan',
+                                    counterText: '',
+                                    filled: true,
+                                    fillColor: Colors.white.withValues(
+                                      alpha: 0.4,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: BorderSide(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                        width: 1.2,
+                                      ),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: BorderSide(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.4,
+                                        ),
+                                        width: 1.2,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFF1A73E8),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    errorBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFFEF4444),
+                                        width: 1.2,
+                                      ),
+                                    ),
+                                    focusedErrorBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFFEF4444),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 14,
+                                    ),
+                                  ),
+                                  onChanged: (val) {
+                                    notifier.updateNama(val.trim());
+                                  },
+                                ),
+                                const SizedBox(height: 18),
 
-                                  // Berat Badan input field
-                                  Text(
-                                    'Berat Badan (kg)',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.normal,
-                                      color: const Color(0xFF1F2937),
+                                // Usia input field
+                                Text(
+                                  'Usia (Tahun)',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.normal,
+                                    color: const Color(0xFF1F2937),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  controller: _usiaController,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
+                                  validator: _validateUsia,
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.normal,
+                                    color: const Color(0xFF1F2937),
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: 'Usia (Tahun)',
+                                    filled: true,
+                                    fillColor: Colors.white.withValues(
+                                      alpha: 0.4,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: BorderSide(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                        width: 1.2,
+                                      ),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: BorderSide(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.4,
+                                        ),
+                                        width: 1.2,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFF1A73E8),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    errorBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFFEF4444),
+                                        width: 1.2,
+                                      ),
+                                    ),
+                                    focusedErrorBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFFEF4444),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 14,
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
-                                  TextFormField(
-                                    controller: _beratController,
-                                    keyboardType: TextInputType.number,
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.digitsOnly,
-                                    ],
-                                    validator: _validateBerat,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.normal,
-                                      color: const Color(0xFF1F2937),
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText: 'Berat Badan (kg)',
-                                      filled: true,
-                                      fillColor: Colors.white.withValues(
-                                        alpha: 0.4,
-                                      ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: BorderSide(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.5,
-                                          ),
-                                          width: 1.2,
+                                  onChanged: (val) {
+                                    final age = int.tryParse(val.trim());
+                                    if (age != null && age >= 10 && age <= 80) {
+                                      notifier.updateTanggalLahir(
+                                        DateTime(
+                                          DateTime.now().year - age,
+                                          1,
+                                          1,
                                         ),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: BorderSide(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.4,
-                                          ),
-                                          width: 1.2,
-                                        ),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: const BorderSide(
-                                          color: Color(0xFF1A73E8),
-                                          width: 1.5,
-                                        ),
-                                      ),
-                                      errorBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: const BorderSide(
-                                          color: Color(0xFFEF4444),
-                                          width: 1.2,
-                                        ),
-                                      ),
-                                      focusedErrorBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: const BorderSide(
-                                          color: Color(0xFFEF4444),
-                                          width: 1.5,
-                                        ),
-                                      ),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 14,
-                                          ),
-                                    ),
-                                    onChanged: (val) {
-                                      final weight = double.tryParse(
-                                        val.trim(),
                                       );
-                                      if (weight != null &&
-                                          weight >= 20 &&
-                                          weight <= 200) {
-                                        notifier.updateBeratBadan(weight);
-                                      } else {
-                                        notifier.updateBeratBadan(0.0);
-                                      }
-                                    },
-                                  ),
-                                  const SizedBox(height: 18),
+                                    } else {
+                                      notifier.updateTanggalLahir(null);
+                                    }
+                                  },
+                                ),
+                                const SizedBox(height: 18),
 
-                                  // Jenis Kelamin Selector
-                                  Text(
-                                    'Jenis Kelamin',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.normal,
-                                      color: const Color(0xFF1F2937),
+                                // Berat Badan input field
+                                Text(
+                                  'Berat Badan (kg)',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.normal,
+                                    color: const Color(0xFF1F2937),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  controller: _beratController,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
+                                  validator: _validateBerat,
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.normal,
+                                    color: const Color(0xFF1F2937),
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: 'Berat Badan (kg)',
+                                    filled: true,
+                                    fillColor: Colors.white.withValues(
+                                      alpha: 0.4,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: BorderSide(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                        width: 1.2,
+                                      ),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: BorderSide(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.4,
+                                        ),
+                                        width: 1.2,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFF1A73E8),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    errorBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFFEF4444),
+                                        width: 1.2,
+                                      ),
+                                    ),
+                                    focusedErrorBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFFEF4444),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 14,
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _buildGenderOption(
-                                          'Laki-laki',
-                                          'laki_laki',
-                                          s.jenisKelamin,
-                                          (val) =>
-                                              notifier.updateJenisKelamin(val),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: _buildGenderOption(
-                                          'Perempuan',
-                                          'perempuan',
-                                          s.jenisKelamin,
-                                          (val) =>
-                                              notifier.updateJenisKelamin(val),
-                                        ),
-                                      ),
-                                    ],
+                                  onChanged: (val) {
+                                    final weight = double.tryParse(val.trim());
+                                    if (weight != null &&
+                                        weight >= 20 &&
+                                        weight <= 200) {
+                                      notifier.updateBeratBadan(weight);
+                                    } else {
+                                      notifier.updateBeratBadan(0.0);
+                                    }
+                                  },
+                                ),
+                                const SizedBox(height: 18),
+
+                                // Jenis Kelamin Selector
+                                Text(
+                                  'Jenis Kelamin',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.normal,
+                                    color: const Color(0xFF1F2937),
                                   ),
-                                  if (_submitted && s.jenisKelamin.isEmpty) ...[
-                                    const SizedBox(height: 6),
-                                    Padding(
-                                      padding: const EdgeInsets.only(left: 4),
-                                      child: Text(
-                                        'Wajib memilih jenis kelamin',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 12,
-                                          color: const Color(0xFFEF4444),
-                                        ),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildGenderOption(
+                                        'Laki-laki',
+                                        'laki_laki',
+                                        s.jenisKelamin,
+                                        (val) =>
+                                            notifier.updateJenisKelamin(val),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: _buildGenderOption(
+                                        'Perempuan',
+                                        'perempuan',
+                                        s.jenisKelamin,
+                                        (val) =>
+                                            notifier.updateJenisKelamin(val),
                                       ),
                                     ),
                                   ],
-                                  const SizedBox(height: 18),
-
-                                  // Aktivitas Harian
-                                  Text(
-                                    'Aktivitas Harian',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.normal,
-                                      color: const Color(0xFF1F2937),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _buildActivityOption(
-                                    title: 'Ringan',
-                                    desc: 'Lebih banyak duduk atau belajar.',
-                                    value: 'ringan',
-                                    current: s.levelAktivitas,
-                                    onTap: (val) =>
-                                        notifier.updateLevelAktivitas(val),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _buildActivityOption(
-                                    title: 'Sedang',
-                                    desc:
-                                        'Aktivitas sekolah normal dan cukup sering bergerak.',
-                                    value: 'sedang',
-                                    current: s.levelAktivitas,
-                                    onTap: (val) =>
-                                        notifier.updateLevelAktivitas(val),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _buildActivityOption(
-                                    title: 'Tinggi',
-                                    desc:
-                                        'Sering olahraga atau aktivitas fisik cukup berat.',
-                                    value:
-                                        'aktif', // Maps to 'aktif' in database
-                                    current: s.levelAktivitas,
-                                    onTap: (val) =>
-                                        notifier.updateLevelAktivitas(val),
-                                  ),
-                                  if (_submitted &&
-                                      s.levelAktivitas.isEmpty) ...[
-                                    const SizedBox(height: 6),
-                                    Padding(
-                                      padding: const EdgeInsets.only(left: 4),
-                                      child: Text(
-                                        'Wajib memilih tingkat aktivitas harian',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 12,
-                                          color: const Color(0xFFEF4444),
-                                        ),
+                                ),
+                                if (_submitted && s.jenisKelamin.isEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 4),
+                                    child: Text(
+                                      'Wajib memilih jenis kelamin',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 12,
+                                        color: const Color(0xFFEF4444),
                                       ),
                                     ),
-                                  ],
+                                  ),
                                 ],
-                              ),
+                                const SizedBox(height: 18),
+
+                                // Aktivitas Harian
+                                Text(
+                                  'Aktivitas Harian',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.normal,
+                                    color: const Color(0xFF1F2937),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                _buildActivityOption(
+                                  title: 'Ringan',
+                                  desc: 'Lebih banyak duduk atau belajar.',
+                                  value: 'ringan',
+                                  current: s.levelAktivitas,
+                                  onTap: (val) =>
+                                      notifier.updateLevelAktivitas(val),
+                                ),
+                                const SizedBox(height: 8),
+                                _buildActivityOption(
+                                  title: 'Sedang',
+                                  desc:
+                                      'Aktivitas sekolah normal dan cukup sering bergerak.',
+                                  value: 'sedang',
+                                  current: s.levelAktivitas,
+                                  onTap: (val) =>
+                                      notifier.updateLevelAktivitas(val),
+                                ),
+                                const SizedBox(height: 8),
+                                _buildActivityOption(
+                                  title: 'Tinggi',
+                                  desc:
+                                      'Sering olahraga atau aktivitas fisik cukup berat.',
+                                  value: 'aktif', // Maps to 'aktif' in database
+                                  current: s.levelAktivitas,
+                                  onTap: (val) =>
+                                      notifier.updateLevelAktivitas(val),
+                                ),
+                                if (_submitted && s.levelAktivitas.isEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 4),
+                                    child: Text(
+                                      'Wajib memilih tingkat aktivitas harian',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 12,
+                                        color: const Color(0xFFEF4444),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ),
                         const SizedBox(height: 20),
 
                         // 3. Target Preview Card
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(24),
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Colors.white.withValues(alpha: 0.50),
-                                    Colors.white.withValues(alpha: 0.20),
+                        _ConditionalBackdropFilter(
+                          enabled: !lightweightMode,
+                          borderRadius: 24,
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: lightweightMode ? Colors.white : null,
+                              gradient: lightweightMode
+                                  ? null
+                                  : LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        Colors.white.withValues(alpha: 0.50),
+                                        Colors.white.withValues(alpha: 0.20),
+                                      ],
+                                    ),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: lightweightMode
+                                    ? const Color(0xFFE2E8F0)
+                                    : Colors.white.withValues(alpha: 0.6),
+                                width: 1.2,
+                              ),
+                              boxShadow: lightweightMode
+                                  ? const []
+                                  : [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.04,
+                                        ),
+                                        blurRadius: 18,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                    ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Estimasi kebutuhan cairan harian kamu',
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.normal,
+                                              color: const Color(0xFF64748B),
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.baseline,
+                                            textBaseline:
+                                                TextBaseline.alphabetic,
+                                            children: [
+                                              Text(
+                                                displayTarget > 0
+                                                    ? '$displayTarget'
+                                                    : '---',
+                                                style: GoogleFonts.manrope(
+                                                  fontSize: 32,
+                                                  fontWeight: FontWeight.normal,
+                                                  color: const Color(
+                                                    0xFF0F172A,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                'ml / hari',
+                                                style: GoogleFonts.manrope(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.normal,
+                                                  color: const Color(
+                                                    0xFF64748B,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    if (s.jenisKelamin.isNotEmpty &&
+                                        s.beratBadan > 0 &&
+                                        s.levelAktivitas.isNotEmpty)
+                                      AppButton.secondary(
+                                        label: s.targetManualMl != null
+                                            ? 'Atur Ulang'
+                                            : 'Sesuaikan',
+                                        isTransparent: true,
+                                        onPressed: () =>
+                                            _showManualEdit(s, notifier),
+                                      ),
                                   ],
                                 ),
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.6),
-                                  width: 1.2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.04),
-                                    blurRadius: 18,
-                                    offset: const Offset(0, 6),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Estimasi kebutuhan cairan harian kamu',
-                                              style: GoogleFonts.inter(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.normal,
-                                                color: const Color(0xFF64748B),
-                                                letterSpacing: 0.5,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 6),
-                                            Row(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.baseline,
-                                              textBaseline:
-                                                  TextBaseline.alphabetic,
-                                              children: [
-                                                Text(
-                                                  displayTarget > 0
-                                                      ? '$displayTarget'
-                                                      : '---',
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 32,
-                                                    fontWeight:
-                                                        FontWeight.normal,
-                                                    color: const Color(
-                                                      0xFF0F172A,
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  'ml / hari',
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 14,
-                                                    fontWeight:
-                                                        FontWeight.normal,
-                                                    color: const Color(
-                                                      0xFF64748B,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
+                                const SizedBox(height: 12),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Berdasarkan profil kamu, SEHATI menyarankan target minum air putih sekitar $formattedRecommendation ml per hari. dan bukan pengganti saran medis profesional',
+                                        style: GoogleFonts.manrope(
+                                          fontSize: 11,
+                                          color: const Color(0xFF6B7280),
+                                          height: 1.4,
                                         ),
                                       ),
-                                      const SizedBox(width: 12),
-                                      if (s.jenisKelamin.isNotEmpty &&
-                                          s.beratBadan > 0 &&
-                                          s.levelAktivitas.isNotEmpty)
-                                        AppButton.secondary(
-                                          label: s.targetManualMl != null
-                                              ? 'Atur Ulang'
-                                              : 'Sesuaikan',
-                                          isTransparent: true,
-                                          onPressed: () =>
-                                              _showManualEdit(s, notifier),
+                                    ),
+                                    if (s.targetManualMl != null)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
                                         ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
+                                        decoration: BoxDecoration(
+                                          color: const Color(
+                                            0xFF1A73E8,
+                                          ).withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
                                         child: Text(
-                                          'Berdasarkan profil kamu, SEHATI menyarankan target minum air putih sekitar $formattedRecommendation ml per hari. dan bukan pengganti saran medis profesional',
-                                          style: GoogleFonts.inter(
-                                            fontSize: 11,
-                                            color: const Color(0xFF6B7280),
-                                            height: 1.4,
+                                          'Target Manual',
+                                          style: GoogleFonts.manrope(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.normal,
+                                            color: const Color(0xFF1A73E8),
                                           ),
                                         ),
                                       ),
-                                      if (s.targetManualMl != null)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: const Color(
-                                              0xFF1A73E8,
-                                            ).withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            'Target Manual',
-                                            style: GoogleFonts.inter(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.normal,
-                                              color: const Color(0xFF1A73E8),
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ),
                         const SizedBox(height: 20),
 
                         // 4. Reminder Settings Card
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(24),
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Colors.white.withValues(alpha: 0.50),
-                                    Colors.white.withValues(alpha: 0.20),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.6),
-                                  width: 1.2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.04),
-                                    blurRadius: 18,
-                                    offset: const Offset(0, 6),
-                                  ),
-                                ],
+                        _ConditionalBackdropFilter(
+                          enabled: !lightweightMode,
+                          borderRadius: 24,
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: lightweightMode ? Colors.white : null,
+                              gradient: lightweightMode
+                                  ? null
+                                  : LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        Colors.white.withValues(alpha: 0.50),
+                                        Colors.white.withValues(alpha: 0.20),
+                                      ],
+                                    ),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: lightweightMode
+                                    ? const Color(0xFFE2E8F0)
+                                    : Colors.white.withValues(alpha: 0.6),
+                                width: 1.2,
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'Aktifkan Pengingat Minum',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.normal,
-                                          color: const Color(0xFF1F2937),
+                              boxShadow: lightweightMode
+                                  ? const []
+                                  : [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.04,
                                         ),
-                                      ),
-                                      Switch.adaptive(
-                                        value: s.reminderSystemActive,
-                                        activeTrackColor: const Color(
-                                          0xFF1A73E8,
-                                        ).withValues(alpha: 0.5),
-                                        activeThumbColor: const Color(
-                                          0xFF1A73E8,
-                                        ),
-                                        onChanged: (val) {
-                                          notifier.updateReminderSystemActive(
-                                            val,
-                                          );
-                                        },
+                                        blurRadius: 18,
+                                        offset: const Offset(0, 6),
                                       ),
                                     ],
-                                  ),
-                                  if (s.reminderSystemActive) ...[
-                                    const SizedBox(height: 18),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
                                     Text(
-                                      'Interval Pengingat',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 13,
+                                      'Aktifkan Pengingat Minum',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 14,
                                         fontWeight: FontWeight.normal,
                                         color: const Color(0xFF1F2937),
                                       ),
                                     ),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: _buildIntervalOption(
-                                            '1 Jam',
-                                            1,
-                                            s.reminderInterval,
-                                            (val) => notifier
-                                                .updateReminderInterval(val),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: _buildIntervalOption(
-                                            '2 Jam',
-                                            2,
-                                            s.reminderInterval,
-                                            (val) => notifier
-                                                .updateReminderInterval(val),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: _buildIntervalOption(
-                                            '3 Jam',
-                                            3,
-                                            s.reminderInterval,
-                                            (val) => notifier
-                                                .updateReminderInterval(val),
-                                          ),
-                                        ),
-                                      ],
+                                    Switch.adaptive(
+                                      value: s.reminderSystemActive,
+                                      activeTrackColor: const Color(
+                                        0xFF1A73E8,
+                                      ).withValues(alpha: 0.5),
+                                      activeThumbColor: const Color(0xFF1A73E8),
+                                      onChanged: (val) {
+                                        notifier.updateReminderSystemActive(
+                                          val,
+                                        );
+                                      },
                                     ),
-                                    const SizedBox(height: 18),
-                                    Row(
-                                      children: [
-                                        // Jam Mulai
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'Jam Mulai',
-                                                style: GoogleFonts.inter(
-                                                  fontSize: 11,
-                                                  color: const Color(
-                                                    0xFF6B7280,
-                                                  ),
-                                                  fontWeight: FontWeight.normal,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 6),
-                                              GestureDetector(
-                                                onTap: () => _showHourPicker(
-                                                  context: context,
-                                                  title: 'Pilih Jam Mulai',
-                                                  initialValue:
-                                                      s.reminderWindowStart,
-                                                  onSelected: (val) {
-                                                    notifier
-                                                        .updateFormReminderWindow(
-                                                          val,
-                                                          s.reminderWindowEnd,
-                                                        );
-                                                  },
-                                                ),
-                                                child: Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 16,
-                                                        vertical: 14,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.white
-                                                        .withValues(alpha: 0.4),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          16,
-                                                        ),
-                                                    border: Border.all(
-                                                      color: Colors.white
-                                                          .withValues(
-                                                            alpha: 0.5,
-                                                          ),
-                                                      width: 1.2,
-                                                    ),
-                                                  ),
-                                                  child: Row(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .spaceBetween,
-                                                    children: [
-                                                      Text(
-                                                        '${s.reminderWindowStart.toString().padLeft(2, '0')}.00',
-                                                        style:
-                                                            GoogleFonts.inter(
-                                                              fontSize: 14,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .normal,
-                                                              color:
-                                                                  const Color(
-                                                                    0xFF1F2937,
-                                                                  ),
-                                                            ),
-                                                      ),
-                                                      const Icon(
-                                                        Icons
-                                                            .access_time_rounded,
-                                                        color: Color(
-                                                          0xFF6B7280,
-                                                        ),
-                                                        size: 18,
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(width: 16),
-                                        // Jam Selesai
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'Jam Selesai',
-                                                style: GoogleFonts.inter(
-                                                  fontSize: 11,
-                                                  color: const Color(
-                                                    0xFF6B7280,
-                                                  ),
-                                                  fontWeight: FontWeight.normal,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 6),
-                                              GestureDetector(
-                                                onTap: () => _showHourPicker(
-                                                  context: context,
-                                                  title: 'Pilih Jam Selesai',
-                                                  initialValue:
-                                                      s.reminderWindowEnd,
-                                                  onSelected: (val) {
-                                                    notifier
-                                                        .updateFormReminderWindow(
-                                                          s.reminderWindowStart,
-                                                          val,
-                                                        );
-                                                  },
-                                                ),
-                                                child: Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 16,
-                                                        vertical: 14,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.white
-                                                        .withValues(alpha: 0.4),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          16,
-                                                        ),
-                                                    border: Border.all(
-                                                      color: Colors.white
-                                                          .withValues(
-                                                            alpha: 0.5,
-                                                          ),
-                                                      width: 1.2,
-                                                    ),
-                                                  ),
-                                                  child: Row(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .spaceBetween,
-                                                    children: [
-                                                      Text(
-                                                        '${s.reminderWindowEnd.toString().padLeft(2, '0')}.00',
-                                                        style:
-                                                            GoogleFonts.inter(
-                                                              fontSize: 14,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .normal,
-                                                              color:
-                                                                  const Color(
-                                                                    0xFF1F2937,
-                                                                  ),
-                                                            ),
-                                                      ),
-                                                      const Icon(
-                                                        Icons
-                                                            .access_time_rounded,
-                                                        color: Color(
-                                                          0xFF6B7280,
-                                                        ),
-                                                        size: 18,
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
+                                  ],
+                                ),
+                                if (s.reminderSystemActive) ...[
+                                  const SizedBox(height: 18),
+                                  Text(
+                                    'Interval Pengingat',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.normal,
+                                      color: const Color(0xFF1F2937),
                                     ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      'Pengingat akan dikirim setiap ${s.reminderInterval} jam selama jam aktif.',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 12,
-                                        color: const Color(0xFF6B7280),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildIntervalOption(
+                                          '1 Jam',
+                                          1,
+                                          s.reminderInterval,
+                                          (val) => notifier
+                                              .updateReminderInterval(val),
+                                        ),
                                       ),
-                                    ),
-                                    if (!isWindowValid) ...[
-                                      const SizedBox(height: 12),
-                                      Container(
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFFEF2F2),
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                          border: Border.all(
-                                            color: const Color(0xFFFEE2E2),
-                                          ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: _buildIntervalOption(
+                                          '2 Jam',
+                                          2,
+                                          s.reminderInterval,
+                                          (val) => notifier
+                                              .updateReminderInterval(val),
                                         ),
-                                        child: Row(
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: _buildIntervalOption(
+                                          '3 Jam',
+                                          3,
+                                          s.reminderInterval,
+                                          (val) => notifier
+                                              .updateReminderInterval(val),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 18),
+                                  Row(
+                                    children: [
+                                      // Jam Mulai
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
-                                            const Icon(
-                                              Icons.error_outline,
-                                              color: Color(0xFFEF4444),
-                                              size: 16,
+                                            Text(
+                                              'Jam Mulai',
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 11,
+                                                color: const Color(0xFF6B7280),
+                                                fontWeight: FontWeight.normal,
+                                              ),
                                             ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                s.reminderWindowStart < 6 ||
-                                                        s.reminderWindowEnd > 22
-                                                    ? 'Jam pengingat hanya dapat diatur antara 06.00 sampai 22.00.'
-                                                    : s.reminderWindowEnd <=
-                                                          s.reminderWindowStart
-                                                    ? 'Waktu mulai harus lebih awal dari waktu selesai.'
-                                                    : 'Rentang pengingat minimal 8 jam.',
-                                                style: GoogleFonts.inter(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.normal,
-                                                  color: const Color(
-                                                    0xFFB91C1C,
+                                            const SizedBox(height: 6),
+                                            GestureDetector(
+                                              onTap: () => _showHourPicker(
+                                                context: context,
+                                                title: 'Pilih Jam Mulai',
+                                                initialValue:
+                                                    s.reminderWindowStart,
+                                                onSelected: (val) {
+                                                  notifier
+                                                      .updateFormReminderWindow(
+                                                        val,
+                                                        s.reminderWindowEnd,
+                                                      );
+                                                },
+                                              ),
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 16,
+                                                      vertical: 14,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.4),
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
+                                                  border: Border.all(
+                                                    color: Colors.white
+                                                        .withValues(alpha: 0.5),
+                                                    width: 1.2,
                                                   ),
+                                                ),
+                                                child: Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment
+                                                          .spaceBetween,
+                                                  children: [
+                                                    Text(
+                                                      '${s.reminderWindowStart.toString().padLeft(2, '0')}.00',
+                                                      style:
+                                                          GoogleFonts.manrope(
+                                                            fontSize: 14,
+                                                            fontWeight:
+                                                                FontWeight
+                                                                    .normal,
+                                                            color: const Color(
+                                                              0xFF1F2937,
+                                                            ),
+                                                          ),
+                                                    ),
+                                                    const Icon(
+                                                      Icons.access_time_rounded,
+                                                      color: Color(0xFF6B7280),
+                                                      size: 18,
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      // Jam Selesai
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Jam Selesai',
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 11,
+                                                color: const Color(0xFF6B7280),
+                                                fontWeight: FontWeight.normal,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            GestureDetector(
+                                              onTap: () => _showHourPicker(
+                                                context: context,
+                                                title: 'Pilih Jam Selesai',
+                                                initialValue:
+                                                    s.reminderWindowEnd,
+                                                onSelected: (val) {
+                                                  notifier
+                                                      .updateFormReminderWindow(
+                                                        s.reminderWindowStart,
+                                                        val,
+                                                      );
+                                                },
+                                              ),
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 16,
+                                                      vertical: 14,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.4),
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
+                                                  border: Border.all(
+                                                    color: Colors.white
+                                                        .withValues(alpha: 0.5),
+                                                    width: 1.2,
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment
+                                                          .spaceBetween,
+                                                  children: [
+                                                    Text(
+                                                      '${s.reminderWindowEnd.toString().padLeft(2, '0')}.00',
+                                                      style:
+                                                          GoogleFonts.manrope(
+                                                            fontSize: 14,
+                                                            fontWeight:
+                                                                FontWeight
+                                                                    .normal,
+                                                            color: const Color(
+                                                              0xFF1F2937,
+                                                            ),
+                                                          ),
+                                                    ),
+                                                    const Icon(
+                                                      Icons.access_time_rounded,
+                                                      color: Color(0xFF6B7280),
+                                                      size: 18,
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
                                             ),
@@ -1342,9 +1336,56 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                         ),
                                       ),
                                     ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Pengingat akan dikirim setiap ${s.reminderInterval} jam selama jam aktif.',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 12,
+                                      color: const Color(0xFF6B7280),
+                                    ),
+                                  ),
+                                  if (!isWindowValid) ...[
+                                    const SizedBox(height: 12),
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFEF2F2),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: const Color(0xFFFEE2E2),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.error_outline,
+                                            color: Color(0xFFEF4444),
+                                            size: 16,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              s.reminderWindowStart < 6 ||
+                                                      s.reminderWindowEnd > 22
+                                                  ? 'Jam pengingat hanya dapat diatur antara 06.00 sampai 22.00.'
+                                                  : s.reminderWindowEnd <=
+                                                        s.reminderWindowStart
+                                                  ? 'Waktu mulai harus lebih awal dari waktu selesai.'
+                                                  : 'Rentang pengingat minimal 8 jam.',
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.normal,
+                                                color: const Color(0xFFB91C1C),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ],
                                 ],
-                              ),
+                              ],
                             ),
                           ),
                         ),
@@ -1367,89 +1408,93 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(30),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(30),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.5),
-                        width: 1.5,
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        widget.isEditing
-                            ? Row(
-                                children: [
-                                  Expanded(
-                                    child: AppButton.secondary(
-                                      label: 'Kembali',
-                                      isTransparent: true,
-                                      onPressed: () => context.pop(),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: AppButton.main(
-                                      label: 'Simpan',
-                                      isLoading: s.isLoading,
-                                      onPressed: !s.isLoading
-                                          ? _handleSubmit
-                                          : null,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : Row(
-                                children: [
-                                  Expanded(
-                                    child: AppButton.secondary(
-                                      label: 'Reset',
-                                      isTransparent: true,
-                                      onPressed: () {
-                                        ref
-                                            .read(profileProvider.notifier)
-                                            .reset();
-                                        _namaController.clear();
-                                        _usiaController.clear();
-                                        _beratController.clear();
-                                        setState(() {
-                                          _submitted = false;
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: AppButton.main(
-                                      label: 'Simpan',
-                                      isLoading: s.isLoading,
-                                      onPressed: !s.isLoading
-                                          ? _handleSubmit
-                                          : null,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                boxShadow: lightweightMode
+                    ? const []
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 15,
+                          offset: const Offset(0, 5),
+                        ),
                       ],
+              ),
+              child: _ConditionalBackdropFilter(
+                enabled: !lightweightMode,
+                borderRadius: 30,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: lightweightMode
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(
+                      color: lightweightMode
+                          ? const Color(0xFFE2E8F0)
+                          : Colors.white.withValues(alpha: 0.5),
+                      width: lightweightMode ? 1.2 : 1.5,
                     ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      widget.isEditing
+                          ? Row(
+                              children: [
+                                Expanded(
+                                  child: AppButton.secondary(
+                                    label: 'Kembali',
+                                    isTransparent: true,
+                                    onPressed: () => context.pop(),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: AppButton.main(
+                                    label: 'Simpan',
+                                    isLoading: s.isLoading,
+                                    onPressed: !s.isLoading
+                                        ? _handleSubmit
+                                        : null,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Row(
+                              children: [
+                                Expanded(
+                                  child: AppButton.secondary(
+                                    label: 'Reset',
+                                    isTransparent: true,
+                                    onPressed: () {
+                                      ref
+                                          .read(profileProvider.notifier)
+                                          .reset();
+                                      _namaController.clear();
+                                      _usiaController.clear();
+                                      _beratController.clear();
+                                      setState(() {
+                                        _submitted = false;
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: AppButton.main(
+                                    label: 'Simpan',
+                                    isLoading: s.isLoading,
+                                    onPressed: !s.isLoading
+                                        ? _handleSubmit
+                                        : null,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ],
                   ),
                 ),
               ),
@@ -1457,6 +1502,170 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildVisualThemeSelectionCard(bool lightweightMode) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Pilih Tampilan Aplikasi',
+            style: GoogleFonts.manrope(
+              fontSize: 15,
+              fontWeight: FontWeight.normal,
+              color: const Color(0xFF1F2937),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Kamu bisa memilih tampilan yang paling nyaman untuk perangkatmu. Pilihan ini bisa diubah lagi di Pengaturan.',
+            style: GoogleFonts.manrope(
+              fontSize: 12,
+              color: const Color(0xFF6B7280),
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildVisualThemeOption(
+            title: 'Tampilan Utama',
+            description: 'Visual lebih modern dengan efek dan tampilan penuh.',
+            badge: 'Direkomendasikan untuk HP baru',
+            selected: !lightweightMode,
+            onTap: () {
+              ref.read(appSettingsProvider.notifier).setLightweightMode(false);
+            },
+          ),
+          const SizedBox(height: 10),
+          _buildVisualThemeOption(
+            title: 'Tampilan Ringan',
+            description:
+                'Tampilan lebih sederhana agar aplikasi lebih lancar di HP lama.',
+            badge: 'Lebih lancar',
+            selected: lightweightMode,
+            onTap: () {
+              ref.read(appSettingsProvider.notifier).setLightweightMode(true);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVisualThemeOption({
+    required String title,
+    required String description,
+    required String badge,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFEAF5FF) : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected ? const Color(0xFF1A73E8) : const Color(0xFFE2E8F0),
+            width: selected ? 1.6 : 1.2,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: selected ? const Color(0xFF1A73E8) : Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected
+                      ? const Color(0xFF1A73E8)
+                      : const Color(0xFFCBD5E1),
+                  width: 1.4,
+                ),
+              ),
+              child: selected
+                  ? const Icon(
+                      Icons.check_rounded,
+                      size: 16,
+                      color: Colors.white,
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.manrope(
+                      fontSize: 14,
+                      fontWeight: FontWeight.normal,
+                      color: const Color(0xFF1F2937),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: GoogleFonts.manrope(
+                      fontSize: 12,
+                      color: const Color(0xFF64748B),
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? const Color(0xFF1A73E8).withValues(alpha: 0.10)
+                            : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        badge,
+                        style: GoogleFonts.manrope(
+                          fontSize: 10,
+                          fontWeight: FontWeight.normal,
+                          color: selected
+                              ? const Color(0xFF1A73E8)
+                              : const Color(0xFF64748B),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1487,7 +1696,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
         child: Text(
           label,
-          style: GoogleFonts.inter(
+          style: GoogleFonts.manrope(
             fontWeight: FontWeight.normal,
             fontSize: 14,
             color: isSelected
@@ -1543,7 +1752,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             const SizedBox(width: 8),
             Text(
               label,
-              style: GoogleFonts.inter(
+              style: GoogleFonts.manrope(
                 fontWeight: FontWeight.normal,
                 fontSize: 14,
                 color: isSelected ? activeColor : const Color(0xFF4B5563),
@@ -1590,7 +1799,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 children: [
                   Text(
                     title,
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.manrope(
                       fontWeight: FontWeight.normal,
                       fontSize: 13,
                       color: isSelected
@@ -1601,7 +1810,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(height: 4),
                   Text(
                     desc,
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.manrope(
                       fontSize: 11,
                       color: const Color(0xFF4A5568),
                       height: 1.3,
@@ -1670,7 +1879,7 @@ class RulerPainter extends CustomPainter {
         final textPainter = TextPainter(
           text: TextSpan(
             text: '${currentValue.toInt()}',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.manrope(
               fontSize: 9,
               color: const Color(0xFF94A3B8),
               fontWeight: FontWeight.normal,
@@ -1744,7 +1953,7 @@ class AgeRulerPainter extends CustomPainter {
         final textPainter = TextPainter(
           text: TextSpan(
             text: '${currentValue.toInt()}',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.manrope(
               fontSize: 9,
               color: const Color(0xFF94A3B8),
               fontWeight: FontWeight.normal,
@@ -1766,5 +1975,29 @@ class AgeRulerPainter extends CustomPainter {
     return oldDelegate.min != min ||
         oldDelegate.max != max ||
         oldDelegate.value != value;
+  }
+}
+
+class _ConditionalBackdropFilter extends StatelessWidget {
+  final bool enabled;
+  final double borderRadius;
+  final Widget child;
+
+  const _ConditionalBackdropFilter({
+    required this.enabled,
+    required this.borderRadius,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!enabled) return child;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: child,
+      ),
+    );
   }
 }

@@ -34,7 +34,7 @@ class AchievementsScreen extends ConsumerWidget {
           children: [
             Text(
               'Buku Medali',
-              style: GoogleFonts.inter(
+              style: GoogleFonts.manrope(
                 fontSize: 26,
                 fontWeight: FontWeight.normal,
                 color: Colors.black,
@@ -44,7 +44,7 @@ class AchievementsScreen extends ConsumerWidget {
             const SizedBox(height: 4),
             Text(
               'Lihat pencapaian dan streak harianmu',
-              style: GoogleFonts.inter(
+              style: GoogleFonts.manrope(
                 fontSize: 13,
                 fontWeight: FontWeight.normal,
                 color: const Color(0xFF6B7280),
@@ -60,7 +60,7 @@ class AchievementsScreen extends ConsumerWidget {
         error: (err, stack) => Center(
           child: Text(
             'Gagal memuat medali.',
-            style: GoogleFonts.inter(color: Colors.black54),
+            style: GoogleFonts.manrope(color: Colors.black54),
           ),
         ),
         data: (profile) {
@@ -158,7 +158,7 @@ class AchievementsScreen extends ConsumerWidget {
                           children: [
                             Text(
                               'Pencapaian Hidrasi',
-                              style: GoogleFonts.inter(
+                              style: GoogleFonts.manrope(
                                 color: Colors.white.withValues(alpha: 0.7),
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
@@ -168,7 +168,7 @@ class AchievementsScreen extends ConsumerWidget {
                             const SizedBox(height: 6),
                             Text(
                               'Medali Diperoleh: $unlockedCount/${medals.length}',
-                              style: GoogleFonts.inter(
+                              style: GoogleFonts.manrope(
                                 color: Colors.white,
                                 fontSize: 20,
                                 fontWeight: FontWeight.w900,
@@ -186,7 +186,7 @@ class AchievementsScreen extends ConsumerWidget {
                                 const SizedBox(width: 6),
                                 Text(
                                   '$streak Hari Beruntun',
-                                  style: GoogleFonts.inter(
+                                  style: GoogleFonts.manrope(
                                     color: const Color(0xFFFFB74D),
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -211,7 +211,7 @@ class AchievementsScreen extends ConsumerWidget {
                         alignment: Alignment.center,
                         child: Text(
                           '🏅',
-                          style: GoogleFonts.inter(fontSize: 36),
+                          style: GoogleFonts.manrope(fontSize: 36),
                         ),
                       ),
                     ],
@@ -221,7 +221,7 @@ class AchievementsScreen extends ConsumerWidget {
 
                 Text(
                   'Koleksi Medali Anda',
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.manrope(
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
                     color: Colors.black87,
@@ -322,7 +322,7 @@ class _MedalCardState extends State<_MedalCard> {
                   alignment: Alignment.center,
                   child: Text(
                     widget.isUnlocked ? widget.emoji : '🔒',
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.manrope(
                       fontSize: 48,
                       color: widget.isUnlocked ? null : Colors.black38,
                     ),
@@ -332,7 +332,7 @@ class _MedalCardState extends State<_MedalCard> {
                 Text(
                   widget.title,
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.manrope(
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
                     color: Colors.black87,
@@ -344,7 +344,7 @@ class _MedalCardState extends State<_MedalCard> {
                   widget.isUnlocked
                       ? 'Status: Terbuka Diperoleh'
                       : 'Status: Terkunci Belum Diperoleh',
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.manrope(
                     fontSize: 12,
                     color: widget.isUnlocked
                         ? Colors.green.shade700
@@ -356,7 +356,7 @@ class _MedalCardState extends State<_MedalCard> {
                 Text(
                   widget.desc,
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.manrope(
                     fontSize: 14,
                     color: Colors.black54,
                     height: 1.5,
@@ -418,7 +418,7 @@ class _MedalCardState extends State<_MedalCard> {
                   alignment: Alignment.center,
                   child: Text(
                     widget.isUnlocked ? widget.emoji : '🔒',
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.manrope(
                       fontSize: 32,
                       color: widget.isUnlocked ? null : Colors.black38,
                     ),
@@ -430,7 +430,7 @@ class _MedalCardState extends State<_MedalCard> {
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.manrope(
                     fontSize: 14,
                     fontWeight: FontWeight.w900,
                     color: widget.isUnlocked ? Colors.black87 : Colors.black38,
@@ -443,7 +443,7 @@ class _MedalCardState extends State<_MedalCard> {
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.manrope(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     color: Colors.black38,

@@ -176,6 +176,8 @@ class ReminderService {
   /// with payload 'test_notification' and no action buttons.
   Future<void> fireTestNotificationNow() async {
     try {
+      await _createNotificationChannel();
+
       const androidDetails = AndroidNotificationDetails(
         _kChannelId,
         _kChannelName,
@@ -202,6 +204,8 @@ class ReminderService {
   /// with payload 'test_notification' and no action buttons.
   Future<void> scheduleTestNotification1Min() async {
     try {
+      await _createNotificationChannel();
+
       const androidDetails = AndroidNotificationDetails(
         _kChannelId,
         _kChannelName,
@@ -232,26 +236,69 @@ class ReminderService {
   /// Debug-only inspection helper for QA.
   /// Returns a formatted summary of all pending local notifications.
   Future<String> debugDescribePendingNotifications() async {
+    final profile = await _profileRepo.getUserProfile();
+    final now = DateTime.now();
+    final prefs = await SharedPreferences.getInstance();
+    final storedRegularIds =
+        prefs.getStringList(kScheduledRegularReminderIdsKey) ?? const [];
+    final androidImplementation = flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    final systemNotificationsEnabled = await androidImplementation
+        ?.areNotificationsEnabled();
     final pending = await flutterLocalNotificationsPlugin
         .pendingNotificationRequests();
     pending.sort((a, b) => a.id.compareTo(b.id));
 
-    final buffer = StringBuffer()
-      ..writeln('Pending notifications: ${pending.length}')
-      ..writeln('Regular reminder IDs use deterministic range: 10000+')
-      ..writeln('Legacy ID 42 should be absent after rebuild')
-      ..writeln('Protected IDs 43 and 44 are not touched by regular rebuild')
-      ..writeln();
-
-    if (pending.isEmpty) {
-      buffer.writeln('No pending notifications.');
-      return buffer.toString();
+    String nextReminderText = 'not available';
+    if (profile == null) {
+      nextReminderText = 'no-profile';
+    } else if (!profile.notificationPermissionGranted) {
+      nextReminderText = 'notification-permission-inactive';
+    } else if (!profile.reminderSystemActive) {
+      nextReminderText = 'reminder-inactive';
+    } else {
+      final logs = await _loggingRepo.getLogsForDate(profile.userId, now);
+      final currentMl = logs.fold<int>(0, (sum, log) => sum + log.volume);
+      final targetMl = profile.targetManualMl ?? profile.dailyTargetMl;
+      if (targetMl > 0 && currentMl >= targetMl) {
+        nextReminderText = 'target-reached-today';
+      } else {
+        final nextReminder = ReminderLogic.nextReminderTime(
+          now,
+          reminderType: profile.reminderType,
+          reminderIntervalHours: profile.reminderInterval,
+          progress: targetMl > 0 ? currentMl / targetMl : 0,
+          startHour: profile.reminderWindowStart,
+          endHour: profile.reminderWindowEnd,
+        );
+        nextReminderText = nextReminder.toIso8601String();
+      }
     }
 
     final regularIds = <int>[];
     final protectedIds = <int>[];
     final legacyIds = <int>[];
     final unexpectedRegularIds = <int>[];
+
+    final buffer = StringBuffer()
+      ..writeln('Pending notifications: ${pending.length}')
+      ..writeln(
+        'System notifications enabled: ${systemNotificationsEnabled ?? 'unknown'}',
+      )
+      ..writeln(
+        'Profile notificationPermissionGranted: ${profile?.notificationPermissionGranted ?? 'no-profile'}',
+      )
+      ..writeln(
+        'Profile reminderSystemActive: ${profile?.reminderSystemActive ?? 'no-profile'}',
+      )
+      ..writeln('Derived next reminder time: $nextReminderText')
+      ..writeln('Stored regular reminder IDs: ${storedRegularIds.join(', ')}')
+      ..writeln('Regular reminder IDs use deterministic range: 10000+')
+      ..writeln('Legacy ID 42 should be absent after rebuild')
+      ..writeln('Protected IDs 43 and 44 are not touched by regular rebuild')
+      ..writeln();
 
     for (final request in pending) {
       final id = request.id;
@@ -277,12 +324,20 @@ class ReminderService {
 
     buffer
       ..writeln()
+      ..writeln(
+        'Test ID 44 pending: ${protectedIds.contains(NotificationIds.test)}',
+      )
+      ..writeln('Regular 10000+ pending: ${regularIds.isNotEmpty}')
       ..writeln('Regular range pending: ${regularIds.join(', ')}')
       ..writeln('Protected pending: ${protectedIds.join(', ')}')
       ..writeln('Legacy 42 pending: ${legacyIds.join(', ')}')
       ..writeln(
         'Unexpected non-regular IDs: ${unexpectedRegularIds.join(', ')}',
       );
+
+    if (pending.isEmpty) {
+      buffer.writeln('No pending notifications.');
+    }
 
     return buffer.toString();
   }

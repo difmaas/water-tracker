@@ -11,7 +11,7 @@ class AppTheme {
   static ThemeData get light => ThemeData(
     useMaterial3: true,
     brightness: Brightness.light,
-    fontFamily: GoogleFonts.inter().fontFamily,
+    fontFamily: GoogleFonts.manrope().fontFamily,
 
     // ── Colors ─────────────────────────────────────────────────────────
     colorScheme: const ColorScheme.light(

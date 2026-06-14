@@ -68,7 +68,7 @@ class QuickAddButtons extends ConsumerWidget {
                     vertical: 12,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.95),
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: const Color(0xFFD7E8F7)),
                   ),
@@ -150,6 +150,9 @@ class QuickAddButtons extends ConsumerWidget {
     WidgetRef ref,
     int volume,
   ) {
+    final effectiveTextColor = lightweightMode
+        ? const Color(0xFF1A73E8)
+        : Colors.black;
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: Material(
@@ -162,17 +165,22 @@ class QuickAddButtons extends ConsumerWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withValues(alpha: 0.40),
-                  Colors.white.withValues(alpha: 0.15),
-                ],
-              ),
+              color: lightweightMode ? const Color(0xFFEAF5FF) : null,
+              gradient: lightweightMode
+                  ? null
+                  : LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.40),
+                        Colors.white.withValues(alpha: 0.15),
+                      ],
+                    ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.6),
+                color: lightweightMode
+                    ? const Color(0xFFD7EAFB)
+                    : Colors.white.withValues(alpha: 0.6),
                 width: 1.2,
               ),
             ),
@@ -183,18 +191,18 @@ class QuickAddButtons extends ConsumerWidget {
                   'assets/icons/${volume}ml.svg',
                   width: _getIconSize(volume),
                   height: _getIconSize(volume),
-                  colorFilter: const ColorFilter.mode(
-                    Colors.black,
+                  colorFilter: ColorFilter.mode(
+                    effectiveTextColor,
                     BlendMode.srcIn,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   '$volume ml',
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.manrope(
                     fontSize: 15,
                     fontWeight: FontWeight.normal,
-                    color: Colors.black,
+                    color: effectiveTextColor,
                   ),
                 ),
               ],
@@ -217,22 +225,22 @@ class QuickAddButtons extends ConsumerWidget {
         final sheet = Container(
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: lightweightMode
-                  ? [
-                      Colors.white.withValues(alpha: 0.95),
-                      const Color(0xFFF4FAFF),
-                    ]
-                  : [
+            color: lightweightMode ? Colors.white : null,
+            gradient: lightweightMode
+                ? null
+                : LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
                       Colors.white.withValues(alpha: 0.60),
                       Colors.white.withValues(alpha: 0.30),
                     ],
-            ),
+                  ),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.6),
+              color: lightweightMode
+                  ? const Color(0xFFE2E8F0)
+                  : Colors.white.withValues(alpha: 0.6),
               width: 1.2,
             ),
           ),
@@ -253,7 +261,7 @@ class QuickAddButtons extends ConsumerWidget {
               const SizedBox(height: 16),
               Text(
                 'Pilih Volume Air',
-                style: GoogleFonts.inter(
+                style: GoogleFonts.manrope(
                   fontSize: 20,
                   fontWeight: FontWeight.normal,
                   color: Colors.black,
@@ -380,6 +388,10 @@ class _QuickAddButtonState extends State<_QuickAddButton> {
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final bool isNarrow = screenWidth < 360;
+    final double buttonHeight = isNarrow ? 92.0 : 104.0;
+
     return Expanded(
       child: GestureDetector(
         onTapDown: (_) => setState(() => _isPressed = true),
@@ -394,16 +406,12 @@ class _QuickAddButtonState extends State<_QuickAddButton> {
           curve: Curves.easeOutCubic,
           child: widget.lightweightMode
               ? Container(
-                  height: 104,
+                  height: buttonHeight,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Colors.white, Color(0xFFF4FAFF)],
-                    ),
+                    color: const Color(0xFFEAF5FF),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: const Color(0xFFD7E8F7),
+                      color: const Color(0xFFD7EAFB),
                       width: 1.2,
                     ),
                   ),
@@ -414,7 +422,7 @@ class _QuickAddButtonState extends State<_QuickAddButton> {
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
                     child: Container(
-                      height: 104,
+                      height: buttonHeight,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
@@ -454,26 +462,62 @@ class _QuickAddButtonContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final bool isNarrow = screenWidth < 360;
+
+    final double computedIconSize = widget.svgPath != null
+        ? (isNarrow ? (widget.iconSize ?? 24) * 0.85 : (widget.iconSize ?? 24))
+        : 20.0;
+    final double labelFontSize = isNarrow ? 15.0 : 18.0;
+    final double subLabelFontSize = isNarrow ? 10.0 : 12.0;
+    final double spacing = isNarrow ? 6.0 : 10.0;
+
+    final Color effectiveTextColor = widget.lightweightMode
+        ? const Color(0xFF1A73E8)
+        : widget.textColor;
+
+    final Color effectiveIconBgColor = widget.lightweightMode
+        ? const Color(0xFF1A73E8).withValues(alpha: 0.08)
+        : widget.iconBgColor;
+
+    final Widget iconWidget = widget.svgPath != null
+        ? SvgPicture.asset(
+            widget.svgPath!,
+            width: computedIconSize,
+            height: computedIconSize,
+            colorFilter: ColorFilter.mode(effectiveTextColor, BlendMode.srcIn),
+          )
+        : Icon(
+            widget.icon,
+            color: effectiveTextColor,
+            size: isNarrow ? 16 : 20,
+          );
+
+    final Widget iconContainer = widget.lightweightMode
+        ? Container(
+            padding: EdgeInsets.all(isNarrow ? 6 : 8),
+            decoration: BoxDecoration(
+              color: effectiveIconBgColor,
+              shape: BoxShape.circle,
+            ),
+            child: iconWidget,
+          )
+        : (widget.svgPath != null
+              ? iconWidget
+              : Container(
+                  padding: EdgeInsets.all(isNarrow ? 6 : 8),
+                  decoration: BoxDecoration(
+                    color: effectiveIconBgColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: iconWidget,
+                ));
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        if (widget.svgPath != null)
-          SvgPicture.asset(
-            widget.svgPath!,
-            width: widget.iconSize ?? 24,
-            height: widget.iconSize ?? 24,
-            colorFilter: ColorFilter.mode(widget.textColor, BlendMode.srcIn),
-          )
-        else
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: widget.iconBgColor,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(widget.icon, color: widget.textColor, size: 20),
-          ),
-        const SizedBox(height: 10),
+        iconContainer,
+        SizedBox(height: spacing),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -481,10 +525,10 @@ class _QuickAddButtonContent extends StatelessWidget {
           children: [
             Text(
               widget.label,
-              style: GoogleFonts.inter(
-                fontSize: 18,
+              style: GoogleFonts.manrope(
+                fontSize: labelFontSize,
                 fontWeight: FontWeight.normal,
-                color: widget.textColor,
+                color: effectiveTextColor,
                 letterSpacing: -0.5,
               ),
             ),
@@ -492,10 +536,10 @@ class _QuickAddButtonContent extends StatelessWidget {
               const SizedBox(width: 2),
               Text(
                 widget.subLabel,
-                style: GoogleFonts.inter(
-                  fontSize: 12,
+                style: GoogleFonts.manrope(
+                  fontSize: subLabelFontSize,
                   fontWeight: FontWeight.normal,
-                  color: widget.textColor.withValues(alpha: 0.7),
+                  color: effectiveTextColor.withValues(alpha: 0.7),
                 ),
               ),
             ],
@@ -530,7 +574,7 @@ class _UndoSnackBarContent extends ConsumerWidget {
         Expanded(
           child: Text(
             'Berhasil ditambah +${volumeMl}ml',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.manrope(
               fontWeight: FontWeight.normal,
               fontSize: 13,
               color: QuickAddButtons.kDarkText,
@@ -549,7 +593,7 @@ class _UndoSnackBarContent extends ConsumerWidget {
           ),
           child: Text(
             'Batal',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.manrope(
               color: const Color(0xFFEF4444),
               fontWeight: FontWeight.normal,
               fontSize: 13,

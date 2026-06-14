@@ -5,7 +5,7 @@ import 'onboarding_provider.dart';
 class AppSettingsState {
   final bool lightweightMode;
 
-  const AppSettingsState({this.lightweightMode = false});
+  const AppSettingsState({this.lightweightMode = true});
 
   AppSettingsState copyWith({bool? lightweightMode}) {
     return AppSettingsState(
@@ -21,7 +21,7 @@ class AppSettingsNotifier extends Notifier<AppSettingsState> {
   AppSettingsState build() {
     final prefs = ref.watch(sharedPreferencesProvider);
     return AppSettingsState(
-      lightweightMode: prefs.getBool(_lightweightModeKey) ?? false,
+      lightweightMode: prefs.getBool(_lightweightModeKey) ?? true,
     );
   }
 

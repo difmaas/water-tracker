@@ -61,25 +61,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     required bool lightweightMode,
     required double borderRadius,
     required Widget child,
+    Color? lightweightBgColor,
+    Color? lightweightBorderColor,
   }) {
     final card = Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: lightweightMode
-              ? [Colors.white.withValues(alpha: 0.88), const Color(0xFFF4FAFF)]
-              : [
+        color: lightweightMode
+            ? (lightweightBgColor ?? const Color(0xFFFFFFFF))
+            : null,
+        gradient: lightweightMode
+            ? null
+            : LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
                   Colors.white.withValues(alpha: 0.50),
                   Colors.white.withValues(alpha: 0.20),
                 ],
-        ),
+              ),
         borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(
           color: lightweightMode
-              ? const Color(0xFFD7E8F7)
+              ? (lightweightBorderColor ?? const Color(0xFFE2E8F0))
               : Colors.white.withValues(alpha: 0.6),
-          width: 1.2,
+          width: 1.0,
         ),
         boxShadow: lightweightMode
             ? const []
@@ -110,7 +115,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   Widget _buildTodaySummaryCard(HydrationState state, bool lightweightMode) {
     return _buildCardShell(
       lightweightMode: lightweightMode,
-      borderRadius: 20,
+      borderRadius: 24,
+      lightweightBgColor: const Color(0xFFECFDF5),
+      lightweightBorderColor: const Color(0xFFA7F3D0),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Column(
@@ -119,19 +126,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           children: [
             Text(
               'Kebutuhan Harian',
-              style: GoogleFonts.inter(
+              style: GoogleFonts.manrope(
                 fontSize: 11,
-                fontWeight: FontWeight.normal,
-                color: Colors.black.withValues(alpha: 0.6),
+                fontWeight: FontWeight.w600,
+                color: lightweightMode
+                    ? const Color(0xFF047857)
+                    : Colors.black.withValues(alpha: 0.6),
               ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Text(
               '${_formatVolume(state.targetMl)} ml',
-              style: GoogleFonts.inter(
+              style: GoogleFonts.manrope(
                 fontSize: 15,
                 fontWeight: FontWeight.normal,
-                color: Colors.black,
+                color: lightweightMode ? const Color(0xFF065F46) : Colors.black,
                 letterSpacing: -0.3,
               ),
             ),
@@ -164,7 +173,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
     return _buildCardShell(
       lightweightMode: lightweightMode,
-      borderRadius: 20,
+      borderRadius: 24,
+      lightweightBgColor: const Color(0xFFFEFCE8),
+      lightweightBorderColor: const Color(0xFFFEF08A),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Column(
@@ -173,19 +184,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           children: [
             Text(
               'Pengingat Berikutnya',
-              style: GoogleFonts.inter(
+              style: GoogleFonts.manrope(
                 fontSize: 11,
-                fontWeight: FontWeight.normal,
-                color: Colors.black.withValues(alpha: 0.6),
+                fontWeight: FontWeight.w600,
+                color: lightweightMode
+                    ? const Color(0xFF854D0E)
+                    : Colors.black.withValues(alpha: 0.6),
               ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Text(
               reminderText,
-              style: GoogleFonts.inter(
+              style: GoogleFonts.manrope(
                 fontSize: reminderText.length > 12 ? 12 : 15,
                 fontWeight: FontWeight.normal,
-                color: Colors.black,
+                color: lightweightMode ? const Color(0xFF713F12) : Colors.black,
                 letterSpacing: -0.3,
               ),
               maxLines: 2,
@@ -212,7 +225,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               padding: const EdgeInsets.only(left: 4, top: 4, bottom: 8),
               child: Text(
                 'Riwayat Minum Hari Ini',
-                style: GoogleFonts.inter(
+                style: GoogleFonts.manrope(
                   fontSize: 15,
                   fontWeight: FontWeight.normal,
                   color: Colors.black,
@@ -230,7 +243,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 child: Center(
                   child: Text(
                     'Kamu belum minum hari ini',
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.manrope(
                       fontSize: 13,
                       fontWeight: FontWeight.normal,
                       color: Colors.black.withValues(alpha: 0.5),
@@ -288,7 +301,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       canPop: false,
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        extendBody: true,
+        extendBody: !lightweightMode,
         appBar: AppBar(
           automaticallyImplyLeading: false,
           backgroundColor:
@@ -305,7 +318,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             children: [
               Text(
                 'Halo, $capitalizeName! 👋',
-                style: GoogleFonts.inter(
+                style: GoogleFonts.manrope(
                   fontSize: 26,
                   fontWeight: FontWeight.normal,
                   color: Colors.black,
@@ -315,7 +328,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               const SizedBox(height: 4),
               Text(
                 'Yuk minum air hari ini',
-                style: GoogleFonts.inter(
+                style: GoogleFonts.manrope(
                   fontSize: 13,
                   fontWeight: FontWeight.normal,
                   color: Colors.black.withValues(alpha: 0.6),
@@ -389,16 +402,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   const SizedBox(height: 24),
 
                   // Side-by-side Grid Metrics Section
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildNextReminderCard(state, lightweightMode),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildTodaySummaryCard(state, lightweightMode),
-                      ),
-                    ],
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: _buildNextReminderCard(state, lightweightMode),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildTodaySummaryCard(state, lightweightMode),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 24),
 
@@ -408,7 +424,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
                   // 5. Today's Logs List (Riwayat Minum Hari Ini)
                   _buildHistoryCard(state, lightweightMode),
-                  const SizedBox(height: 120),
+                  SizedBox(height: lightweightMode ? 16 : 120),
                 ],
               ),
             ),

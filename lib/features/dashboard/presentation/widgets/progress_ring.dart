@@ -57,118 +57,134 @@ class _ProgressRingState extends ConsumerState<ProgressRing> {
       return 'Masih perlu ditambah';
     }
 
-    final card = Container(
-      width: double.infinity,
-      height: 340,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: widget.lightweightMode
-              ? [Colors.white.withValues(alpha: 0.88), const Color(0xFFF4FAFF)]
-              : [
-                  Colors.white.withValues(alpha: 0.50),
-                  Colors.white.withValues(alpha: 0.20),
-                ],
-        ),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: widget.lightweightMode
-              ? const Color(0xFFD7E8F7)
-              : Colors.white.withValues(alpha: 0.6),
-          width: 1.2,
-        ),
-        boxShadow: widget.lightweightMode
-            ? const []
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-      ),
-      child: Center(
-        child: SizedBox(
-          width: 270,
-          height: 270,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              TweenAnimationBuilder<double>(
-                tween: Tween<double>(begin: beginProgress, end: endProgress),
-                duration: widget.lightweightMode
-                    ? Duration.zero
-                    : const Duration(milliseconds: 1200),
-                curve: Curves.easeOutCubic,
-                builder: (context, animProgress, child) {
-                  return CustomPaint(
-                    size: const Size(270, 270),
-                    painter: _RingPainter(
-                      progress: animProgress,
-                      strokeWidth: 22,
-                      lightweightMode: widget.lightweightMode,
-                    ),
-                  );
-                },
-              ),
-              TweenAnimationBuilder<double>(
-                tween: Tween<double>(begin: beginProgress, end: endProgress),
-                duration: widget.lightweightMode
-                    ? Duration.zero
-                    : const Duration(milliseconds: 1200),
-                curve: Curves.easeOutCubic,
-                builder: (context, animProgress, child) {
-                  final percent = (animProgress * 100).toInt();
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '$percent%',
-                        style: GoogleFonts.inter(
-                          fontSize: 54,
-                          fontWeight: FontWeight.normal,
-                          color: Colors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${formatVolume(state.currentMl)} ml',
-                        style: GoogleFonts.inter(
-                          fontSize: 15,
-                          fontWeight: FontWeight.normal,
-                          color: Colors.black.withValues(alpha: 0.6),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        progressStatus(),
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.normal,
-                          color: Colors.black.withValues(alpha: 0.55),
-                        ),
-                      ),
+    final cardWidget = LayoutBuilder(
+      builder: (context, constraints) {
+        final double ringSize = math.min(270.0, constraints.maxWidth - 40);
+        final double mainFontSize = ringSize < 240 ? 44 : 54;
+        final double subFontSize = ringSize < 240 ? 13 : 15;
+        final double statusFontSize = ringSize < 240 ? 11 : 12;
+
+        return Container(
+          width: double.infinity,
+          height: ringSize + 70,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+          decoration: BoxDecoration(
+            color: widget.lightweightMode ? const Color(0xFFFFFFFF) : null,
+            gradient: widget.lightweightMode
+                ? null
+                : LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.50),
+                      Colors.white.withValues(alpha: 0.20),
                     ],
-                  );
-                },
-              ),
-            ],
+                  ),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: widget.lightweightMode
+                  ? const Color(0xFFE2E8F0)
+                  : Colors.white.withValues(alpha: 0.6),
+              width: widget.lightweightMode ? 1.0 : 1.2,
+            ),
+            boxShadow: widget.lightweightMode
+                ? const []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
           ),
-        ),
-      ),
+          child: Center(
+            child: SizedBox(
+              width: ringSize,
+              height: ringSize,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  TweenAnimationBuilder<double>(
+                    tween: Tween<double>(
+                      begin: beginProgress,
+                      end: endProgress,
+                    ),
+                    duration: widget.lightweightMode
+                        ? Duration.zero
+                        : const Duration(milliseconds: 1200),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, animProgress, child) {
+                      return CustomPaint(
+                        size: Size(ringSize, ringSize),
+                        painter: _RingPainter(
+                          progress: animProgress,
+                          strokeWidth: ringSize < 240 ? 18 : 22,
+                          lightweightMode: widget.lightweightMode,
+                        ),
+                      );
+                    },
+                  ),
+                  TweenAnimationBuilder<double>(
+                    tween: Tween<double>(
+                      begin: beginProgress,
+                      end: endProgress,
+                    ),
+                    duration: widget.lightweightMode
+                        ? Duration.zero
+                        : const Duration(milliseconds: 1200),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, animProgress, child) {
+                      final percent = (animProgress * 100).toInt();
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '$percent%',
+                            style: GoogleFonts.manrope(
+                              fontSize: mainFontSize,
+                              fontWeight: FontWeight.normal,
+                              color: Colors.black,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${formatVolume(state.currentMl)} ml',
+                            style: GoogleFonts.manrope(
+                              fontSize: subFontSize,
+                              fontWeight: FontWeight.normal,
+                              color: Colors.black.withValues(alpha: 0.6),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            progressStatus(),
+                            style: GoogleFonts.manrope(
+                              fontSize: statusFontSize,
+                              fontWeight: FontWeight.normal,
+                              color: Colors.black.withValues(alpha: 0.55),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
 
     if (widget.lightweightMode) {
-      return card;
+      return cardWidget;
     }
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(28),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-        child: card,
+        child: cardWidget,
       ),
     );
   }
@@ -190,36 +206,46 @@ class _RingPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = (size.width - strokeWidth) / 2;
 
-    // 1. Draw semi-transparent glass background track
+    // 1. Draw track background
     final trackPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.15)
+      ..color = lightweightMode
+          ? const Color(0xFFE2E8F0)
+          : Colors.white.withValues(alpha: 0.15)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth;
     canvas.drawCircle(center, radius, trackPaint);
 
-    // 2. Draw 3D Glass Pipe Frames (Thin concentric white outlines)
-    final glassOutlinePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.35)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    canvas.drawCircle(center, radius + (strokeWidth / 2), glassOutlinePaint);
-    canvas.drawCircle(center, radius - (strokeWidth / 2), glassOutlinePaint);
+    // 2. Draw 3D Glass Pipe Frames (Thin concentric white outlines) - skip in lightweightMode
+    if (!lightweightMode) {
+      final glassOutlinePaint = Paint()
+        ..color = Colors.white.withValues(alpha: 0.35)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0;
+      canvas.drawCircle(center, radius + (strokeWidth / 2), glassOutlinePaint);
+      canvas.drawCircle(center, radius - (strokeWidth / 2), glassOutlinePaint);
+    }
 
-    // 3. Draw active progress arc with glassmorphic gradient
+    // 3. Draw active progress arc
     if (progress > 0) {
       final rect = Rect.fromCircle(center: center, radius: radius);
       final activePaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            const Color(0xFF1A73E8).withValues(alpha: 0.70),
-            const Color(0xFF1A73E8).withValues(alpha: 0.20),
-          ],
-        ).createShader(rect);
+        ..shader = lightweightMode
+            ? null
+            : LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  const Color(0xFF1A73E8).withValues(alpha: 0.70),
+                  const Color(0xFF1A73E8).withValues(alpha: 0.20),
+                ],
+              ).createShader(rect);
+
+      if (lightweightMode) {
+        activePaint.color = const Color(0xFF1A73E8);
+      }
 
       canvas.drawArc(
         rect,

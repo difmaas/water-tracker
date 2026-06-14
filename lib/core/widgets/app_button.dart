@@ -35,7 +35,8 @@ class AppButton extends StatelessWidget {
     required this.onPressed,
     this.isLoading = false,
     this.color,
-  }) : isSecondary = false, isTransparent = false;
+  }) : isSecondary = false,
+       isTransparent = false;
 
   const AppButton.secondary({
     super.key,
@@ -55,10 +56,14 @@ class AppButton extends StatelessWidget {
       final Color secondaryFgColor;
 
       if (color != null) {
-        secondaryBgColor = isTransparent ? Colors.transparent : color!.withValues(alpha: 0.08);
+        secondaryBgColor = isTransparent
+            ? Colors.transparent
+            : color!.withValues(alpha: 0.08);
         secondaryFgColor = color!;
       } else {
-        secondaryBgColor = isTransparent ? Colors.transparent : const Color(0xFFF1F3F4);
+        secondaryBgColor = isTransparent
+            ? Colors.transparent
+            : const Color(0xFFF1F3F4);
         secondaryFgColor = AppColors.primary;
       }
 
@@ -72,13 +77,15 @@ class AppButton extends StatelessWidget {
             width: 1.2,
           ),
           elevation: isTransparent ? 0 : 2,
-          shadowColor: isTransparent ? Colors.transparent : secondaryFgColor.withValues(alpha: 0.12),
+          shadowColor: isTransparent
+              ? Colors.transparent
+              : secondaryFgColor.withValues(alpha: 0.12),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           minimumSize: const Size(88, 48),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          textStyle: GoogleFonts.inter(
+          textStyle: GoogleFonts.manrope(
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
@@ -104,16 +111,13 @@ class AppButton extends StatelessWidget {
           disabledForegroundColor: Colors.grey.shade400,
           elevation: 6,
           shadowColor: primaryColor.withValues(alpha: 0.35),
-          side: BorderSide(
-            color: primaryColor,
-            width: 1.2,
-          ),
+          side: BorderSide(color: primaryColor, width: 1.2),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           minimumSize: const Size(88, 48),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          textStyle: GoogleFonts.inter(
+          textStyle: GoogleFonts.manrope(
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),

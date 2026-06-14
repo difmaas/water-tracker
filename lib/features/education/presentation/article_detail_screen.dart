@@ -1,17 +1,19 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../app/presentation/main_scaffold.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../providers/app_settings_provider.dart';
 
-class ArticleDetailScreen extends StatelessWidget {
+class ArticleDetailScreen extends ConsumerWidget {
   final String articleId;
 
   const ArticleDetailScreen({super.key, required this.articleId});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final article = kHydrationArticles.cast<HydrationArticle?>().firstWhere(
       (a) => a?.id == articleId,
       orElse: () => null,
@@ -38,7 +40,7 @@ class ArticleDetailScreen extends StatelessWidget {
             children: [
               Text(
                 'Artikel',
-                style: GoogleFonts.inter(
+                style: GoogleFonts.manrope(
                   fontSize: 26,
                   fontWeight: FontWeight.normal,
                   color: Colors.black,
@@ -48,7 +50,7 @@ class ArticleDetailScreen extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 'Artikel tidak ditemukan',
-                style: GoogleFonts.inter(
+                style: GoogleFonts.manrope(
                   fontSize: 13,
                   fontWeight: FontWeight.normal,
                   color: const Color(0xFF6B7280),
@@ -60,19 +62,24 @@ class ArticleDetailScreen extends StatelessWidget {
         body: Center(
           child: Text(
             'Artikel tidak ditemukan.',
-            style: GoogleFonts.inter(fontSize: 14, color: Colors.black54),
+            style: GoogleFonts.manrope(fontSize: 14, color: Colors.black54),
           ),
         ),
       );
     }
 
     final colors = _categoryColors(article.category);
+    final lightweightMode = ref.watch(
+      appSettingsProvider.select((state) => state.lightweightMode),
+    );
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          const Positioned.fill(child: HydrationBackground()),
+          Positioned.fill(
+            child: HydrationBackground(lightweightMode: lightweightMode),
+          ),
           CustomScrollView(
             slivers: [
               SliverAppBar(
@@ -83,35 +90,52 @@ class ArticleDetailScreen extends StatelessWidget {
                 elevation: 0,
                 scrolledUnderElevation: 0,
                 leading: IconButton(
-                  icon: ClipRRect(
-                    borderRadius: BorderRadius.circular(999),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Colors.white.withValues(alpha: 0.70),
-                              Colors.white.withValues(alpha: 0.40),
-                            ],
+                  icon: lightweightMode
+                      ? Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFFE2E8F0),
+                              width: 1.0,
+                            ),
                           ),
+                          child: Icon(
+                            Icons.arrow_back_rounded,
+                            color: colors.fg,
+                            size: 20,
+                          ),
+                        )
+                      : ClipRRect(
                           borderRadius: BorderRadius.circular(999),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.75),
-                            width: 1.0,
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Colors.white.withValues(alpha: 0.70),
+                                    Colors.white.withValues(alpha: 0.40),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.75),
+                                  width: 1.0,
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.arrow_back_rounded,
+                                color: colors.fg,
+                                size: 20,
+                              ),
+                            ),
                           ),
                         ),
-                        child: Icon(
-                          Icons.arrow_back_rounded,
-                          color: colors.fg,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
                   onPressed: () => context.pop(),
                 ),
                 flexibleSpace: FlexibleSpaceBar(
@@ -119,39 +143,58 @@ class ArticleDetailScreen extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(20, 84, 20, 20),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(28),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                colors.bg.withValues(alpha: 0.60),
-                                Colors.white.withValues(alpha: 0.30),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(28),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.65),
-                              width: 1.2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.04),
-                                blurRadius: 18,
-                                offset: const Offset(0, 6),
+                      child: lightweightMode
+                          ? Container(
+                              decoration: BoxDecoration(
+                                color: colors.bg,
+                                borderRadius: BorderRadius.circular(28),
+                                border: Border.all(
+                                  color: colors.fg.withValues(alpha: 0.2),
+                                  width: 1.0,
+                                ),
                               ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Text(
-                              article.emoji,
-                              style: GoogleFonts.inter(fontSize: 56),
+                              child: Center(
+                                child: Text(
+                                  article.emoji,
+                                  style: GoogleFonts.manrope(fontSize: 56),
+                                ),
+                              ),
+                            )
+                          : BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      colors.bg.withValues(alpha: 0.60),
+                                      Colors.white.withValues(alpha: 0.30),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(28),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.65),
+                                    width: 1.2,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.04,
+                                      ),
+                                      blurRadius: 18,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    article.emoji,
+                                    style: GoogleFonts.manrope(fontSize: 56),
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      ),
                     ),
                   ),
                 ),
@@ -161,99 +204,182 @@ class ArticleDetailScreen extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(28),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Colors.white.withValues(alpha: 0.62),
-                              Colors.white.withValues(alpha: 0.34),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.70),
-                            width: 1.2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 18,
-                              offset: const Offset(0, 6),
+                    child: lightweightMode
+                        ? Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(28),
+                              border: Border.all(
+                                color: const Color(0xFFE2E8F0),
+                                width: 1.0,
+                              ),
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: colors.bg,
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: Border.all(
+                                      color: colors.fg.withValues(alpha: 0.2),
+                                      width: 1.0,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    _categoryLabel(article.category),
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.normal,
+                                      color: colors.fg,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                Text(
+                                  article.title,
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.normal,
+                                    color: Colors.black87,
+                                    height: 1.3,
+                                    letterSpacing: -0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  article.summary,
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 15,
+                                    color: Colors.black54,
+                                    height: 1.5,
+                                    fontStyle: FontStyle.italic,
+                                    fontWeight: FontWeight.normal,
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                Container(
+                                  height: 1,
+                                  color: const Color(0xFFE2E8F0),
+                                ),
+                                const SizedBox(height: 20),
+                                ..._buildContentParagraphs(
+                                  article.body,
+                                  colors.fg,
+                                ),
+                              ],
+                            ),
+                          )
+                        : BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.fromLTRB(
+                                20,
+                                20,
+                                20,
+                                24,
                               ),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                   colors: [
-                                    colors.bg.withValues(alpha: 0.55),
-                                    Colors.white.withValues(alpha: 0.30),
+                                    Colors.white.withValues(alpha: 0.62),
+                                    Colors.white.withValues(alpha: 0.34),
                                   ],
                                 ),
-                                borderRadius: BorderRadius.circular(999),
+                                borderRadius: BorderRadius.circular(28),
                                 border: Border.all(
                                   color: Colors.white.withValues(alpha: 0.70),
-                                  width: 1.0,
+                                  width: 1.2,
                                 ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.05),
+                                    blurRadius: 18,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
                               ),
-                              child: Text(
-                                _categoryLabel(article.category),
-                                style: GoogleFonts.inter(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.normal,
-                                  color: colors.fg,
-                                  letterSpacing: 0.5,
-                                ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          colors.bg.withValues(alpha: 0.55),
+                                          Colors.white.withValues(alpha: 0.30),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(999),
+                                      border: Border.all(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.70,
+                                        ),
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      _categoryLabel(article.category),
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.normal,
+                                        color: colors.fg,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  Text(
+                                    article.title,
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.normal,
+                                      color: Colors.black87,
+                                      height: 1.3,
+                                      letterSpacing: -0.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    article.summary,
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 15,
+                                      color: Colors.black54,
+                                      height: 1.5,
+                                      fontStyle: FontStyle.italic,
+                                      fontWeight: FontWeight.normal,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  Container(
+                                    height: 1,
+                                    color: Colors.black.withValues(alpha: 0.05),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  ..._buildContentParagraphs(
+                                    article.body,
+                                    colors.fg,
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 14),
-                            Text(
-                              article.title,
-                              style: GoogleFonts.inter(
-                                fontSize: 22,
-                                fontWeight: FontWeight.normal,
-                                color: Colors.black87,
-                                height: 1.3,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              article.summary,
-                              style: GoogleFonts.inter(
-                                fontSize: 15,
-                                color: Colors.black54,
-                                height: 1.5,
-                                fontStyle: FontStyle.italic,
-                                fontWeight: FontWeight.normal,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            Container(
-                              height: 1,
-                              color: Colors.black.withValues(alpha: 0.05),
-                            ),
-                            const SizedBox(height: 20),
-                            ..._buildContentParagraphs(article.body, colors.fg),
-                          ],
-                        ),
-                      ),
-                    ),
+                          ),
                   ),
                 ),
               ),
@@ -289,7 +415,7 @@ class ArticleDetailScreen extends StatelessWidget {
         widgets.add(
           Text(
             p,
-            style: GoogleFonts.inter(
+            style: GoogleFonts.manrope(
               fontSize: 15,
               color: Colors.black87,
               height: 1.7,
@@ -318,7 +444,7 @@ class ArticleDetailScreen extends StatelessWidget {
         children: [
           Text(
             '•',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.manrope(
               fontSize: 16,
               fontWeight: FontWeight.normal,
               color: accentColor,
@@ -328,7 +454,7 @@ class ArticleDetailScreen extends StatelessWidget {
           Expanded(
             child: Text(
               cleanText,
-              style: GoogleFonts.inter(
+              style: GoogleFonts.manrope(
                 fontSize: 15,
                 color: Colors.black87,
                 height: 1.6,
@@ -344,11 +470,11 @@ class ArticleDetailScreen extends StatelessWidget {
   ({Color bg, Color fg}) _categoryColors(String category) {
     switch (category.toLowerCase()) {
       case 'sains':
-        return (bg: const Color(0xFFBDDDFD), fg: const Color(0xFF1565C0));
+        return (bg: const Color(0xFFEAF5FF), fg: const Color(0xFF1565C0));
       case 'fakta_unik':
-        return (bg: const Color(0xFFA5F3FC), fg: const Color(0xFF0E7490));
+        return (bg: const Color(0xFFFEFCE8), fg: const Color(0xFF854D0E));
       case 'kesehatan':
-        return (bg: const Color(0xFFC7D2FE), fg: const Color(0xFF4338CA));
+        return (bg: const Color(0xFFECFDF5), fg: const Color(0xFF047857));
       default:
         return (bg: const Color(0xFFF5F5F5), fg: const Color(0xFF424242));
     }

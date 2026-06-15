@@ -5,6 +5,7 @@ import '../features/logging/data/logging_repository.dart';
 import '../features/logging/data/hydration_log_model.dart';
 import '../features/logging/data/daily_summary_model.dart';
 import '../features/reminder/domain/reminder_logic.dart';
+import '../features/progress/progress_provider.dart';
 import 'reminder_provider.dart';
 
 /// Display state for the Daily Dashboard.
@@ -224,6 +225,13 @@ class HydrationNotifier extends Notifier<HydrationState> {
       // 3. Refresh display state
       await _loadToday();
 
+      // Trigger progress/history refresh
+      try {
+        ref.read(progressProvider.notifier).refresh();
+      } catch (e) {
+        debugPrint('Error refreshing progressProvider in addLog: $e');
+      }
+
       // 4. Rebuild today's remaining reminder slots after the new total.
       await ref
           .read(reminderServiceProvider)
@@ -257,6 +265,13 @@ class HydrationNotifier extends Notifier<HydrationState> {
       // 3. Refresh display state
       await _loadToday();
 
+      // Trigger progress/history refresh
+      try {
+        ref.read(progressProvider.notifier).refresh();
+      } catch (e) {
+        debugPrint('Error refreshing progressProvider in undoLog: $e');
+      }
+
       // 4. Rebuild reminders because undo can drop total below target.
       await ref
           .read(reminderServiceProvider)
@@ -283,6 +298,13 @@ class HydrationNotifier extends Notifier<HydrationState> {
 
       // 3. Refresh display state
       await _loadToday();
+
+      // Trigger progress/history refresh
+      try {
+        ref.read(progressProvider.notifier).refresh();
+      } catch (e) {
+        debugPrint('Error refreshing progressProvider in deleteLog: $e');
+      }
 
       // 4. Recalculate reminders if it's today
       final now = DateTime.now();
@@ -330,6 +352,13 @@ class HydrationNotifier extends Notifier<HydrationState> {
 
       // Refresh display state
       await _loadToday();
+
+      // Trigger progress/history refresh
+      try {
+        ref.read(progressProvider.notifier).refresh();
+      } catch (e) {
+        debugPrint('Error refreshing progressProvider in updateLog: $e');
+      }
 
       // Recalculate reminders if it's today
       final now = DateTime.now();

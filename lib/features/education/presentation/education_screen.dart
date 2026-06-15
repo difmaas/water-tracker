@@ -12,7 +12,7 @@ const _kCategories = ['all', 'sains', 'fakta_unik', 'kesehatan'];
 const _kCategoryLabels = {
   'all': 'Semua',
   'sains': 'Sains',
-  'fakta_unik': 'Fakta Unik',
+  'fakta_unik': 'Fakta unik',
   'kesehatan': 'Kesehatan',
 };
 
@@ -36,6 +36,22 @@ class _EducationScreenState extends ConsumerState<EducationScreen> {
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredArticles;
+    final lightweightMode = ref.watch(
+      appSettingsProvider.select((state) => state.lightweightMode),
+    );
+
+    final categoriesToBuild = lightweightMode
+        ? ['sains', 'fakta_unik', 'kesehatan']
+        : (_selectedCategory == 'all'
+              ? ['sains', 'fakta_unik', 'kesehatan']
+              : [_selectedCategory]);
+
+    final categoryArticlesMap = <String, List<HydrationArticle>>{};
+    for (final cat in categoriesToBuild) {
+      categoryArticlesMap[cat] = kHydrationArticles
+          .where((a) => a.category.toLowerCase() == cat)
+          .toList();
+    }
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -47,7 +63,7 @@ class _EducationScreenState extends ConsumerState<EducationScreen> {
         surfaceTintColor: Colors.transparent,
         centerTitle: false,
         titleSpacing: 24,
-        toolbarHeight: 100,
+        toolbarHeight: lightweightMode ? 80 : 100,
         title: Padding(
           padding: const EdgeInsets.only(top: 10),
           child: Column(
@@ -57,17 +73,19 @@ class _EducationScreenState extends ConsumerState<EducationScreen> {
               Text(
                 'Edukasi',
                 style: GoogleFonts.manrope(
-                  fontSize: 26,
-                  fontWeight: FontWeight.normal,
+                  fontSize: 24,
+                  fontWeight: lightweightMode
+                      ? FontWeight.bold
+                      : FontWeight.normal,
                   color: Colors.black,
                   letterSpacing: -0.5,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                'Info dan tips hidrasi sehat untuk tubuhmu',
+                'Beberapa ilmu dan tips singkat',
                 style: GoogleFonts.manrope(
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.normal,
                   color: const Color(0xFF6B7280),
                 ),
@@ -75,10 +93,12 @@ class _EducationScreenState extends ConsumerState<EducationScreen> {
             ],
           ),
         ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(70),
-          child: _buildCategoryFilter(context),
-        ),
+        bottom: lightweightMode
+            ? null
+            : PreferredSize(
+                preferredSize: const Size.fromHeight(70),
+                child: _buildCategoryFilter(context),
+              ),
       ),
       body: CustomScrollView(
         slivers: [
@@ -86,6 +106,49 @@ class _EducationScreenState extends ConsumerState<EducationScreen> {
             padding: const EdgeInsets.only(top: 12, bottom: 12),
             sliver: kHydrationArticles.isEmpty
                 ? SliverFillRemaining(child: _buildContentComingSoon())
+                : lightweightMode
+                ? SliverList(
+                    delegate: SliverChildBuilderDelegate((context, catIndex) {
+                      final cat = categoriesToBuild[catIndex];
+                      final articles = categoryArticlesMap[cat] ?? [];
+                      if (articles.isEmpty) return const SizedBox.shrink();
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+                            child: Text(
+                              _kCategoryLabels[cat] ?? cat,
+                              style: GoogleFonts.manrope(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF0F172A),
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            height: 240,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                              ),
+                              itemCount: articles.length,
+                              itemBuilder: (context, artIndex) {
+                                final article = articles[artIndex];
+                                return ArticleCard(
+                                  article: article,
+                                  onTap: () =>
+                                      context.push('/education/${article.id}'),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      );
+                    }, childCount: categoriesToBuild.length),
+                  )
                 : filtered.isEmpty
                 ? SliverFillRemaining(child: _buildEmptyFilter())
                 : SliverList(
@@ -118,7 +181,8 @@ class _EducationScreenState extends ConsumerState<EducationScreen> {
                     }, childCount: filtered.length),
                   ),
           ),
-          if (kHydrationArticles.isNotEmpty && filtered.isNotEmpty)
+          if (kHydrationArticles.isNotEmpty &&
+              (filtered.isNotEmpty || lightweightMode))
             const SliverToBoxAdapter(child: SizedBox(height: 96)),
         ],
       ),
@@ -134,15 +198,17 @@ class _EducationScreenState extends ConsumerState<EducationScreen> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: lightweightMode ? Colors.white : null,
+        color: lightweightMode
+            ? Colors.white
+            : Colors.white.withValues(alpha: 0.34),
         gradient: lightweightMode
             ? null
             : LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.white.withValues(alpha: 0.60),
-                  Colors.white.withValues(alpha: 0.30),
+                  Colors.white.withValues(alpha: 0.50),
+                  Colors.white.withValues(alpha: 0.20),
                 ],
               ),
         borderRadius: BorderRadius.circular(18),

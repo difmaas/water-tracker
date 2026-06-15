@@ -127,31 +127,33 @@ class HydrationLogTile extends ConsumerWidget {
         final dialogContent = Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: lightweightMode ? Colors.white : null,
+            color: lightweightMode
+                ? const Color(0xFFEAF5FF)
+                : Colors.white.withValues(alpha: 0.34),
             gradient: lightweightMode
                 ? null
                 : LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.white.withValues(alpha: 0.90),
-                      Colors.white.withValues(alpha: 0.75),
+                      Colors.white.withValues(alpha: 0.50),
+                      Colors.white.withValues(alpha: 0.20),
                     ],
                   ),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
               color: lightweightMode
-                  ? const Color(0xFFE2E8F0)
-                  : Colors.white.withValues(alpha: 0.7),
+                  ? const Color(0xFFD7EAFB)
+                  : Colors.white.withValues(alpha: 0.6),
               width: 1.2,
             ),
             boxShadow: lightweightMode
                 ? const []
                 : [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
                     ),
                   ],
           ),
@@ -160,7 +162,7 @@ class HydrationLogTile extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Hapus Catatan?',
+                'Hapus catatan minum ini?',
                 style: GoogleFonts.manrope(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -169,7 +171,7 @@ class HydrationLogTile extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'Apakah Anda yakin ingin menghapus catatan minum air sebesar ${log.volume} ml ini?',
+                'Catatan yang dihapus tidak bisa dikembalikan.',
                 style: GoogleFonts.manrope(
                   fontSize: 14,
                   color: const Color(0xFF5F6368),
@@ -353,22 +355,24 @@ class HydrationLogTile extends ConsumerWidget {
             final dialogContent = Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: lightweightMode ? Colors.white : null,
+                color: lightweightMode
+                    ? const Color(0xFFEAF5FF)
+                    : Colors.white.withValues(alpha: 0.34),
                 gradient: lightweightMode
                     ? null
                     : LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          Colors.white.withValues(alpha: 0.90),
-                          Colors.white.withValues(alpha: 0.75),
+                          Colors.white.withValues(alpha: 0.50),
+                          Colors.white.withValues(alpha: 0.20),
                         ],
                       ),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
                   color: lightweightMode
-                      ? const Color(0xFFE2E8F0)
-                      : Colors.white.withValues(alpha: 0.7),
+                      ? const Color(0xFFD7EAFB)
+                      : Colors.white.withValues(alpha: 0.6),
                   width: 1.2,
                 ),
                 boxShadow: lightweightMode
@@ -633,22 +637,24 @@ class HydrationLogTile extends ConsumerWidget {
         final sheetContent = Container(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
           decoration: BoxDecoration(
-            color: lightweightMode ? Colors.white : null,
+            color: lightweightMode
+                ? const Color(0xFFEAF5FF)
+                : Colors.white.withValues(alpha: 0.34),
             gradient: lightweightMode
                 ? null
                 : LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.white.withValues(alpha: 0.60),
-                      Colors.white.withValues(alpha: 0.30),
+                      Colors.white.withValues(alpha: 0.50),
+                      Colors.white.withValues(alpha: 0.20),
                     ],
                   ),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             border: Border.all(
               color: lightweightMode
-                  ? const Color(0xFFE2E8F0)
-                  : Colors.white.withValues(alpha: 0.7),
+                  ? const Color(0xFFD7EAFB)
+                  : Colors.white.withValues(alpha: 0.6),
               width: 1.2,
             ),
           ),
@@ -678,7 +684,7 @@ class HydrationLogTile extends ConsumerWidget {
                   ),
                 ),
                 title: Text(
-                  'Edit Catatan',
+                  'Edit catatan',
                   style: GoogleFonts.manrope(
                     fontWeight: FontWeight.w600,
                     color: Colors.black87,
@@ -704,7 +710,7 @@ class HydrationLogTile extends ConsumerWidget {
                   ),
                 ),
                 title: Text(
-                  'Hapus Catatan',
+                  'Hapus catatan',
                   style: GoogleFonts.manrope(
                     fontWeight: FontWeight.w600,
                     color: Colors.red.shade700,

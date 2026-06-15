@@ -54,10 +54,24 @@ class ReminderService {
     // 1.5 Create the notification channel explicitly
     await _createNotificationChannel();
 
+    final exactAlarmAllowed = await canScheduleExactAlarms();
+    if (exactAlarmAllowed == false) {
+      try {
+        final bool? pluginExactGranted = await androidImplementation
+            ?.requestExactAlarmsPermission();
+        if (pluginExactGranted == false) allGranted = false;
+      } catch (e) {
+        debugPrint(
+          '[ReminderService] requestExactAlarmsPermission unavailable: $e',
+        );
+      }
+    }
+
     // 2. Request Exact Alarm Permission (Android 12+)
     // Only required if targeting API 31+ and using exact alarms.
     // Note: Permission.scheduleExactAlarm.request() usually opens settings on Android 14+.
-    if (await Permission.scheduleExactAlarm.isDenied) {
+    if (exactAlarmAllowed == null &&
+        await Permission.scheduleExactAlarm.isDenied) {
       final alarmStatus = await Permission.scheduleExactAlarm.request();
       if (!alarmStatus.isGranted) {
         allGranted = false;
@@ -73,6 +87,33 @@ class ReminderService {
     }
 
     return allGranted;
+  }
+
+  Future<bool?> canScheduleExactAlarms() async {
+    final androidImplementation = flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+
+    try {
+      final pluginStatus = await androidImplementation
+          ?.canScheduleExactNotifications();
+      if (pluginStatus != null) return pluginStatus;
+    } catch (e) {
+      debugPrint(
+        '[ReminderService] canScheduleExactNotifications unavailable: $e',
+      );
+    }
+
+    try {
+      final status = await Permission.scheduleExactAlarm.status;
+      if (status.isGranted) return true;
+      if (status.isDenied || status.isPermanentlyDenied) return false;
+    } catch (e) {
+      debugPrint('[ReminderService] Exact alarm status unavailable: $e');
+    }
+
+    return null;
   }
 
   Future<void> _updateProfilePermission(bool granted) async {
@@ -153,6 +194,7 @@ class ReminderService {
         channelDescription: _kChannelDesc,
         importance: Importance.high,
         priority: Priority.high,
+        visibility: NotificationVisibility.public,
       );
       const notificationDetails = NotificationDetails(android: androidDetails);
 
@@ -184,6 +226,7 @@ class ReminderService {
         channelDescription: _kChannelDesc,
         importance: Importance.high,
         priority: Priority.high,
+        visibility: NotificationVisibility.public,
       );
       const notificationDetails = NotificationDetails(android: androidDetails);
 
@@ -212,6 +255,7 @@ class ReminderService {
         channelDescription: _kChannelDesc,
         importance: Importance.high,
         priority: Priority.high,
+        visibility: NotificationVisibility.public,
       );
       const notificationDetails = NotificationDetails(android: androidDetails);
 
@@ -247,6 +291,7 @@ class ReminderService {
         >();
     final systemNotificationsEnabled = await androidImplementation
         ?.areNotificationsEnabled();
+    final exactAlarmAllowed = await canScheduleExactAlarms();
     final pending = await flutterLocalNotificationsPlugin
         .pendingNotificationRequests();
     pending.sort((a, b) => a.id.compareTo(b.id));
@@ -286,6 +331,9 @@ class ReminderService {
       ..writeln('Pending notifications: ${pending.length}')
       ..writeln(
         'System notifications enabled: ${systemNotificationsEnabled ?? 'unknown'}',
+      )
+      ..writeln(
+        'Exact alarm permission: ${exactAlarmAllowed == null ? 'unknown / not available on this Android version' : (exactAlarmAllowed ? 'allowed' : 'denied')}',
       )
       ..writeln(
         'Profile notificationPermissionGranted: ${profile?.notificationPermissionGranted ?? 'no-profile'}',
@@ -462,6 +510,7 @@ class ReminderService {
       channelDescription: _kChannelDesc,
       importance: Importance.high,
       priority: Priority.high,
+      visibility: NotificationVisibility.public,
     );
 
     const notificationDetails = NotificationDetails(android: androidDetails);

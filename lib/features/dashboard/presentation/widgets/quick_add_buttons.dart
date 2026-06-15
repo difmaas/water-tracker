@@ -104,8 +104,8 @@ class QuickAddButtons extends ConsumerWidget {
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
+                            blurRadius: 18,
+                            offset: const Offset(0, 6),
                           ),
                         ],
                       ),
@@ -165,15 +165,17 @@ class QuickAddButtons extends ConsumerWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
-              color: lightweightMode ? const Color(0xFFEAF5FF) : null,
+              color: lightweightMode
+                  ? const Color(0xFFEAF5FF)
+                  : Colors.white.withValues(alpha: 0.34),
               gradient: lightweightMode
                   ? null
                   : LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Colors.white.withValues(alpha: 0.40),
-                        Colors.white.withValues(alpha: 0.15),
+                        Colors.white.withValues(alpha: 0.50),
+                        Colors.white.withValues(alpha: 0.20),
                       ],
                     ),
               borderRadius: BorderRadius.circular(16),
@@ -225,21 +227,23 @@ class QuickAddButtons extends ConsumerWidget {
         final sheet = Container(
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
           decoration: BoxDecoration(
-            color: lightweightMode ? Colors.white : null,
+            color: lightweightMode
+                ? const Color(0xFFEAF5FF)
+                : Colors.white.withValues(alpha: 0.34),
             gradient: lightweightMode
                 ? null
                 : LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.white.withValues(alpha: 0.60),
-                      Colors.white.withValues(alpha: 0.30),
+                      Colors.white.withValues(alpha: 0.50),
+                      Colors.white.withValues(alpha: 0.20),
                     ],
                   ),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             border: Border.all(
               color: lightweightMode
-                  ? const Color(0xFFE2E8F0)
+                  ? const Color(0xFFD7EAFB)
                   : Colors.white.withValues(alpha: 0.6),
               width: 1.2,
             ),

@@ -60,21 +60,23 @@ class _SheetContent extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(24, 18, 24, 18),
       decoration: BoxDecoration(
-        color: lightweightMode ? Colors.white : null,
+        color: lightweightMode
+            ? const Color(0xFFEAF5FF)
+            : Colors.white.withValues(alpha: 0.34),
         gradient: lightweightMode
             ? null
             : LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.white.withValues(alpha: 0.60),
-                  Colors.white.withValues(alpha: 0.30),
+                  Colors.white.withValues(alpha: 0.50),
+                  Colors.white.withValues(alpha: 0.20),
                 ],
               ),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         border: Border.all(
           color: lightweightMode
-              ? const Color(0xFFE2E8F0)
+              ? const Color(0xFFD7EAFB)
               : Colors.white.withValues(alpha: 0.6),
           width: 1.2,
         ),

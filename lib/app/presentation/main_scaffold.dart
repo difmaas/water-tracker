@@ -38,51 +38,50 @@ class MainScaffold extends ConsumerWidget {
         ),
         Scaffold(
           backgroundColor: Colors.transparent,
-          extendBody: !lightweightMode,
+          extendBody: !lightweightMode || location.startsWith('/dashboard'),
           body: child,
           bottomNavigationBar: lightweightMode
               ? Container(
-                  color: Colors.transparent,
+                  color: location.startsWith('/dashboard')
+                      ? Colors.transparent
+                      : const Color(0xFFEAF2FF),
                   child: SafeArea(
                     top: false,
                     child: Container(
                       decoration: const BoxDecoration(
-                        border: Border(
-                          top: BorderSide(color: Color(0xFFE2E8F0), width: 1.0),
-                        ),
+                        color: Colors.transparent,
                       ),
                       child: _BottomNavSurface(
                         currentIndex: currentIndex,
                         lightweightMode: true,
+                        isDashboard: location.startsWith('/dashboard'),
                       ),
                     ),
                   ),
                 )
-              : SafeArea(
-                  child: Container(
-                    margin: const EdgeInsets.only(
-                      left: 24,
-                      right: 24,
-                      bottom: 16,
-                      top: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(30),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.03),
-                          blurRadius: 15,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(30),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-                        child: _BottomNavSurface(
-                          currentIndex: currentIndex,
-                          lightweightMode: false,
+              : Container(
+                  color: Colors.transparent,
+                  child: SafeArea(
+                    top: false,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(30),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 24,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(30),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                          child: _BottomNavSurface(
+                            currentIndex: currentIndex,
+                            lightweightMode: false,
+                          ),
                         ),
                       ),
                     ),
@@ -97,10 +96,12 @@ class MainScaffold extends ConsumerWidget {
 class _BottomNavSurface extends StatelessWidget {
   final int currentIndex;
   final bool lightweightMode;
+  final bool isDashboard;
 
   const _BottomNavSurface({
     required this.currentIndex,
     required this.lightweightMode,
+    this.isDashboard = false,
   });
 
   @override
@@ -110,7 +111,7 @@ class _BottomNavSurface extends StatelessWidget {
       decoration: BoxDecoration(
         color: lightweightMode
             ? Colors.transparent
-            : Colors.white.withValues(alpha: 0.45),
+            : Colors.white.withValues(alpha: 0.34),
         borderRadius: lightweightMode
             ? BorderRadius.zero
             : BorderRadius.circular(30),
@@ -150,8 +151,8 @@ class _BottomNavSurface extends StatelessWidget {
                 child: Container(
                   decoration: BoxDecoration(
                     color: lightweightMode
-                        ? const Color(0xFF1A73E8)
-                        : Colors.white.withValues(alpha: 0.6),
+                        ? (isDashboard ? Colors.white : const Color(0xFF0F172A))
+                        : Colors.white.withValues(alpha: 0.52),
                     borderRadius: BorderRadius.circular(
                       lightweightMode ? 1.5 : 20,
                     ),
@@ -165,9 +166,9 @@ class _BottomNavSurface extends StatelessWidget {
                         ? const []
                         : [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.02),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                   ),
@@ -183,6 +184,7 @@ class _BottomNavSurface extends StatelessWidget {
                       label: 'Beranda',
                       route: '/dashboard',
                       lightweightMode: lightweightMode,
+                      isDashboard: isDashboard,
                     ),
                   ),
                   Expanded(
@@ -193,6 +195,7 @@ class _BottomNavSurface extends StatelessWidget {
                       label: 'Riwayat',
                       route: '/progress',
                       lightweightMode: lightweightMode,
+                      isDashboard: isDashboard,
                     ),
                   ),
                   Expanded(
@@ -203,6 +206,7 @@ class _BottomNavSurface extends StatelessWidget {
                       label: 'Tips',
                       route: '/education',
                       lightweightMode: lightweightMode,
+                      isDashboard: isDashboard,
                     ),
                   ),
                   Expanded(
@@ -213,6 +217,7 @@ class _BottomNavSurface extends StatelessWidget {
                       label: 'Pengaturan',
                       route: '/settings',
                       lightweightMode: lightweightMode,
+                      isDashboard: isDashboard,
                     ),
                   ),
                 ],
@@ -232,6 +237,7 @@ class _NavItem extends StatelessWidget {
   final String label;
   final String route;
   final bool lightweightMode;
+  final bool isDashboard;
 
   const _NavItem({
     required this.index,
@@ -240,6 +246,7 @@ class _NavItem extends StatelessWidget {
     required this.label,
     required this.route,
     required this.lightweightMode,
+    this.isDashboard = false,
   });
 
   @override
@@ -262,9 +269,15 @@ class _NavItem extends StatelessWidget {
               svgPath,
               colorFilter: ColorFilter.mode(
                 isSelected
-                    ? const Color(0xFF1A73E8)
+                    ? (lightweightMode
+                          ? (isDashboard
+                                ? Colors.white
+                                : const Color(0xFF0F172A))
+                          : const Color(0xFF1A73E8))
                     : (lightweightMode
-                          ? const Color(0xFF64748B)
+                          ? (isDashboard
+                                ? const Color(0xFF90CAF9)
+                                : const Color(0xFF64748B))
                           : const Color(0xFF4A5568)),
                 BlendMode.srcIn,
               ),
@@ -285,18 +298,11 @@ class HydrationBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const decoration = BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xFFBBE5FF), Color(0xFFF2F8FD), Color(0xFFE5F1FA)],
-        stops: [0.0, 0.5, 1.0],
-      ),
-    );
+    const decoration = BoxDecoration(color: Color(0xFFEAF2FF));
 
     if (lightweightMode) {
       return const DecoratedBox(
-        decoration: BoxDecoration(color: Color(0xFFFAF9F5)),
+        decoration: BoxDecoration(color: Color(0xFFEAF2FF)),
       );
     }
 

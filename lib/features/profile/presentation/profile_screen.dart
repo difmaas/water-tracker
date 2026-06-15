@@ -140,21 +140,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         final dialogContent = Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: lightweightMode ? Colors.white : null,
+            color: lightweightMode
+                ? const Color(0xFFEAF5FF)
+                : Colors.white.withValues(alpha: 0.34),
             gradient: lightweightMode
                 ? null
                 : LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.white.withValues(alpha: 0.90),
-                      Colors.white.withValues(alpha: 0.75),
+                      Colors.white.withValues(alpha: 0.50),
+                      Colors.white.withValues(alpha: 0.20),
                     ],
                   ),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
               color: lightweightMode
-                  ? const Color(0xFFE2E8F0)
+                  ? const Color(0xFFD7EAFB)
                   : Colors.white.withValues(alpha: 0.7),
               width: 1.2,
             ),
@@ -313,21 +315,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         final dialogContent = Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: lightweightMode ? Colors.white : null,
+            color: lightweightMode
+                ? const Color(0xFFEAF5FF)
+                : Colors.white.withValues(alpha: 0.34),
             gradient: lightweightMode
                 ? null
                 : LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.white.withValues(alpha: 0.90),
-                      Colors.white.withValues(alpha: 0.75),
+                      Colors.white.withValues(alpha: 0.50),
+                      Colors.white.withValues(alpha: 0.20),
                     ],
                   ),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
               color: lightweightMode
-                  ? const Color(0xFFE2E8F0)
+                  ? const Color(0xFFD7EAFB)
                   : Colors.white.withValues(alpha: 0.7),
               width: 1.2,
             ),
@@ -480,7 +484,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   widget.isEditing ? 'Ubah Profil' : 'Lengkapi Profil',
                   style: GoogleFonts.manrope(
                     fontSize: 26,
-                    fontWeight: FontWeight.normal,
+                    fontWeight: lightweightMode
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                     color: Colors.black,
                     letterSpacing: -0.5,
                   ),
@@ -526,7 +532,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             width: double.infinity,
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: lightweightMode ? Colors.white : null,
+                              color: lightweightMode
+                                  ? Colors.white
+                                  : Colors.white.withValues(alpha: 0.34),
                               gradient: lightweightMode
                                   ? null
                                   : LinearGradient(
@@ -922,7 +930,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             width: double.infinity,
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: lightweightMode ? Colors.white : null,
+                              color: lightweightMode
+                                  ? Colors.white
+                                  : Colors.white.withValues(alpha: 0.34),
                               gradient: lightweightMode
                                   ? null
                                   : LinearGradient(
@@ -1076,7 +1086,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             width: double.infinity,
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: lightweightMode ? Colors.white : null,
+                              color: lightweightMode
+                                  ? Colors.white
+                                  : Colors.white.withValues(alpha: 0.34),
                               gradient: lightweightMode
                                   ? null
                                   : LinearGradient(

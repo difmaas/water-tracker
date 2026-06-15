@@ -69,6 +69,7 @@ class ArticleDetailScreen extends ConsumerWidget {
     }
 
     final colors = _categoryColors(article.category);
+    final lightweightColors = _lightweightCategoryColors(article.category);
     final lightweightMode = ref.watch(
       appSettingsProvider.select((state) => state.lightweightMode),
     );
@@ -89,7 +90,14 @@ class ArticleDetailScreen extends ConsumerWidget {
                 surfaceTintColor: Colors.transparent,
                 elevation: 0,
                 scrolledUnderElevation: 0,
+                leadingWidth: lightweightMode ? 68 : null,
                 leading: IconButton(
+                  padding: lightweightMode
+                      ? const EdgeInsets.only(left: 24)
+                      : null,
+                  alignment: lightweightMode
+                      ? Alignment.centerLeft
+                      : Alignment.center,
                   icon: lightweightMode
                       ? Container(
                           padding: const EdgeInsets.all(10),
@@ -103,7 +111,7 @@ class ArticleDetailScreen extends ConsumerWidget {
                           ),
                           child: Icon(
                             Icons.arrow_back_rounded,
-                            color: colors.fg,
+                            color: const Color(0xFF0F172A),
                             size: 20,
                           ),
                         )
@@ -139,28 +147,22 @@ class ArticleDetailScreen extends ConsumerWidget {
                   onPressed: () => context.pop(),
                 ),
                 flexibleSpace: FlexibleSpaceBar(
-                  background: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 84, 20, 20),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(28),
-                      child: lightweightMode
-                          ? Container(
-                              decoration: BoxDecoration(
-                                color: colors.bg,
-                                borderRadius: BorderRadius.circular(28),
-                                border: Border.all(
-                                  color: colors.fg.withValues(alpha: 0.2),
-                                  width: 1.0,
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  article.emoji,
-                                  style: GoogleFonts.manrope(fontSize: 56),
-                                ),
-                              ),
-                            )
-                          : BackdropFilter(
+                  background: lightweightMode
+                      ? Container(
+                          color: lightweightColors.bg,
+                          padding: const EdgeInsets.only(top: 48),
+                          child: Center(
+                            child: Text(
+                              article.emoji,
+                              style: GoogleFonts.manrope(fontSize: 72),
+                            ),
+                          ),
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 84, 20, 20),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(28),
+                            child: BackdropFilter(
                               filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
                               child: Container(
                                 decoration: BoxDecoration(
@@ -168,13 +170,13 @@ class ArticleDetailScreen extends ConsumerWidget {
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                     colors: [
-                                      colors.bg.withValues(alpha: 0.60),
-                                      Colors.white.withValues(alpha: 0.30),
+                                      Colors.white.withValues(alpha: 0.50),
+                                      Colors.white.withValues(alpha: 0.20),
                                     ],
                                   ),
                                   borderRadius: BorderRadius.circular(28),
                                   border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.65),
+                                    color: Colors.white.withValues(alpha: 0.6),
                                     width: 1.2,
                                   ),
                                   boxShadow: [
@@ -195,194 +197,152 @@ class ArticleDetailScreen extends ConsumerWidget {
                                 ),
                               ),
                             ),
+                          ),
+                        ),
+                ),
+              ),
+              if (lightweightMode)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Container(
+                    width: double.infinity,
+                    color: Colors.white,
+                    padding: const EdgeInsets.fromLTRB(24, 28, 24, 44),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          article.title,
+                          style: GoogleFonts.manrope(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF0F172A),
+                            height: 1.28,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          article.summary,
+                          style: GoogleFonts.manrope(
+                            fontSize: 14,
+                            color: const Color(0xFF475569),
+                            height: 1.5,
+                            fontStyle: FontStyle.italic,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        ..._buildContentParagraphs(article.body, colors.fg),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(28),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Colors.white.withValues(alpha: 0.50),
+                                Colors.white.withValues(alpha: 0.20),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              width: 1.2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 18,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      Colors.white.withValues(alpha: 0.50),
+                                      Colors.white.withValues(alpha: 0.20),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.6),
+                                    width: 1.0,
+                                  ),
+                                ),
+                                child: Text(
+                                  _categoryLabel(article.category),
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.normal,
+                                    color: colors.fg,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              Text(
+                                article.title,
+                                style: GoogleFonts.manrope(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.normal,
+                                  color: Colors.black87,
+                                  height: 1.3,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                article.summary,
+                                style: GoogleFonts.manrope(
+                                  fontSize: 15,
+                                  color: Colors.black54,
+                                  height: 1.5,
+                                  fontStyle: FontStyle.italic,
+                                  fontWeight: FontWeight.normal,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              Container(
+                                height: 1,
+                                color: Colors.black.withValues(alpha: 0.05),
+                              ),
+                              const SizedBox(height: 20),
+                              ..._buildContentParagraphs(
+                                article.body,
+                                colors.fg,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(28),
-                    child: lightweightMode
-                        ? Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(28),
-                              border: Border.all(
-                                color: const Color(0xFFE2E8F0),
-                                width: 1.0,
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: colors.bg,
-                                    borderRadius: BorderRadius.circular(999),
-                                    border: Border.all(
-                                      color: colors.fg.withValues(alpha: 0.2),
-                                      width: 1.0,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    _categoryLabel(article.category),
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.normal,
-                                      color: colors.fg,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 14),
-                                Text(
-                                  article.title,
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.normal,
-                                    color: Colors.black87,
-                                    height: 1.3,
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  article.summary,
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 15,
-                                    color: Colors.black54,
-                                    height: 1.5,
-                                    fontStyle: FontStyle.italic,
-                                    fontWeight: FontWeight.normal,
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-                                Container(
-                                  height: 1,
-                                  color: const Color(0xFFE2E8F0),
-                                ),
-                                const SizedBox(height: 20),
-                                ..._buildContentParagraphs(
-                                  article.body,
-                                  colors.fg,
-                                ),
-                              ],
-                            ),
-                          )
-                        : BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.fromLTRB(
-                                20,
-                                20,
-                                20,
-                                24,
-                              ),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Colors.white.withValues(alpha: 0.62),
-                                    Colors.white.withValues(alpha: 0.34),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(28),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.70),
-                                  width: 1.2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.05),
-                                    blurRadius: 18,
-                                    offset: const Offset(0, 6),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors: [
-                                          colors.bg.withValues(alpha: 0.55),
-                                          Colors.white.withValues(alpha: 0.30),
-                                        ],
-                                      ),
-                                      borderRadius: BorderRadius.circular(999),
-                                      border: Border.all(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.70,
-                                        ),
-                                        width: 1.0,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      _categoryLabel(article.category),
-                                      style: GoogleFonts.manrope(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.normal,
-                                        color: colors.fg,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 14),
-                                  Text(
-                                    article.title,
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.normal,
-                                      color: Colors.black87,
-                                      height: 1.3,
-                                      letterSpacing: -0.5,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    article.summary,
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 15,
-                                      color: Colors.black54,
-                                      height: 1.5,
-                                      fontStyle: FontStyle.italic,
-                                      fontWeight: FontWeight.normal,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  Container(
-                                    height: 1,
-                                    color: Colors.black.withValues(alpha: 0.05),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  ..._buildContentParagraphs(
-                                    article.body,
-                                    colors.fg,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                  ),
-                ),
-              ),
             ],
           ),
         ],
@@ -480,12 +440,25 @@ class ArticleDetailScreen extends ConsumerWidget {
     }
   }
 
+  ({Color bg, Color fg}) _lightweightCategoryColors(String category) {
+    switch (category.toLowerCase()) {
+      case 'sains':
+        return (bg: const Color(0xFFD4E7FF), fg: const Color(0xFF0F172A));
+      case 'fakta_unik':
+        return (bg: const Color(0xFF83BBF4), fg: const Color(0xFF0F172A));
+      case 'kesehatan':
+        return (bg: const Color(0xFF4776E8), fg: Colors.white);
+      default:
+        return (bg: const Color(0xFFD4E7FF), fg: const Color(0xFF0F172A));
+    }
+  }
+
   String _categoryLabel(String category) {
     switch (category.toLowerCase()) {
       case 'sains':
         return 'Sains';
       case 'fakta_unik':
-        return 'Fakta Unik';
+        return 'Fakta unik';
       case 'kesehatan':
         return 'Kesehatan';
       default:

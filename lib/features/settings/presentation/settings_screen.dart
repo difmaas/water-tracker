@@ -34,6 +34,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _qaModeEnabled = false;
   int _qaTapCount = 0;
   String? _pendingNotificationReport;
+  bool? _exactAlarmAllowed;
 
   UserProfile? _profile;
   bool _isLoadingProfile = true;
@@ -46,9 +47,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _loadProfileData() async {
     final profile = await ref.read(profileRepositoryProvider).getUserProfile();
+    final exactAlarmAllowed = await ref
+        .read(reminderServiceProvider)
+        .canScheduleExactAlarms();
     if (!mounted) return;
     setState(() {
       _profile = profile;
+      _exactAlarmAllowed = exactAlarmAllowed;
       _isLoadingProfile = false;
     });
   }
@@ -197,10 +202,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ? Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: const Color(0xFFEAF5FF),
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: const Color(0xFFE2E8F0),
+                    color: const Color(0xFFD7EAFB),
                     width: 1.2,
                   ),
                 ),
@@ -290,20 +295,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          Colors.white.withValues(alpha: 0.90),
-                          Colors.white.withValues(alpha: 0.75),
+                          Colors.white.withValues(alpha: 0.50),
+                          Colors.white.withValues(alpha: 0.20),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.7),
+                        color: Colors.white.withValues(alpha: 0.6),
                         width: 1.2,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.08),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 18,
+                          offset: const Offset(0, 6),
                         ),
                       ],
                     ),
@@ -418,12 +423,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           Scaffold(
             backgroundColor: Colors.transparent,
-            appBar: _buildSettingsAppBar(),
+            appBar: _buildSettingsAppBar(lightweightMode),
             body: const Center(
               child: Text(
                 'Profil tidak ditemukan. Selesaikan setup profil dahulu.',
               ),
             ),
+          ),
+        ],
+      );
+    }
+
+    if (lightweightMode) {
+      return Stack(
+        children: [
+          const Positioned.fill(
+            child: HydrationBackground(lightweightMode: true),
+          ),
+          Scaffold(
+            backgroundColor: Colors.transparent,
+            appBar: _buildSettingsAppBar(true),
+            body: _buildLightSettingsView(),
           ),
         ],
       );
@@ -449,7 +469,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         Scaffold(
           backgroundColor: Colors.transparent,
-          appBar: _buildSettingsAppBar(),
+          appBar: _buildSettingsAppBar(lightweightMode),
           body: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
             child: Column(
@@ -773,6 +793,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               ),
                               const SizedBox(height: 20),
                               _buildReminderReliabilityWarning(),
+                              if (_exactAlarmAllowed == false) ...[
+                                const SizedBox(height: 12),
+                                _buildExactAlarmWarning(),
+                              ],
                               const SizedBox(height: 20),
 
                               // Edit Button
@@ -940,7 +964,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  PreferredSizeWidget _buildSettingsAppBar() {
+  PreferredSizeWidget _buildSettingsAppBar(bool lightweightMode) {
     return AppBar(
       automaticallyImplyLeading: false,
       backgroundColor: Colors.transparent,
@@ -960,15 +984,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             Text(
               'Pengaturan',
               style: GoogleFonts.manrope(
-                fontSize: 26,
-                fontWeight: FontWeight.normal,
+                fontSize: 24,
+                fontWeight: lightweightMode
+                    ? FontWeight.bold
+                    : FontWeight.normal,
                 color: Colors.black,
                 letterSpacing: -0.5,
               ),
             ),
             const SizedBox(height: 4),
             Text(
-              'Atur pengingat dan informasi aplikasi',
+              'Atur profil dan informasi aplikasi',
               style: GoogleFonts.manrope(
                 fontSize: 13,
                 fontWeight: FontWeight.normal,
@@ -979,6 +1005,361 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildLightSettingsView() {
+    final lightweightMode = ref.watch(
+      appSettingsProvider.select((state) => state.lightweightMode),
+    );
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildNewSectionTitle('Profil'),
+          _buildNewLightProfileCard(),
+          const SizedBox(height: 24),
+          _buildNewSectionTitle('Tema'),
+          _buildNewLightThemeCard(lightweightMode),
+          const SizedBox(height: 24),
+          _buildNewSectionTitle('Aplikasi & Data'),
+          _buildNewLightAppCard(),
+          if (_qaModeEnabled) ...[
+            const SizedBox(height: 16),
+            _buildQaModeCard(true),
+          ],
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNewSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Text(
+        title,
+        style: GoogleFonts.manrope(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: const Color(0xFF0F172A),
+        ),
+      ),
+    );
+  }
+
+  String _genderLabel() {
+    return _profile!.jenisKelamin == 'laki_laki' ? 'Laki-laki' : 'Perempuan';
+  }
+
+  Widget _buildNewLightProfileCard() {
+    final age = AppDateUtils.ageFromBirthdate(_profile!.tanggalLahir);
+    final gender = _genderLabel();
+    final activity =
+        _profile!.levelAktivitas == 'aktif' ||
+            _profile!.levelAktivitas == 'sangat_aktif'
+        ? 'Tinggi'
+        : (_profile!.levelAktivitas == 'sedang' ? 'Sedang' : 'Rendah');
+    final target = '${_profile!.dailyTargetMl} ml';
+    final interval = '${_profile!.reminderInterval} jam';
+    final window =
+        '${_profile!.reminderWindowStart.toString().padLeft(2, '0')}:00 - ${_profile!.reminderWindowEnd.toString().padLeft(2, '0')}:00';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFD7E5FF),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: const BoxDecoration(shape: BoxShape.circle),
+                child: ClipOval(
+                  child: Image.asset(
+                    _profile!.jenisKelamin == 'laki_laki'
+                        ? 'assets/images/man.webp'
+                        : 'assets/images/woman.webp',
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _capitalize(_profile!.nama),
+                      style: GoogleFonts.manrope(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF0F172A),
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      gender,
+                      style: GoogleFonts.manrope(
+                        fontSize: 13,
+                        color: const Color(0xFF475569),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _buildNewProfileStatRow('Usia', '$age Tahun'),
+          const SizedBox(height: 12),
+          _buildNewProfileStatRow(
+            'Berat badan',
+            '${_profile!.beratBadan.toStringAsFixed(0)} kg',
+          ),
+          const SizedBox(height: 12),
+          _buildNewProfileStatRow('Tingkat aktivitas', activity),
+          const SizedBox(height: 12),
+          _buildNewProfileStatRow('Kebutuhan harian', target),
+          const SizedBox(height: 12),
+          _buildNewProfileStatRow('Interval', interval),
+          const SizedBox(height: 12),
+          _buildNewProfileStatRow('Rentang waktu', window),
+          const SizedBox(height: 24),
+          Center(
+            child: SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: () async {
+                  ref
+                      .read(profileProvider.notifier)
+                      .initializeForEdit(_profile!);
+                  final updated = await context.push<bool>(
+                    '/profile-setup?edit=true',
+                  );
+                  if (!mounted) return;
+                  if (updated == true) {
+                    await _loadProfileData();
+                    ref.invalidate(hydrationProvider);
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF0F172A),
+                  elevation: 0,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                ),
+                child: Text(
+                  'Edit Profil',
+                  style: GoogleFonts.manrope(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNewProfileStatRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.manrope(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFF475569),
+          ),
+        ),
+        Text(
+          value,
+          style: GoogleFonts.manrope(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF0F172A),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNewLightThemeCard(bool lightweightMode) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFD7E5FF),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Mode ringan',
+            style: GoogleFonts.manrope(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFF0F172A),
+            ),
+          ),
+          Switch.adaptive(
+            value: lightweightMode,
+            activeThumbColor: kPrimary,
+            activeTrackColor: kPrimary.withValues(alpha: 0.3),
+            onChanged: (value) {
+              ref.read(appSettingsProvider.notifier).setLightweightMode(value);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNewLightAppCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFD7E5FF),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        children: [
+          _buildNewAppCardRow(
+            title: 'Tentang SEHATI',
+            subtitle: 'Informasi aplikasi',
+            actionIcon: Icons.info_outline_rounded,
+            onTap: () {
+              showAboutDialog(
+                context: context,
+                applicationName: 'SEHATI',
+                applicationVersion: '1.0.0',
+                applicationIcon: const Icon(
+                  Icons.water_drop_rounded,
+                  color: kPrimary,
+                ),
+                children: [
+                  const Text(
+                    'Aplikasi pengingat minum air putih untuk membantu menjaga hidrasi tubuh Anda.',
+                  ),
+                ],
+              );
+            },
+          ),
+          _buildNewAppCardDivider(),
+          _buildNewAppCardRow(
+            title: 'Ekspor Data',
+            subtitle: 'Ekspor riwayat harian kamu',
+            actionIcon: Icons.download_rounded,
+            onTap: _isExporting ? null : _exportCsv,
+          ),
+          _buildNewAppCardDivider(),
+          _buildNewAppCardRow(
+            title: 'Hapus Data',
+            subtitle: 'Hapus semua data kamu',
+            actionIcon: Icons.delete_outline_rounded,
+            actionIconColor: const Color(0xFFEF4444),
+            onTap: _showResetConfirmation,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNewAppCardRow({
+    required String title,
+    required String subtitle,
+    IconData? actionIcon,
+    Color? actionIconColor,
+    required VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.manrope(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.manrope(
+                      fontSize: 12,
+                      color: const Color(0xFF475569),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (actionIcon != null) ...[
+              const SizedBox(width: 12),
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.0),
+                ),
+                child: Icon(
+                  actionIcon,
+                  color: actionIconColor ?? const Color(0xFF1A73E8),
+                  size: 18,
+                ),
+              ),
+            ] else ...[
+              const SizedBox(width: 12),
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: const Color(0xFF1A73E8).withValues(alpha: 0.15),
+                    width: 1.0,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNewAppCardDivider() {
+    return const Divider(height: 1, thickness: 1, color: Color(0xFFC4D7FF));
   }
 
   Widget _buildReminderReliabilityWarning() {
@@ -1023,6 +1404,40 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExactAlarmWarning() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFED7AA), width: 1),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.schedule_rounded,
+            color: Color(0xFFEA580C),
+            size: 18,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Izin alarm presisi belum aktif. Pengingat bisa tetap berjalan, tetapi waktunya mungkin tidak selalu tepat.',
+              style: GoogleFonts.manrope(
+                fontSize: 11,
+                fontWeight: FontWeight.normal,
+                color: const Color(0xFF9A3412),
+                height: 1.35,
+              ),
             ),
           ),
         ],
@@ -1244,7 +1659,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final card = Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: lightweightMode ? const Color(0xFFEAF5FF) : null,
+        color: lightweightMode
+            ? const Color(0xFFEAF5FF)
+            : Colors.white.withValues(alpha: 0.34),
         gradient: lightweightMode
             ? null
             : LinearGradient(
@@ -1267,7 +1684,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             : [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 10,
+                  blurRadius: 18,
                   offset: const Offset(0, 6),
                 ),
               ],
@@ -1296,7 +1713,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final card = Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: lightweightMode ? Colors.white : null,
+        color: lightweightMode
+            ? Colors.white
+            : Colors.white.withValues(alpha: 0.34),
         gradient: lightweightMode
             ? null
             : LinearGradient(
@@ -1314,6 +1733,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               : Colors.white.withValues(alpha: 0.6),
           width: 1.2,
         ),
+        boxShadow: lightweightMode
+            ? const []
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+              ],
       ),
       child: child,
     );

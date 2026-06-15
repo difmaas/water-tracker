@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/data/user_profile_model.dart';
 import '../../../core/widgets/app_button.dart';
+import '../../../providers/app_settings_provider.dart';
 
 final achievementsProfileProvider = FutureProvider<UserProfile?>((ref) async {
   final repo = ref.watch(profileRepositoryProvider);
@@ -16,6 +17,9 @@ class AchievementsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(achievementsProfileProvider);
+    final lightweightMode = ref.watch(
+      appSettingsProvider.select((state) => state.lightweightMode),
+    );
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -36,7 +40,9 @@ class AchievementsScreen extends ConsumerWidget {
               'Buku Medali',
               style: GoogleFonts.manrope(
                 fontSize: 26,
-                fontWeight: FontWeight.normal,
+                fontWeight: lightweightMode
+                    ? FontWeight.bold
+                    : FontWeight.normal,
                 color: Colors.black,
                 letterSpacing: -0.5,
               ),

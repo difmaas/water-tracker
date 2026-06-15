@@ -6,6 +6,24 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../providers/app_settings_provider.dart';
 
+const _kLightweightCategoryStyles = {
+  'sains': (
+    topColor: Color(0xFFD4E7FF),
+    bottomColor: Color(0xFFD4E7FF),
+    textColor: Color(0xFF0F172A),
+  ),
+  'fakta_unik': (
+    topColor: Color(0xFF83BBF4),
+    bottomColor: Color(0xFF83BBF4),
+    textColor: Color(0xFF0F172A),
+  ),
+  'kesehatan': (
+    topColor: Color(0xFF4776E8),
+    bottomColor: Color(0xFF4776E8),
+    textColor: Colors.white,
+  ),
+};
+
 const _kCategoryStyles = {
   'sains': (
     color: Color(0xFFEAF5FF),
@@ -45,32 +63,122 @@ class _ArticleCardState extends ConsumerState<ArticleCard> {
 
   @override
   Widget build(BuildContext context) {
-    final style =
-        _kCategoryStyles[widget.article.category.toLowerCase()] ??
-        _kCategoryStyles['sains']!;
-
     final lightweightMode = ref.watch(
       appSettingsProvider.select((state) => state.lightweightMode),
     );
 
+    if (lightweightMode) {
+      final lwStyle =
+          _kLightweightCategoryStyles[widget.article.category.toLowerCase()] ??
+          _kLightweightCategoryStyles['sains']!;
+
+      return GestureDetector(
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) => setState(() => _isPressed = false),
+        onTapCancel: () => setState(() => _isPressed = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _isPressed ? 0.96 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          child: Container(
+            width: 165,
+            height: 240,
+            margin: const EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: lwStyle.bottomColor,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Row: Emoji Bubble
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: lwStyle.textColor.withValues(alpha: 0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      widget.article.emoji,
+                      style: const TextStyle(fontSize: 22),
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                // Title Text
+                Text(
+                  widget.article.title,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.manrope(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w800,
+                    color: lwStyle.textColor,
+                    height: 1.25,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Bottom Row: Clean Read Time Label
+                Row(
+                  children: [
+                    Icon(
+                      Icons.access_time_rounded,
+                      size: 12,
+                      color: lwStyle.textColor.withValues(alpha: 0.5),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '1 menit baca',
+                      style: GoogleFonts.manrope(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: lwStyle.textColor.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final style =
+        _kCategoryStyles[widget.article.category.toLowerCase()] ??
+        _kCategoryStyles['sains']!;
+
     final cardContent = Container(
       decoration: BoxDecoration(
-        color: lightweightMode ? style.color : null,
+        color: lightweightMode
+            ? style.color
+            : Colors.white.withValues(alpha: 0.34),
         gradient: lightweightMode
             ? null
             : LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  style.color.withValues(alpha: 0.45),
-                  style.color.withValues(alpha: 0.18),
+                  Colors.white.withValues(alpha: 0.50),
+                  Colors.white.withValues(alpha: 0.20),
                 ],
               ),
         borderRadius: BorderRadius.circular(16),
         border: lightweightMode
             ? null
             : Border.all(
-                color: Colors.white.withValues(alpha: 0.55),
+                color: Colors.white.withValues(alpha: 0.6),
                 width: 1.2,
               ),
       ),
@@ -154,7 +262,7 @@ class _ArticleCardState extends ConsumerState<ArticleCard> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  '2 menit baca',
+                  '1 menit baca',
                   style: GoogleFonts.manrope(
                     fontSize: 12,
                     fontWeight: FontWeight.normal,
@@ -202,21 +310,26 @@ class _ArticleCardState extends ConsumerState<ArticleCard> {
         child: Container(
           margin: const EdgeInsets.only(bottom: 24),
           decoration: BoxDecoration(
-            color: lightweightMode ? style.color : null,
-            borderRadius: BorderRadius.circular(16),
+            color: lightweightMode
+                ? style.color
+                : Colors.white.withValues(alpha: 0.34),
             border: lightweightMode
                 ? Border.all(
                     color: style.fg.withValues(alpha: 0.15),
                     width: 1.0,
                   )
-                : null,
+                : Border.all(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    width: 1.2,
+                  ),
+            borderRadius: BorderRadius.circular(16),
             boxShadow: lightweightMode
                 ? const []
                 : [
                     BoxShadow(
-                      color: style.fg.withValues(alpha: 0.04),
+                      color: Colors.black.withValues(alpha: 0.04),
                       blurRadius: 18,
-                      offset: const Offset(0, 8),
+                      offset: const Offset(0, 6),
                     ),
                   ],
           ),
@@ -239,7 +352,7 @@ class _ArticleCardState extends ConsumerState<ArticleCard> {
       case 'sains':
         return 'Sains';
       case 'fakta_unik':
-        return 'Fakta Unik';
+        return 'Fakta unik';
       case 'kesehatan':
         return 'Kesehatan';
       default:

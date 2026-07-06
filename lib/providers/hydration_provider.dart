@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/profile/data/profile_repository.dart';
@@ -24,6 +25,7 @@ class HydrationState {
   final int reminderWindowEnd;
   final bool reminderSystemActive;
   final int researchDay;
+  final bool isDrinkDisabled;
 
   double get progressPercent =>
       targetMl > 0 ? (currentMl / targetMl).clamp(0.0, 1.0) : 0.0;
@@ -45,6 +47,7 @@ class HydrationState {
     this.reminderWindowEnd = 21,
     this.reminderSystemActive = false,
     this.researchDay = 1,
+    this.isDrinkDisabled = false,
   });
 
   HydrationState copyWith({
@@ -62,6 +65,7 @@ class HydrationState {
     int? reminderWindowEnd,
     bool? reminderSystemActive,
     int? researchDay,
+    bool? isDrinkDisabled,
     bool clearNextReminder = false,
   }) {
     return HydrationState(
@@ -82,6 +86,7 @@ class HydrationState {
       reminderWindowEnd: reminderWindowEnd ?? this.reminderWindowEnd,
       reminderSystemActive: reminderSystemActive ?? this.reminderSystemActive,
       researchDay: researchDay ?? this.researchDay,
+      isDrinkDisabled: isDrinkDisabled ?? this.isDrinkDisabled,
     );
   }
 }
@@ -97,12 +102,18 @@ class HydrationState {
 ///
 /// Write operations (addLog, undoLog) are user-initiated actions and safe
 /// to perform here — they are NOT startup mutations.
+///
+/// Guard: Cooldown 5s after logging water.
 class HydrationNotifier extends Notifier<HydrationState> {
   ProfileRepository get _profileRepo => ref.read(profileRepositoryProvider);
   LoggingRepository get _loggingRepo => ref.read(loggingRepositoryProvider);
+  Timer? _disableTimer;
 
   @override
   HydrationState build() {
+    ref.onDispose(() {
+      _disableTimer?.cancel();
+    });
     Future.microtask(() => _loadToday());
     return const HydrationState(isLoading: true);
   }
@@ -191,20 +202,41 @@ class HydrationNotifier extends Notifier<HydrationState> {
   }
 
   // ── F-05: User-initiated write operations ─────────────────────────────────
+  
+  void _startDrinkCooldown() {
+    _disableTimer?.cancel();
+    state = state.copyWith(isDrinkDisabled: true);
+    _disableTimer = Timer(const Duration(seconds: 5), () {
+      state = state.copyWith(isDrinkDisabled: false);
+    });
+  }
+
+  void _cancelDrinkCooldown() {
+    _disableTimer?.cancel();
+    state = state.copyWith(isDrinkDisabled: false);
+  }
 
   /// Adds a hydration log and upserts today's DailySummary.
   /// Returns the saved log (with assigned ID) for undo Snackbar support.
   ///
   /// This is a user-initiated write — NOT a startup mutation.
   Future<HydrationLog?> addLog(int volumeMl, {String loggedVia = 'app'}) async {
+    if (state.isDrinkDisabled) return null;
+
+    _startDrinkCooldown();
+
     try {
       if (volumeMl <= 0) {
         debugPrint('[HydrationNotifier] Ignoring invalid volume: $volumeMl');
+        _cancelDrinkCooldown();
         return null;
       }
 
       final profile = await _profileRepo.getUserProfile();
-      if (profile == null) return null;
+      if (profile == null) {
+        _cancelDrinkCooldown();
+        return null;
+      }
 
       final now = DateTime.now();
 
@@ -226,23 +258,15 @@ class HydrationNotifier extends Notifier<HydrationState> {
       await _loadToday();
 
       // Trigger progress/history refresh
-      try {
-        ref.read(progressProvider.notifier).refresh();
-      } catch (e) {
-        debugPrint('Error refreshing progressProvider in addLog: $e');
-      }
+      _refreshProgress('addLog');
 
       // 4. Rebuild today's remaining reminder slots after the new total.
-      await ref
-          .read(reminderServiceProvider)
-          .rescheduleIfNeeded(
-            currentMl: state.currentMl,
-            targetMl: state.targetMl,
-          );
+      await _rescheduleRemindersForCurrentState();
 
       return log;
     } catch (e, st) {
       debugPrint('Error in addLog: $e\n$st');
+      _cancelDrinkCooldown();
       return null;
     }
   }
@@ -266,19 +290,10 @@ class HydrationNotifier extends Notifier<HydrationState> {
       await _loadToday();
 
       // Trigger progress/history refresh
-      try {
-        ref.read(progressProvider.notifier).refresh();
-      } catch (e) {
-        debugPrint('Error refreshing progressProvider in undoLog: $e');
-      }
+      _refreshProgress('undoLog');
 
       // 4. Rebuild reminders because undo can drop total below target.
-      await ref
-          .read(reminderServiceProvider)
-          .rescheduleIfNeeded(
-            currentMl: state.currentMl,
-            targetMl: state.targetMl,
-          );
+      await _rescheduleRemindersForCurrentState();
     } catch (e, st) {
       debugPrint('Error in undoLog: $e\n$st');
     }
@@ -300,23 +315,12 @@ class HydrationNotifier extends Notifier<HydrationState> {
       await _loadToday();
 
       // Trigger progress/history refresh
-      try {
-        ref.read(progressProvider.notifier).refresh();
-      } catch (e) {
-        debugPrint('Error refreshing progressProvider in deleteLog: $e');
-      }
+      _refreshProgress('deleteLog');
 
       // 4. Recalculate reminders if it's today
       final now = DateTime.now();
-      if (logTimestamp.year == now.year &&
-          logTimestamp.month == now.month &&
-          logTimestamp.day == now.day) {
-        await ref
-            .read(reminderServiceProvider)
-            .rescheduleIfNeeded(
-              currentMl: state.currentMl,
-              targetMl: state.targetMl,
-            );
+      if (_isSameLocalDay(logTimestamp, now)) {
+        await _rescheduleRemindersForCurrentState();
       }
     } catch (e, st) {
       debugPrint('Error in deleteLog: $e\n$st');
@@ -354,23 +358,12 @@ class HydrationNotifier extends Notifier<HydrationState> {
       await _loadToday();
 
       // Trigger progress/history refresh
-      try {
-        ref.read(progressProvider.notifier).refresh();
-      } catch (e) {
-        debugPrint('Error refreshing progressProvider in updateLog: $e');
-      }
+      _refreshProgress('updateLog');
 
       // Recalculate reminders if it's today
       final now = DateTime.now();
-      if (logTimestamp.year == now.year &&
-          logTimestamp.month == now.month &&
-          logTimestamp.day == now.day) {
-        await ref
-            .read(reminderServiceProvider)
-            .rescheduleIfNeeded(
-              currentMl: state.currentMl,
-              targetMl: state.targetMl,
-            );
+      if (_isSameLocalDay(logTimestamp, now)) {
+        await _rescheduleRemindersForCurrentState();
       }
     } catch (e, st) {
       debugPrint('Error in updateLog: $e\n$st');
@@ -418,6 +411,27 @@ class HydrationNotifier extends Notifier<HydrationState> {
         ..createdAt = DateTime.now();
       await _loggingRepo.upsertDailySummary(summary);
     }
+  }
+
+  void _refreshProgress(String source) {
+    try {
+      ref.read(progressProvider.notifier).refresh();
+    } catch (e) {
+      debugPrint('Error refreshing progressProvider in $source: $e');
+    }
+  }
+
+  Future<void> _rescheduleRemindersForCurrentState() {
+    return ref
+        .read(reminderServiceProvider)
+        .rescheduleIfNeeded(
+          currentMl: state.currentMl,
+          targetMl: state.targetMl,
+        );
+  }
+
+  bool _isSameLocalDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   /// Called externally to refresh display state (e.g. after navigation back).

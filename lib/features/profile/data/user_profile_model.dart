@@ -9,6 +9,7 @@ class UserProfile {
 
   // ── Identifiers ──────────────────────────────────────────────────────────────
   String userId = ''; // UUID v4 — generated once at profile setup
+  String participantId = ''; // Randomized ID for research export & settings
 
   // ── Personal Data (Local only — nama never synced to Supabase) ──────────────
   String nama =
@@ -57,6 +58,7 @@ class UserProfile {
 
   UserProfile copyWith({
     String? userId,
+    String? participantId,
     String? nama,
     DateTime? tanggalLahir,
     String? jenisKelamin,
@@ -85,6 +87,7 @@ class UserProfile {
     return UserProfile()
       ..id = id
       ..userId = userId ?? this.userId
+      ..participantId = participantId ?? this.participantId
       ..nama = nama ?? this.nama
       ..tanggalLahir = tanggalLahir ?? this.tanggalLahir
       ..jenisKelamin = jenisKelamin ?? this.jenisKelamin
@@ -116,6 +119,7 @@ class UserProfile {
   Map<String, dynamic> toJson() => {
     'id': id,
     'userId': userId,
+    'participantId': participantId,
     'nama': nama,
     'tanggalLahir': tanggalLahir.toIso8601String(),
     'jenisKelamin': jenisKelamin,
@@ -146,6 +150,7 @@ class UserProfile {
     return UserProfile()
       ..id = json['id'] as int? ?? Isar.autoIncrement
       ..userId = json['userId'] as String
+      ..participantId = json['participantId'] as String? ?? ''
       ..nama = json['nama'] as String? ?? ''
       ..tanggalLahir = DateTime.parse(json['tanggalLahir'] as String)
       ..jenisKelamin = json['jenisKelamin'] as String

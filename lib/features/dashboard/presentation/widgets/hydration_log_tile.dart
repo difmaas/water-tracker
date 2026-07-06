@@ -39,18 +39,33 @@ class HydrationLogTile extends ConsumerWidget {
 
   double _getVisualIconSize(int volume) {
     if (volume <= 350) {
-      return 18.0;
+      return 28.0;
     } else if (volume <= 600) {
-      return 18.0;
+      return 30.0;
     } else if (volume <= 850) {
-      return 23.0; // 750ml has extra internal padding
+      return 36.0; // 750ml has extra internal padding
     } else {
-      return 19.0;
+      return 32.0;
+    }
+  }
+
+  double _getPresetIconSize(int volume) {
+    if (volume <= 350) {
+      return 32.0;
+    } else if (volume <= 600) {
+      return 36.0;
+    } else if (volume <= 850) {
+      return 48.0;
+    } else {
+      return 40.0;
     }
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final lightweightMode = ref.watch(
+      appSettingsProvider.select((state) => state.lightweightMode),
+    );
     final timeString =
         '${log.timestamp.hour.toString().padLeft(2, '0')}:${log.timestamp.minute.toString().padLeft(2, '0')}';
 
@@ -60,15 +75,15 @@ class HydrationLogTile extends ConsumerWidget {
         children: [
           // Svg icon corresponding to volume size (centered in a fixed size container)
           SizedBox(
-            width: 24,
-            height: 24,
+            width: 40,
+            height: 40,
             child: Center(
               child: SvgPicture.asset(
                 _getIconPath(log.volume),
                 width: _getVisualIconSize(log.volume),
                 height: _getVisualIconSize(log.volume),
-                colorFilter: const ColorFilter.mode(
-                  Colors.black,
+                colorFilter: ColorFilter.mode(
+                  lightweightMode ? const Color(0xFF1A73E8) : Colors.black,
                   BlendMode.srcIn,
                 ),
               ),
@@ -124,27 +139,162 @@ class HydrationLogTile extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (BuildContext context) {
+        if (lightweightMode) {
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFFD7E5FF),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Hapus catatan minum',
+                          style: GoogleFonts.manrope(
+                            fontSize: 18,
+                            fontWeight: FontWeight.normal,
+                            color: const Color(0xFF0F172A),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFF5AA0FF),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            size: 20,
+                            color: Color(0xFF0F172A),
+                          ),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Catatan yang dihapus tidak bisa dikembalikan.',
+                    style: GoogleFonts.manrope(
+                      fontSize: 14,
+                      color: const Color(0xFF0F172A),
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: _LightweightSheetWhiteButton(
+                      label: 'HAPUS CATATAN',
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        ref
+                            .read(hydrationProvider.notifier)
+                            .deleteLog(log.id, log.timestamp);
+
+                        final screenWidth = MediaQuery.of(context).size.width;
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            behavior: SnackBarBehavior.floating,
+                            backgroundColor: Colors.transparent,
+                            elevation: 0,
+                            margin: EdgeInsets.only(
+                              left: (screenWidth - 240) / 2,
+                              right: (screenWidth - 240) / 2,
+                              bottom: 24.0,
+                            ),
+                            padding: EdgeInsets.zero,
+                            content: Container(
+                              height: 60,
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(32),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                  width: 1.2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.08),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.delete_outline_rounded,
+                                    color: Color(0xFFEF4444),
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Catatan ${log.volume}ml dihapus',
+                                      style: GoogleFonts.manrope(
+                                        color: Colors.black87,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
         final dialogContent = Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: lightweightMode
                 ? const Color(0xFFEAF5FF)
-                : Colors.white.withValues(alpha: 0.34),
+                : Colors.white.withValues(alpha: 0.92),
             gradient: lightweightMode
                 ? null
                 : LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.white.withValues(alpha: 0.50),
-                      Colors.white.withValues(alpha: 0.20),
+                      Colors.white.withValues(alpha: 0.96),
+                      Colors.white.withValues(alpha: 0.88),
                     ],
                   ),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
               color: lightweightMode
                   ? const Color(0xFFD7EAFB)
-                  : Colors.white.withValues(alpha: 0.6),
+                  : Colors.white.withValues(alpha: 0.7),
               width: 1.2,
             ),
             boxShadow: lightweightMode
@@ -199,26 +349,39 @@ class HydrationLogTile extends ConsumerWidget {
                             .read(hydrationProvider.notifier)
                             .deleteLog(log.id, log.timestamp);
 
+                        final screenWidth = MediaQuery.of(context).size.width;
+
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             behavior: SnackBarBehavior.floating,
                             backgroundColor: Colors.transparent,
                             elevation: 0,
-                            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            margin: lightweightMode
+                                ? EdgeInsets.only(
+                                    left: (screenWidth - 240) / 2,
+                                    right: (screenWidth - 240) / 2,
+                                    bottom: 24.0,
+                                  )
+                                : const EdgeInsets.fromLTRB(16, 0, 16, 16),
                             padding: EdgeInsets.zero,
                             content: lightweightMode
                                 ? Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                      vertical: 14,
-                                    ),
+                                    height: 60,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
                                     decoration: BoxDecoration(
                                       color: Colors.white,
-                                      borderRadius: BorderRadius.circular(16),
+                                      borderRadius: BorderRadius.circular(32),
                                       border: Border.all(
                                         color: const Color(0xFFE2E8F0),
                                         width: 1.2,
                                       ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.08),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ],
                                     ),
                                     child: Row(
                                       children: [
@@ -227,15 +390,16 @@ class HydrationLogTile extends ConsumerWidget {
                                           color: Color(0xFFEF4444),
                                           size: 20,
                                         ),
-                                        const SizedBox(width: 12),
+                                        const SizedBox(width: 8),
                                         Expanded(
                                           child: Text(
-                                            'Catatan ${log.volume} ml berhasil dihapus',
+                                            'Catatan ${log.volume}ml dihapus',
                                             style: GoogleFonts.manrope(
                                               color: Colors.black87,
-                                              fontSize: 14,
+                                              fontSize: 13,
                                               fontWeight: FontWeight.w500,
                                             ),
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
                                       ],
@@ -259,10 +423,10 @@ class HydrationLogTile extends ConsumerWidget {
                                             end: Alignment.bottomRight,
                                             colors: [
                                               Colors.white.withValues(
-                                                alpha: 0.65,
+                                                alpha: 0.9,
                                               ),
                                               Colors.white.withValues(
-                                                alpha: 0.35,
+                                                alpha: 0.82,
                                               ),
                                             ],
                                           ),
@@ -352,27 +516,189 @@ class HydrationLogTile extends ConsumerWidget {
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (dialogContext, setDialogState) {
+            if (lightweightMode) {
+              return Dialog(
+                backgroundColor: Colors.transparent,
+                insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD7E5FF),
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Edit catatan minum',
+                              style: GoogleFonts.manrope(
+                                fontSize: 18,
+                                fontWeight: FontWeight.normal,
+                                color: const Color(0xFF0F172A),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFF5AA0FF),
+                                width: 1.2,
+                              ),
+                            ),
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                size: 20,
+                                color: Color(0xFF0F172A),
+                              ),
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop(),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      GridView.count(
+                        shrinkWrap: true,
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 1.3,
+                        physics: const NeverScrollableScrollPhysics(),
+                        children: volumeOptions
+                            .map((volume) {
+                              final isTemporaryOldValue =
+                                  volume == log.volume &&
+                                  !kHydrationVolumePresets.contains(volume);
+                              return _EditVolumeCard(
+                                volume: volume,
+                                isSelected: selectedVolume == volume,
+                                helperText: isTemporaryOldValue
+                                    ? 'Nilai lama'
+                                    : null,
+                                iconPath: _getIconPath(volume),
+                                iconSize: _getPresetIconSize(volume),
+                                lightweightMode: lightweightMode,
+                                onTap: () {
+                                  setDialogState(() {
+                                    selectedVolume = volume;
+                                  });
+                                },
+                              );
+                            })
+                            .toList(growable: false),
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: _LightweightSheetWhiteButton(
+                          label: 'SIMPAN',
+                          onPressed: selectedVolume == log.volume
+                              ? null
+                              : () async {
+                                  final newVolume = selectedVolume;
+                                  Navigator.of(dialogContext).pop();
+                                  await ref
+                                      .read(hydrationProvider.notifier)
+                                      .updateLog(
+                                        log.id,
+                                        newVolume,
+                                        log.timestamp,
+                                      );
+
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      behavior: SnackBarBehavior.floating,
+                                      backgroundColor: Colors.transparent,
+                                      elevation: 0,
+                                      margin: const EdgeInsets.fromLTRB(
+                                        16,
+                                        0,
+                                        16,
+                                        16,
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      content: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 20,
+                                          vertical: 14,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                          border: Border.all(
+                                            color: const Color(0xFFE2E8F0),
+                                            width: 1.2,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(
+                                              Icons
+                                                  .check_circle_outline_rounded,
+                                              color: Color(0xFF1A73E8),
+                                              size: 20,
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Text(
+                                                'Volume berhasil diubah menjadi $newVolume ml',
+                                                style: GoogleFonts.manrope(
+                                                  color: Colors.black87,
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
             final dialogContent = Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: lightweightMode
                     ? const Color(0xFFEAF5FF)
-                    : Colors.white.withValues(alpha: 0.34),
+                    : Colors.white.withValues(alpha: 0.92),
                 gradient: lightweightMode
                     ? null
                     : LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          Colors.white.withValues(alpha: 0.50),
-                          Colors.white.withValues(alpha: 0.20),
+                          Colors.white.withValues(alpha: 0.96),
+                          Colors.white.withValues(alpha: 0.88),
                         ],
                       ),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
                   color: lightweightMode
                       ? const Color(0xFFD7EAFB)
-                      : Colors.white.withValues(alpha: 0.6),
+                      : Colors.white.withValues(alpha: 0.7),
                   width: 1.2,
                 ),
                 boxShadow: lightweightMode
@@ -403,7 +729,7 @@ class HydrationLogTile extends ConsumerWidget {
                     crossAxisCount: 2,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
-                    childAspectRatio: 1.8,
+                    childAspectRatio: 1.3,
                     physics: const NeverScrollableScrollPhysics(),
                     children: volumeOptions
                         .map((volume) {
@@ -417,7 +743,7 @@ class HydrationLogTile extends ConsumerWidget {
                                 ? 'Nilai lama'
                                 : null,
                             iconPath: _getIconPath(volume),
-                            iconSize: _getVisualIconSize(volume),
+                            iconSize: _getPresetIconSize(volume),
                             lightweightMode: lightweightMode,
                             onTap: () {
                               setDialogState(() {
@@ -532,10 +858,10 @@ class HydrationLogTile extends ConsumerWidget {
                                                           Alignment.bottomRight,
                                                       colors: [
                                                         Colors.white.withValues(
-                                                          alpha: 0.65,
+                                                          alpha: 0.9,
                                                         ),
                                                         Colors.white.withValues(
-                                                          alpha: 0.35,
+                                                          alpha: 0.82,
                                                         ),
                                                       ],
                                                     ),
@@ -634,107 +960,195 @@ class HydrationLogTile extends ConsumerWidget {
       elevation: 0,
       barrierColor: Colors.black.withValues(alpha: 0.15),
       builder: (sheetContext) {
-        final sheetContent = Container(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
-          decoration: BoxDecoration(
-            color: lightweightMode
-                ? const Color(0xFFEAF5FF)
-                : Colors.white.withValues(alpha: 0.34),
-            gradient: lightweightMode
-                ? null
-                : LinearGradient(
+        final bottomInset = MediaQuery.of(sheetContext).padding.bottom;
+        final sheetContent = lightweightMode
+            ? Container(
+                padding: EdgeInsets.fromLTRB(24, 16, 24, 24 + bottomInset),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD7E5FF),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: _LightweightSheetWhiteButton(
+                        label: 'EDIT CATATAN',
+                        onPressed: () {
+                          Navigator.pop(sheetContext);
+                          _showEditDialog(context, ref);
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: _LightweightSheetWhiteButton(
+                        label: 'HAPUS CATATAN',
+                        onPressed: () {
+                          Navigator.pop(sheetContext);
+                          _showDeleteDialog(context, ref);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : Container(
+                padding: EdgeInsets.fromLTRB(24, 16, 24, 40 + bottomInset),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.white.withValues(alpha: 0.50),
-                      Colors.white.withValues(alpha: 0.20),
+                      Colors.white.withValues(alpha: 0.94),
+                      Colors.white.withValues(alpha: 0.86),
                     ],
                   ),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            border: Border.all(
-              color: lightweightMode
-                  ? const Color(0xFFD7EAFB)
-                  : Colors.white.withValues(alpha: 0.6),
-              width: 1.2,
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade400,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 24),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    shape: BoxShape.circle,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
                   ),
-                  child: Icon(
-                    Icons.edit_rounded,
-                    color: Colors.blue.shade700,
-                    size: 20,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    width: 1.2,
                   ),
                 ),
-                title: Text(
-                  'Edit catatan',
-                  style: GoogleFonts.manrope(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade400,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.edit_rounded,
+                          color: Colors.blue.shade700,
+                          size: 20,
+                        ),
+                      ),
+                      title: Text(
+                        'Edit catatan',
+                        style: GoogleFonts.manrope(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        _showEditDialog(context, ref);
+                      },
+                    ),
+                    const Divider(height: 16),
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.delete_rounded,
+                          color: Colors.red.shade700,
+                          size: 20,
+                        ),
+                      ),
+                      title: Text(
+                        'Hapus catatan',
+                        style: GoogleFonts.manrope(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.red.shade700,
+                        ),
+                      ),
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        _showDeleteDialog(context, ref);
+                      },
+                    ),
+                  ],
                 ),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  _showEditDialog(context, ref);
-                },
-              ),
-              const Divider(height: 16),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.delete_rounded,
-                    color: Colors.red.shade700,
-                    size: 20,
-                  ),
-                ),
-                title: Text(
-                  'Hapus catatan',
-                  style: GoogleFonts.manrope(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.red.shade700,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  _showDeleteDialog(context, ref);
-                },
-              ),
-            ],
-          ),
-        );
+              );
 
         return ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          child: lightweightMode
-              ? sheetContent
-              : BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-                  child: sheetContent,
-                ),
+          child: SafeArea(
+            top: false,
+            child: lightweightMode
+                ? sheetContent
+                : BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                    child: sheetContent,
+                  ),
+          ),
         );
       },
+    );
+  }
+}
+
+class _LightweightSheetWhiteButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onPressed;
+
+  const _LightweightSheetWhiteButton({
+    required this.label,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF0F172A),
+        elevation: 2,
+        shadowColor: Colors.black.withValues(alpha: 0.08),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(32),
+          side: BorderSide(
+            color: const Color(0xFF1A73E8).withValues(alpha: 0.12),
+            width: 1.0,
+          ),
+        ),
+      ),
+      child: Center(
+        child: Text(
+          label,
+          style: GoogleFonts.manrope(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -764,7 +1178,7 @@ class _EditVolumeCard extends StatelessWidget {
         ? const Color(0xFF1A73E8)
         : (lightweightMode
               ? const Color(0xFFE2E8F0)
-              : Colors.white.withValues(alpha: 0.6));
+              : Colors.white.withValues(alpha: 0.65));
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
@@ -784,11 +1198,9 @@ class _EditVolumeCard extends StatelessWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
+                        Colors.white.withValues(alpha: isSelected ? 0.9 : 0.82),
                         Colors.white.withValues(
-                          alpha: isSelected ? 0.62 : 0.40,
-                        ),
-                        Colors.white.withValues(
-                          alpha: isSelected ? 0.26 : 0.15,
+                          alpha: isSelected ? 0.78 : 0.68,
                         ),
                       ],
                     ),
@@ -810,8 +1222,12 @@ class _EditVolumeCard extends StatelessWidget {
                         iconPath,
                         width: iconSize,
                         height: iconSize,
-                        colorFilter: const ColorFilter.mode(
-                          Colors.black,
+                        colorFilter: ColorFilter.mode(
+                          lightweightMode
+                              ? const Color(0xFF1A73E8)
+                              : (isSelected
+                                  ? const Color(0xFF1A73E8)
+                                  : Colors.black),
                           BlendMode.srcIn,
                         ),
                       ),
@@ -830,7 +1246,9 @@ class _EditVolumeCard extends StatelessWidget {
                   style: GoogleFonts.manrope(
                     fontSize: 15,
                     fontWeight: FontWeight.normal,
-                    color: Colors.black,
+                    color: lightweightMode
+                        ? const Color(0xFF1A73E8)
+                        : (isSelected ? const Color(0xFF1A73E8) : Colors.black),
                   ),
                 ),
                 if (helperText != null) ...[

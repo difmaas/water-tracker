@@ -90,14 +90,10 @@ class ArticleDetailScreen extends ConsumerWidget {
                 surfaceTintColor: Colors.transparent,
                 elevation: 0,
                 scrolledUnderElevation: 0,
-                leadingWidth: lightweightMode ? 68 : null,
+                leadingWidth: 68,
                 leading: IconButton(
-                  padding: lightweightMode
-                      ? const EdgeInsets.only(left: 24)
-                      : null,
-                  alignment: lightweightMode
-                      ? Alignment.centerLeft
-                      : Alignment.center,
+                  padding: const EdgeInsets.only(left: 24),
+                  alignment: Alignment.centerLeft,
                   icon: lightweightMode
                       ? Container(
                           padding: const EdgeInsets.all(10),
@@ -166,26 +162,27 @@ class ArticleDetailScreen extends ConsumerWidget {
                               filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
                               child: Container(
                                 decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.78),
                                   gradient: LinearGradient(
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                     colors: [
-                                      Colors.white.withValues(alpha: 0.50),
-                                      Colors.white.withValues(alpha: 0.20),
+                                      Colors.white.withValues(alpha: 0.82),
+                                      Colors.white.withValues(alpha: 0.58),
                                     ],
                                   ),
                                   borderRadius: BorderRadius.circular(28),
                                   border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.6),
+                                    color: Colors.white.withValues(alpha: 0.72),
                                     width: 1.2,
                                   ),
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withValues(
-                                        alpha: 0.04,
+                                        alpha: 0.05,
                                       ),
                                       blurRadius: 18,
-                                      offset: const Offset(0, 6),
+                                      offset: const Offset(6, 10),
                                     ),
                                   ],
                                 ),
@@ -250,24 +247,25 @@ class ArticleDetailScreen extends ConsumerWidget {
                           width: double.infinity,
                           padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
                           decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.78),
                             gradient: LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                               colors: [
-                                Colors.white.withValues(alpha: 0.50),
-                                Colors.white.withValues(alpha: 0.20),
+                                Colors.white.withValues(alpha: 0.82),
+                                Colors.white.withValues(alpha: 0.58),
                               ],
                             ),
                             borderRadius: BorderRadius.circular(28),
                             border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.6),
+                              color: Colors.white.withValues(alpha: 0.72),
                               width: 1.2,
                             ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.05),
                                 blurRadius: 18,
-                                offset: const Offset(0, 6),
+                                offset: const Offset(6, 10),
                               ),
                             ],
                           ),
@@ -280,17 +278,18 @@ class ArticleDetailScreen extends ConsumerWidget {
                                   vertical: 6,
                                 ),
                                 decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.78),
                                   gradient: LinearGradient(
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                     colors: [
-                                      Colors.white.withValues(alpha: 0.50),
-                                      Colors.white.withValues(alpha: 0.20),
+                                      Colors.white.withValues(alpha: 0.82),
+                                      Colors.white.withValues(alpha: 0.58),
                                     ],
                                   ),
                                   borderRadius: BorderRadius.circular(999),
                                   border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.6),
+                                    color: Colors.white.withValues(alpha: 0.72),
                                     width: 1.0,
                                   ),
                                 ),

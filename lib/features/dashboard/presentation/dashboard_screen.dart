@@ -80,31 +80,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       decoration: BoxDecoration(
         color: lightweightMode
             ? (lightweightBgColor ?? const Color(0xFFFFFFFF))
-            : Colors.white.withValues(alpha: 0.34),
+            : Colors.white.withValues(alpha: 0.78),
         gradient: lightweightMode
             ? null
             : LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.white.withValues(alpha: 0.50),
-                  Colors.white.withValues(alpha: 0.20),
+                  Colors.white.withValues(alpha: 0.82),
+                  Colors.white.withValues(alpha: 0.58),
                 ],
               ),
         borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(
           color: lightweightMode
               ? (lightweightBorderColor ?? const Color(0xFFE2E8F0))
-              : Colors.white.withValues(alpha: 0.6),
+              : Colors.white.withValues(alpha: 0.72),
           width: lightweightMode ? 1.0 : 1.2,
         ),
         boxShadow: lightweightMode
             ? const []
             : [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 18,
-                  offset: const Offset(0, 6),
+                  offset: const Offset(6, 10),
                 ),
               ],
       ),
@@ -306,12 +306,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     int volumeMl,
     bool lightweightMode,
   ) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final screenWidth = MediaQuery.of(context).size.width;
     final oldState = ref.read(hydrationProvider);
     final wasReachedBefore = oldState.isTargetReached;
 
     final log = await ref.read(hydrationProvider.notifier).addLog(volumeMl);
 
-    if (log == null || !context.mounted) return;
+    if (log == null) return;
+
+    if (!context.mounted) return;
 
     final newState = ref.read(hydrationProvider);
     final isReachedAfter = newState.isTargetReached;
@@ -332,7 +336,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         },
       );
     } else {
-      final scaffoldMessenger = ScaffoldMessenger.of(context);
       scaffoldMessenger.clearSnackBars();
 
       final snackBarController = scaffoldMessenger.showSnackBar(
@@ -342,22 +345,77 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           duration: const Duration(seconds: 5),
           behavior: SnackBarBehavior.floating,
           padding: EdgeInsets.zero,
-          margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          margin: lightweightMode
+              ? EdgeInsets.only(
+                  left: (screenWidth - 240) / 2,
+                  right: (screenWidth - 240) / 2,
+                  bottom: 24.0,
+                )
+              : const EdgeInsets.fromLTRB(24, 0, 24, 24),
           content: lightweightMode
               ? Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
+                  height: 60,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFD7E8F7)),
+                    borderRadius: BorderRadius.circular(32),
+                    border: Border.all(
+                      color: const Color(0xFF1A73E8).withValues(alpha: 0.12),
+                      width: 1.0,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                  child: _UndoSnackBarContent(
-                    volumeMl: volumeMl,
-                    scaffoldMessenger: scaffoldMessenger,
-                    logId: log.id,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            color: Color(0xFF1A73E8),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '+${volumeMl}ml',
+                            style: GoogleFonts.manrope(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              color: const Color(0xFF1F2937),
+                            ),
+                          ),
+                        ],
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          ref.read(hydrationProvider.notifier).undoLog(log.id);
+                          scaffoldMessenger.hideCurrentSnackBar();
+                        },
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          'Batal',
+                          style: GoogleFonts.manrope(
+                            color: const Color(0xFFEF4444),
+                            fontWeight: FontWeight.normal,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 )
               : ClipRRect(
@@ -374,13 +432,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            Colors.white.withValues(alpha: 0.50),
-                            Colors.white.withValues(alpha: 0.20),
+                            Colors.white.withValues(alpha: 0.82),
+                            Colors.white.withValues(alpha: 0.68),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.6),
+                          color: Colors.white.withValues(alpha: 0.45),
                           width: 1.2,
                         ),
                         boxShadow: [
@@ -438,7 +496,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           state.nextReminderTime == null) {
         reminderText = '--:--';
       } else {
-        reminderText = _formatTime12h(state.nextReminderTime!);
+        final now = DateTime.now();
+        final isToday = state.nextReminderTime!.year == now.year &&
+            state.nextReminderTime!.month == now.month &&
+            state.nextReminderTime!.day == now.day;
+        final formattedTime = _formatTime12h(state.nextReminderTime!);
+        reminderText = isToday ? formattedTime : 'Besok, $formattedTime';
       }
 
       return PopScope(
@@ -655,44 +718,50 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         Center(
                           child: SizedBox(
                             width: 240,
-                            child: ElevatedButton(
-                              onPressed: () =>
-                                  _addWater(context, _selectedVolume, true),
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 20,
-                                ),
-                                backgroundColor: Colors.white,
-                                foregroundColor: const Color(0xFF0F172A),
-                                elevation: 2,
-                                shadowColor: Colors.black.withValues(
-                                  alpha: 0.08,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(32),
-                                  side: BorderSide(
-                                    color: const Color(
-                                      0xFF1A73E8,
-                                    ).withValues(alpha: 0.12),
-                                    width: 1.0,
+                            child: Opacity(
+                              opacity: state.isDrinkDisabled ? 0.5 : 1.0,
+                              child: ElevatedButton(
+                                onPressed: state.isDrinkDisabled
+                                    ? null
+                                    : () => _addWater(context, _selectedVolume, true),
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 20,
                                   ),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.add, size: 20),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'MINUM',
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 0.5,
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: const Color(0xFF0F172A),
+                                  disabledBackgroundColor: Colors.white,
+                                  disabledForegroundColor: const Color(0xFF0F172A).withValues(alpha: 0.6),
+                                  elevation: state.isDrinkDisabled ? 0 : 2,
+                                  shadowColor: Colors.black.withValues(
+                                    alpha: 0.08,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(32),
+                                    side: BorderSide(
+                                      color: const Color(
+                                        0xFF1A73E8,
+                                      ).withValues(alpha: 0.12),
+                                      width: 1.0,
                                     ),
                                   ),
-                                ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.add, size: 20),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'MINUM',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -840,7 +909,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
                   // 5. Today's Logs List (Riwayat Minum Hari Ini)
                   _buildHistoryCard(state, lightweightMode),
-                  SizedBox(height: lightweightMode ? 16 : 120),
+                  SizedBox(height: lightweightMode ? 16 : 80),
                 ],
               ),
             ),
@@ -1022,8 +1091,8 @@ class _QuickVolumeCarouselState extends State<QuickVolumeCarousel> {
                       children: [
                         SvgPicture.asset(
                           'assets/icons/${volume}ml.svg',
-                          width: volume == 1000 ? 40 : 44,
-                          height: volume == 1000 ? 40 : 44,
+                          width: volume == 750 ? 72 : (volume == 1000 ? 56 : 60),
+                          height: volume == 750 ? 72 : (volume == 1000 ? 56 : 60),
                           colorFilter: const ColorFilter.mode(
                             Color(0xFF1A73E8),
                             BlendMode.srcIn,

@@ -65,7 +65,10 @@ class MainScaffold extends ConsumerWidget {
                     top: false,
                     child: Container(
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(30),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(30),
+                          topRight: Radius.circular(30),
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.08),
@@ -75,7 +78,10 @@ class MainScaffold extends ConsumerWidget {
                         ],
                       ),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(30),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(30),
+                          topRight: Radius.circular(30),
+                        ),
                         child: BackdropFilter(
                           filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
                           child: _BottomNavSurface(
@@ -114,7 +120,10 @@ class _BottomNavSurface extends StatelessWidget {
             : Colors.white.withValues(alpha: 0.34),
         borderRadius: lightweightMode
             ? BorderRadius.zero
-            : BorderRadius.circular(30),
+            : const BorderRadius.only(
+                topLeft: Radius.circular(30),
+                topRight: Radius.circular(30),
+              ),
         border: lightweightMode
             ? null
             : Border.all(
@@ -298,17 +307,27 @@ class HydrationBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const decoration = BoxDecoration(color: Color(0xFFEAF2FF));
+    const mainBgColor = Color(0xFFEAF2FF);
 
     if (lightweightMode) {
-      return const DecoratedBox(
-        decoration: BoxDecoration(color: Color(0xFFEAF2FF)),
-      );
+      return const DecoratedBox(decoration: BoxDecoration(color: mainBgColor));
     }
 
-    return const DecoratedBox(
+    final decoration = BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          const Color(0xFFADDFFF), // Sky blue (biru langit)
+          mainBgColor, // Main background color (warna bg utama)
+        ],
+        stops: const [0.0, 0.35], // Smooth transition at the top section
+      ),
+    );
+
+    return DecoratedBox(
       decoration: decoration,
-      child: CustomPaint(painter: _HydrationBackgroundPainter()),
+      child: const CustomPaint(painter: _HydrationBackgroundPainter()),
     );
   }
 }

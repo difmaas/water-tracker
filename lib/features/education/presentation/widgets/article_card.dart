@@ -163,22 +163,22 @@ class _ArticleCardState extends ConsumerState<ArticleCard> {
       decoration: BoxDecoration(
         color: lightweightMode
             ? style.color
-            : Colors.white.withValues(alpha: 0.34),
+            : Colors.white.withValues(alpha: 0.78),
         gradient: lightweightMode
             ? null
             : LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.white.withValues(alpha: 0.50),
-                  Colors.white.withValues(alpha: 0.20),
+                  Colors.white.withValues(alpha: 0.82),
+                  Colors.white.withValues(alpha: 0.58),
                 ],
               ),
         borderRadius: BorderRadius.circular(16),
         border: lightweightMode
             ? null
             : Border.all(
-                color: Colors.white.withValues(alpha: 0.6),
+                color: Colors.white.withValues(alpha: 0.72),
                 width: 1.2,
               ),
       ),
@@ -312,14 +312,14 @@ class _ArticleCardState extends ConsumerState<ArticleCard> {
           decoration: BoxDecoration(
             color: lightweightMode
                 ? style.color
-                : Colors.white.withValues(alpha: 0.34),
+                : Colors.white.withValues(alpha: 0.78),
             border: lightweightMode
                 ? Border.all(
                     color: style.fg.withValues(alpha: 0.15),
                     width: 1.0,
                   )
                 : Border.all(
-                    color: Colors.white.withValues(alpha: 0.6),
+                    color: Colors.white.withValues(alpha: 0.72),
                     width: 1.2,
                   ),
             borderRadius: BorderRadius.circular(16),
@@ -327,9 +327,9 @@ class _ArticleCardState extends ConsumerState<ArticleCard> {
                 ? const []
                 : [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 18,
-                      offset: const Offset(0, 6),
+                      offset: const Offset(6, 10),
                     ),
                   ],
           ),

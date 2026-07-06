@@ -8,6 +8,7 @@ import '../../logging/data/hydration_log_model.dart';
 import '../../reminder/data/reminder_response_model.dart';
 import '../../../providers/isar_provider.dart';
 import '../../../providers/onboarding_provider.dart';
+import '../../../core/utils/id_utils.dart';
 
 /// IMPORTANT: `nama` is stored locally here but MUST NEVER appear in
 /// the SyncService Supabase payload — excluded explicitly in SyncService.
@@ -36,7 +37,12 @@ class ProfileRepository {
 
   Future<UserProfile?> getUserProfile() async {
     await _migrateLegacyProfileIfNeeded();
-    return _getStoredProfile();
+    final profile = await _getStoredProfile();
+    if (profile != null && profile.participantId.isEmpty) {
+      profile.participantId = generateParticipantId();
+      await saveProfile(profile);
+    }
+    return profile;
   }
 
   Future<UserProfile?> _getStoredProfile() async {

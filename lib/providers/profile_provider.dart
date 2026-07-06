@@ -9,6 +9,7 @@ import '../features/logging/data/daily_summary_model.dart';
 import '../features/logging/data/logging_repository.dart';
 import '../features/reminder/domain/reminder_logic.dart';
 import '../core/utils/date_utils.dart';
+import '../core/utils/id_utils.dart';
 import 'hydration_provider.dart';
 import 'onboarding_provider.dart';
 import 'reminder_provider.dart';
@@ -300,8 +301,11 @@ class ProfileNotifier extends Notifier<ProfileFormState> {
       final repo = ref.read(profileRepositoryProvider);
       final existing = await repo.getUserProfile();
 
-      // 1. Preservation or generation of userId
+      // 1. Preservation or generation of userId and participantId
       final userId = existing?.userId ?? const Uuid().v4();
+      final participantId = (existing != null && existing.participantId.isNotEmpty)
+          ? existing.participantId
+          : generateParticipantId();
 
       // 2. Supabase anonymous auth (deferred per AGENTS.md §6)
       /*
@@ -341,6 +345,7 @@ class ProfileNotifier extends Notifier<ProfileFormState> {
       // 3. Construct or Update UserProfile
       final profile = (existing ?? UserProfile())
         ..userId = userId
+        ..participantId = participantId
         ..nama = state.nama
         ..tanggalLahir = state.tanggalLahir!
         ..jenisKelamin = state.jenisKelamin

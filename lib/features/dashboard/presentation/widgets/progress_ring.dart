@@ -71,31 +71,31 @@ class _ProgressRingState extends ConsumerState<ProgressRing> {
           decoration: BoxDecoration(
             color: widget.lightweightMode
                 ? const Color(0xFFFFFFFF)
-                : Colors.white.withValues(alpha: 0.34),
+                : Colors.white.withValues(alpha: 0.78),
             gradient: widget.lightweightMode
                 ? null
                 : LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.white.withValues(alpha: 0.50),
-                      Colors.white.withValues(alpha: 0.20),
+                      Colors.white.withValues(alpha: 0.82),
+                      Colors.white.withValues(alpha: 0.58),
                     ],
                   ),
             borderRadius: BorderRadius.circular(28),
             border: Border.all(
               color: widget.lightweightMode
                   ? const Color(0xFFE2E8F0)
-                  : Colors.white.withValues(alpha: 0.6),
+                  : Colors.white.withValues(alpha: 0.72),
               width: widget.lightweightMode ? 1.0 : 1.2,
             ),
             boxShadow: widget.lightweightMode
                 ? const []
                 : [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 18,
-                      offset: const Offset(0, 6),
+                      offset: const Offset(6, 10),
                     ),
                   ],
           ),

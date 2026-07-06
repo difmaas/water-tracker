@@ -22,12 +22,16 @@ class QuickAddButtons extends ConsumerWidget {
     WidgetRef ref,
     int volumeMl,
   ) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final screenWidth = MediaQuery.of(context).size.width;
     final oldState = ref.read(hydrationProvider);
     final wasReachedBefore = oldState.isTargetReached;
 
     final log = await ref.read(hydrationProvider.notifier).addLog(volumeMl);
 
-    if (log == null || !context.mounted) return;
+    if (log == null) return;
+
+    if (!context.mounted) return;
 
     final newState = ref.read(hydrationProvider);
     final isReachedAfter = newState.isTargetReached;
@@ -50,7 +54,6 @@ class QuickAddButtons extends ConsumerWidget {
       );
     } else {
       // Show normal snackbar
-      final scaffoldMessenger = ScaffoldMessenger.of(context);
       scaffoldMessenger.clearSnackBars();
 
       final snackBarController = scaffoldMessenger.showSnackBar(
@@ -60,22 +63,77 @@ class QuickAddButtons extends ConsumerWidget {
           duration: const Duration(seconds: 5),
           behavior: SnackBarBehavior.floating,
           padding: EdgeInsets.zero,
-          margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          margin: lightweightMode
+              ? EdgeInsets.only(
+                  left: (screenWidth - 240) / 2,
+                  right: (screenWidth - 240) / 2,
+                  bottom: 24.0,
+                )
+              : const EdgeInsets.fromLTRB(24, 0, 24, 24),
           content: lightweightMode
               ? Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
+                  height: 60,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFD7E8F7)),
+                    borderRadius: BorderRadius.circular(32),
+                    border: Border.all(
+                      color: const Color(0xFF1A73E8).withValues(alpha: 0.12),
+                      width: 1.0,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                  child: _UndoSnackBarContent(
-                    volumeMl: volumeMl,
-                    scaffoldMessenger: scaffoldMessenger,
-                    logId: log.id,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            color: Color(0xFF1A73E8),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '+${volumeMl}ml',
+                            style: GoogleFonts.manrope(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              color: const Color(0xFF1F2937),
+                            ),
+                          ),
+                        ],
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          ref.read(hydrationProvider.notifier).undoLog(log.id);
+                          scaffoldMessenger.hideCurrentSnackBar();
+                        },
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          'Batal',
+                          style: GoogleFonts.manrope(
+                            color: const Color(0xFFEF4444),
+                            fontWeight: FontWeight.normal,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 )
               : ClipRRect(
@@ -92,13 +150,13 @@ class QuickAddButtons extends ConsumerWidget {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            Colors.white.withValues(alpha: 0.50),
-                            Colors.white.withValues(alpha: 0.20),
+                            Colors.white.withValues(alpha: 0.82),
+                            Colors.white.withValues(alpha: 0.68),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.6),
+                          color: Colors.white.withValues(alpha: 0.45),
                           width: 1.2,
                         ),
                         boxShadow: [
@@ -132,15 +190,15 @@ class QuickAddButtons extends ConsumerWidget {
   static double _getIconSize(int volume) {
     switch (volume) {
       case 250:
-        return 22.0;
+        return 36.0;
       case 500:
-        return 24.0;
+        return 40.0;
       case 750:
-        return 32.0;
+        return 52.0;
       case 1000:
-        return 26.0;
+        return 44.0;
       default:
-        return 24.0;
+        return 40.0;
     }
   }
 
@@ -150,6 +208,7 @@ class QuickAddButtons extends ConsumerWidget {
     WidgetRef ref,
     int volume,
   ) {
+    final isDrinkDisabled = ref.read(hydrationProvider).isDrinkDisabled;
     final effectiveTextColor = lightweightMode
         ? const Color(0xFF1A73E8)
         : Colors.black;
@@ -158,56 +217,61 @@ class QuickAddButtons extends ConsumerWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            Navigator.pop(sheetContext);
-            _addWater(context, ref, volume);
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: lightweightMode
-                  ? const Color(0xFFEAF5FF)
-                  : Colors.white.withValues(alpha: 0.34),
-              gradient: lightweightMode
-                  ? null
-                  : LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white.withValues(alpha: 0.50),
-                        Colors.white.withValues(alpha: 0.20),
-                      ],
-                    ),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
+          onTap: isDrinkDisabled
+              ? null
+              : () {
+                  Navigator.pop(sheetContext);
+                  _addWater(context, ref, volume);
+                },
+          child: Opacity(
+            opacity: isDrinkDisabled ? 0.5 : 1.0,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
                 color: lightweightMode
-                    ? const Color(0xFFD7EAFB)
-                    : Colors.white.withValues(alpha: 0.6),
-                width: 1.2,
+                    ? const Color(0xFFEAF5FF)
+                    : Colors.white.withValues(alpha: 0.82),
+                gradient: lightweightMode
+                    ? null
+                    : LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.white.withValues(alpha: 0.88),
+                          Colors.white.withValues(alpha: 0.76),
+                        ],
+                      ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: lightweightMode
+                      ? const Color(0xFFD7EAFB)
+                      : Colors.white.withValues(alpha: 0.65),
+                  width: 1.2,
+                ),
               ),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SvgPicture.asset(
-                  'assets/icons/${volume}ml.svg',
-                  width: _getIconSize(volume),
-                  height: _getIconSize(volume),
-                  colorFilter: ColorFilter.mode(
-                    effectiveTextColor,
-                    BlendMode.srcIn,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SvgPicture.asset(
+                    'assets/icons/${volume}ml.svg',
+                    width: _getIconSize(volume),
+                    height: _getIconSize(volume),
+                    colorFilter: ColorFilter.mode(
+                      effectiveTextColor,
+                      BlendMode.srcIn,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '$volume ml',
-                  style: GoogleFonts.manrope(
-                    fontSize: 15,
-                    fontWeight: FontWeight.normal,
-                    color: effectiveTextColor,
+                  const SizedBox(height: 6),
+                  Text(
+                    '$volume ml',
+                    style: GoogleFonts.manrope(
+                      fontSize: 15,
+                      fontWeight: FontWeight.normal,
+                      color: effectiveTextColor,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -229,22 +293,22 @@ class QuickAddButtons extends ConsumerWidget {
           decoration: BoxDecoration(
             color: lightweightMode
                 ? const Color(0xFFEAF5FF)
-                : Colors.white.withValues(alpha: 0.34),
+                : Colors.white.withValues(alpha: 0.9),
             gradient: lightweightMode
                 ? null
                 : LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.white.withValues(alpha: 0.50),
-                      Colors.white.withValues(alpha: 0.20),
+                      Colors.white.withValues(alpha: 0.94),
+                      Colors.white.withValues(alpha: 0.86),
                     ],
                   ),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             border: Border.all(
               color: lightweightMode
                   ? const Color(0xFFD7EAFB)
-                  : Colors.white.withValues(alpha: 0.6),
+                  : Colors.white.withValues(alpha: 0.7),
               width: 1.2,
             ),
           ),
@@ -280,7 +344,7 @@ class QuickAddButtons extends ConsumerWidget {
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: 1.8,
+                childAspectRatio: 1.3,
                 physics: const NeverScrollableScrollPhysics(),
                 children: kHydrationVolumePresets
                     .skip(2)
@@ -314,6 +378,10 @@ class QuickAddButtons extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDrinkDisabled = ref.watch(
+      hydrationProvider.select((state) => state.isDrinkDisabled),
+    );
+
     return Row(
       children: [
         // Primary: Glassmorphic Black/Accent
@@ -326,7 +394,7 @@ class QuickAddButtons extends ConsumerWidget {
           textColor: Colors.black,
           iconBgColor: Colors.black.withValues(alpha: 0.05),
           lightweightMode: lightweightMode,
-          onTap: () => _addWater(context, ref, kHydrationVolumePresets[0]),
+          onTap: isDrinkDisabled ? null : () => _addWater(context, ref, kHydrationVolumePresets[0]),
         ),
         const SizedBox(width: 12),
         // Secondary: Glassmorphic Black/Accent
@@ -339,7 +407,7 @@ class QuickAddButtons extends ConsumerWidget {
           textColor: Colors.black,
           iconBgColor: Colors.black.withValues(alpha: 0.05),
           lightweightMode: lightweightMode,
-          onTap: () => _addWater(context, ref, kHydrationVolumePresets[1]),
+          onTap: isDrinkDisabled ? null : () => _addWater(context, ref, kHydrationVolumePresets[1]),
         ),
         const SizedBox(width: 12),
         // Tertiary: Glassmorphic Other Option
@@ -351,7 +419,7 @@ class QuickAddButtons extends ConsumerWidget {
           textColor: Colors.black,
           iconBgColor: Colors.black.withValues(alpha: 0.05),
           lightweightMode: lightweightMode,
-          onTap: () => _showLainnyaBottomSheet(context, ref),
+          onTap: isDrinkDisabled ? null : () => _showLainnyaBottomSheet(context, ref),
         ),
       ],
     );
@@ -364,7 +432,7 @@ class _QuickAddButton extends StatefulWidget {
   final IconData? icon;
   final String? svgPath;
   final double? iconSize;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final Color backgroundColor;
   final Color textColor;
   final Color iconBgColor;
@@ -398,9 +466,9 @@ class _QuickAddButtonState extends State<_QuickAddButton> {
 
     return Expanded(
       child: GestureDetector(
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapUp: (_) => setState(() => _isPressed = false),
-        onTapCancel: () => setState(() => _isPressed = false),
+        onTapDown: widget.onTap == null ? null : (_) => setState(() => _isPressed = true),
+        onTapUp: widget.onTap == null ? null : (_) => setState(() => _isPressed = false),
+        onTapCancel: widget.onTap == null ? null : () => setState(() => _isPressed = false),
         onTap: widget.onTap,
         child: AnimatedScale(
           scale: widget.lightweightMode ? 1.0 : (_isPressed ? 0.95 : 1.0),
@@ -408,51 +476,55 @@ class _QuickAddButtonState extends State<_QuickAddButton> {
               ? Duration.zero
               : const Duration(milliseconds: 100),
           curve: Curves.easeOutCubic,
-          child: widget.lightweightMode
-              ? Container(
-                  height: buttonHeight,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEAF5FF),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: const Color(0xFFD7EAFB),
-                      width: 1.2,
+          child: Opacity(
+            opacity: widget.onTap == null ? 0.5 : 1.0,
+            child: widget.lightweightMode
+                ? Container(
+                    height: buttonHeight,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEAF5FF),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color(0xFFD7EAFB),
+                        width: 1.2,
+                      ),
                     ),
-                  ),
-                  child: _QuickAddButtonContent(widget: widget),
-                )
-              : ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-                    child: Container(
-                      height: buttonHeight,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Colors.white.withValues(alpha: 0.50),
-                            Colors.white.withValues(alpha: 0.20),
+                    child: _QuickAddButtonContent(widget: widget),
+                  )
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                      child: Container(
+                        height: buttonHeight,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.78),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.white.withValues(alpha: 0.82),
+                              Colors.white.withValues(alpha: 0.58),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.72),
+                            width: 1.2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 18,
+                              offset: const Offset(6, 10),
+                            ),
                           ],
                         ),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.6),
-                          width: 1.2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 18,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
+                        child: _QuickAddButtonContent(widget: widget),
                       ),
-                      child: _QuickAddButtonContent(widget: widget),
                     ),
                   ),
-                ),
+          ),
         ),
       ),
     );

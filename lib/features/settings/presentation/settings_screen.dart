@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -16,6 +17,10 @@ import '../../export/data/export_service.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/data/user_profile_model.dart';
 import '../../../core/widgets/app_button.dart';
+
+const bool kInternalQaBuild = bool.fromEnvironment('INTERNAL_QA');
+
+bool get _qaToolsEnabled => kDebugMode || kInternalQaBuild;
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -82,17 +87,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return true;
   }
 
-  Future<void> _exportCsv() async {
+  Future<void> _exportDailySummaryCsv() async {
     if (_isExporting) return;
 
     setState(() => _isExporting = true);
     try {
       final result = await ref
           .read(csvExportServiceProvider)
-          .exportHydrationLogs();
+          .exportDailySummary();
       final shareResult = await Share.shareXFiles(
         [XFile(result.filePath, mimeType: 'text/csv', name: result.fileName)],
-        text: 'Riwayat hidrasi SEHATI',
+        text: 'Riwayat Ringkasan Harian SEHATI',
         subject: result.fileName,
       );
 
@@ -103,8 +108,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         SnackBar(
           content: Text(
             shared
-                ? 'File CSV berhasil dibagikan.'
-                : 'File CSV dibuat. Berbagi dibatalkan.',
+                ? 'File CSV Ringkasan Harian berhasil dibagikan.'
+                : 'File CSV Ringkasan Harian dibuat. Berbagi dibatalkan.',
+            style: GoogleFonts.manrope(fontWeight: FontWeight.normal),
+          ),
+          backgroundColor: shared ? kPrimary : kTextSecondary,
+        ),
+      );
+    } on CsvExportEmptyException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Belum ada data ringkasan harian untuk diekspor.')),
+      );
+    } catch (e, st) {
+      debugPrint('[SettingsScreen] CSV summary export failed: $e\n$st');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Gagal mengekspor data ringkasan harian. Coba lagi nanti.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  Future<void> _exportDrinkLogsCsv() async {
+    if (_isExporting) return;
+
+    setState(() => _isExporting = true);
+    try {
+      final result = await ref
+          .read(csvExportServiceProvider)
+          .exportDrinkLogs();
+      final shareResult = await Share.shareXFiles(
+        [XFile(result.filePath, mimeType: 'text/csv', name: result.fileName)],
+        text: 'Riwayat Log Minum SEHATI',
+        subject: result.fileName,
+      );
+
+      if (!mounted) return;
+
+      final shared = shareResult.status == ShareResultStatus.success;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            shared
+                ? 'File CSV Log Minum berhasil dibagikan.'
+                : 'File CSV Log Minum dibuat. Berbagi dibatalkan.',
             style: GoogleFonts.manrope(fontWeight: FontWeight.normal),
           ),
           backgroundColor: shared ? kPrimary : kTextSecondary,
@@ -116,11 +167,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         const SnackBar(content: Text('Belum ada data minum untuk diekspor.')),
       );
     } catch (e, st) {
-      debugPrint('[SettingsScreen] CSV export failed: $e\n$st');
+      debugPrint('[SettingsScreen] CSV drink logs export failed: $e\n$st');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Gagal mengekspor data. Coba lagi nanti.'),
+          content: Text('Gagal mengekspor log minum. Coba lagi nanti.'),
         ),
       );
     } finally {
@@ -129,6 +180,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _handleSettingsTitleTap() {
+    if (!_qaToolsEnabled) return;
     if (_qaModeEnabled) return;
 
     _qaTapCount += 1;
@@ -151,6 +203,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<String?> _loadPendingNotificationReport() async {
+    if (!_qaToolsEnabled) return null;
     if (!await _checkAndNotifyPermission()) return null;
 
     final report = await ref
@@ -168,6 +221,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _showPendingNotificationReport() async {
+    if (!_qaToolsEnabled) return;
     final report = await _loadPendingNotificationReport();
     if (report == null || !mounted) return;
 
@@ -202,10 +256,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ? Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEAF5FF),
+                  color: const Color(0xFFD7E5FF),
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: const Color(0xFFD7EAFB),
+                    color: const Color(0xFFD7E5FF),
                     width: 1.2,
                   ),
                 ),
@@ -213,100 +267,134 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Reset Data?',
-                      style: GoogleFonts.manrope(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFFEF4444),
-                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Hapus Data?',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color.fromARGB(255, 255, 255, 255),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              size: 20,
+                              color: Color(0xFF0F172A),
+                            ),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 18),
                     Text(
                       'Semua data profil, riwayat minum, dan pengaturan akan dihapus dari perangkat ini. Tindakan ini tidak dapat dibatalkan.',
                       style: GoogleFonts.manrope(
-                        fontSize: 13,
-                        color: kTextSecondary,
+                        fontSize: 14,
+                        color: const Color(0xFF0F172A),
                         height: 1.4,
                       ),
                     ),
                     const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: AppButton.secondary(
-                            label: 'Batal',
-                            isTransparent: true,
-                            onPressed: () => Navigator.pop(context),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final router = GoRouter.of(context);
+                          final navigator = Navigator.of(context);
+
+                          // 1. Clear persistent local database (Isar)
+                          await ref
+                              .read(profileRepositoryProvider)
+                              .clearAllData();
+
+                          // 2. Cancel all scheduled reminder notifications
+                          await ref.read(reminderServiceProvider).cancelAll();
+
+                          // 3. Clear SharedPreferences keys for onboarding/profile status
+                          final prefs = ref.read(sharedPreferencesProvider);
+                          await prefs.remove('isOnboarded');
+                          await prefs.remove('hasProfile');
+                          await ref.read(appSettingsProvider.notifier).reset();
+
+                          // 4. Invalidate all cache states in Riverpod to trigger reconstruction
+                          ref.invalidate(onboardingProvider);
+                          ref.invalidate(profileStatusProvider);
+                          ref.invalidate(appSettingsProvider);
+                          ref.invalidate(profileProvider);
+                          ref.invalidate(hydrationProvider);
+
+                          navigator.pop();
+                          router.go('/');
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFFEF4444),
+                          elevation: 2,
+                          shadowColor: Colors.black.withValues(alpha: 0.08),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(32),
+                            side: BorderSide(
+                              color: const Color(
+                                0xFF1A73E8,
+                              ).withValues(alpha: 0.12),
+                              width: 1.0,
+                            ),
+                          ),
+                          textStyle: GoogleFonts.manrope(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: AppButton.main(
-                            label: 'Reset',
-                            color: const Color(0xFFEF4444),
-                            onPressed: () async {
-                              final router = GoRouter.of(context);
-                              final navigator = Navigator.of(context);
-
-                              // 1. Clear persistent local database (Isar)
-                              await ref
-                                  .read(profileRepositoryProvider)
-                                  .clearAllData();
-
-                              // 2. Cancel all scheduled reminder notifications
-                              await ref
-                                  .read(reminderServiceProvider)
-                                  .cancelAll();
-
-                              // 3. Clear SharedPreferences keys for onboarding/profile status
-                              final prefs = ref.read(sharedPreferencesProvider);
-                              await prefs.remove('isOnboarded');
-                              await prefs.remove('hasProfile');
-                              await ref
-                                  .read(appSettingsProvider.notifier)
-                                  .reset();
-
-                              // 4. Invalidate all cache states in Riverpod to trigger reconstruction
-                              ref.invalidate(onboardingProvider);
-                              ref.invalidate(profileStatusProvider);
-                              ref.invalidate(appSettingsProvider);
-                              ref.invalidate(profileProvider);
-                              ref.invalidate(hydrationProvider);
-
-                              navigator.pop();
-                              router.go('/');
-                            },
-                          ),
-                        ),
-                      ],
+                        child: const Text('RESET'),
+                      ),
                     ),
                   ],
                 ),
               )
             : ClipRRect(
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(18),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
                   child: Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.92),
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          Colors.white.withValues(alpha: 0.50),
-                          Colors.white.withValues(alpha: 0.20),
+                          Colors.white.withValues(alpha: 0.96),
+                          Colors.white.withValues(alpha: 0.88),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.6),
+                        color: Colors.white.withValues(alpha: 0.7),
                         width: 1.2,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.04),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 18,
                           offset: const Offset(0, 6),
                         ),
@@ -481,6 +569,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   child: _buildSettingsCardShell(
                     lightweightMode: lightweightMode,
                     borderRadius: 24,
+                    isProfileCard: true,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -540,6 +629,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                             fontSize: 12,
                                             fontWeight: FontWeight.w600,
                                             color: kTextSecondary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'ID Penelitian: ${_profile!.participantId}',
+                                          style: GoogleFonts.manrope(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: kTextSecondary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'ID ini digunakan untuk export data penelitian agar data tetap konsisten.',
+                                          style: GoogleFonts.manrope(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.normal,
+                                            color: const Color(0xFF94A3B8),
                                           ),
                                         ),
                                       ],
@@ -791,13 +898,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 20),
-                              _buildReminderReliabilityWarning(),
                               if (_exactAlarmAllowed == false) ...[
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 20),
                                 _buildExactAlarmWarning(),
-                              ],
-                              const SizedBox(height: 20),
+                                const SizedBox(height: 20),
+                              ] else
+                                const SizedBox(height: 20),
 
                               // Edit Button
                               SizedBox(
@@ -906,9 +1012,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: AppButton.main(
-                            label: 'Export Data CSV',
+                            label: 'Ekspor Ringkasan Harian',
                             isLoading: _isExporting,
-                            onPressed: _isExporting ? null : _exportCsv,
+                            onPressed: _isExporting ? null : _exportDailySummaryCsv,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: AppButton.main(
+                            label: 'Ekspor Log Minum Lengkap',
+                            isLoading: _isExporting,
+                            onPressed: _isExporting ? null : _exportDrinkLogsCsv,
                           ),
                         ),
 
@@ -951,11 +1066,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ),
                 ),
-                if (_qaModeEnabled) ...[
+                if (_qaToolsEnabled && _qaModeEnabled) ...[
                   const SizedBox(height: 16),
                   _buildQaModeCard(lightweightMode),
                 ],
-                SizedBox(height: lightweightMode ? 16 : 120),
+                SizedBox(height: lightweightMode ? 16 : 80),
               ],
             ),
           ),
@@ -1013,7 +1128,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1025,11 +1140,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 24),
           _buildNewSectionTitle('Aplikasi & Data'),
           _buildNewLightAppCard(),
-          if (_qaModeEnabled) ...[
+          if (_qaToolsEnabled && _qaModeEnabled) ...[
             const SizedBox(height: 16),
             _buildQaModeCard(true),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
         ],
       ),
     );
@@ -1119,6 +1234,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ],
           ),
           const SizedBox(height: 24),
+          _buildNewProfileStatRow('ID Penelitian', _profile!.participantId),
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 4, bottom: 12),
+            child: Text(
+              'ID ini digunakan untuk export data penelitian agar data tetap konsisten.',
+              style: GoogleFonts.manrope(
+                fontSize: 10,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+          ),
           _buildNewProfileStatRow('Usia', '$age Tahun'),
           const SizedBox(height: 12),
           _buildNewProfileStatRow(
@@ -1162,7 +1288,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ),
                 child: Text(
-                  'Edit Profil',
+                  'EDIT PROFIL',
                   style: GoogleFonts.manrope(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -1212,7 +1338,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            'Mode ringan',
+            'Minimalist',
             style: GoogleFonts.manrope(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -1246,40 +1372,159 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             title: 'Tentang SEHATI',
             subtitle: 'Informasi aplikasi',
             actionIcon: Icons.info_outline_rounded,
-            onTap: () {
-              showAboutDialog(
-                context: context,
-                applicationName: 'SEHATI',
-                applicationVersion: '1.0.0',
-                applicationIcon: const Icon(
-                  Icons.water_drop_rounded,
-                  color: kPrimary,
-                ),
-                children: [
-                  const Text(
-                    'Aplikasi pengingat minum air putih untuk membantu menjaga hidrasi tubuh Anda.',
-                  ),
-                ],
-              );
-            },
+            actionIconColor: const Color.fromARGB(255, 0, 0, 0),
+            onTap: _showAboutSehatiDialog,
           ),
-          _buildNewAppCardDivider(),
+          const SizedBox(height: 4),
+
           _buildNewAppCardRow(
-            title: 'Ekspor Data',
-            subtitle: 'Ekspor riwayat harian kamu',
+            title: 'Ekspor Ringkasan Harian',
+            subtitle: 'Ekspor ringkasan harian kamu',
             actionIcon: Icons.download_rounded,
-            onTap: _isExporting ? null : _exportCsv,
+            actionIconColor: const Color.fromARGB(255, 0, 0, 0),
+            onTap: _isExporting ? null : _exportDailySummaryCsv,
           ),
-          _buildNewAppCardDivider(),
+          const SizedBox(height: 4),
+
+          _buildNewAppCardRow(
+            title: 'Ekspor Log Minum Lengkap',
+            subtitle: 'Ekspor detail catatan minum kamu',
+            actionIcon: Icons.download_rounded,
+            actionIconColor: const Color.fromARGB(255, 0, 0, 0),
+            onTap: _isExporting ? null : _exportDrinkLogsCsv,
+          ),
+
           _buildNewAppCardRow(
             title: 'Hapus Data',
             subtitle: 'Hapus semua data kamu',
             actionIcon: Icons.delete_outline_rounded,
-            actionIconColor: const Color(0xFFEF4444),
+            actionIconColor: const Color.fromARGB(255, 0, 0, 0),
             onTap: _showResetConfirmation,
           ),
         ],
       ),
+    );
+  }
+
+  void _showAboutSehatiDialog() {
+    final lightweightMode = ref.read(appSettingsProvider).lightweightMode;
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        final dialogContent = Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: lightweightMode
+                ? const Color(0xFFD7E5FF)
+                : Colors.white.withValues(alpha: 0.34),
+            gradient: lightweightMode
+                ? null
+                : LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.50),
+                      Colors.white.withValues(alpha: 0.20),
+                    ],
+                  ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: lightweightMode
+                  ? const Color(0xFFD7E5FF)
+                  : Colors.white.withValues(alpha: 0.6),
+              width: 1.2,
+            ),
+            boxShadow: lightweightMode
+                ? const []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Tentang SEHATI',
+                      style: GoogleFonts.manrope(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF0F172A),
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'SEHATI membantu kamu lebih rutin minum air putih dengan fitur target harian, pengingat, catatan minum, serta riwayat yang mudah dipahami.',
+                style: GoogleFonts.manrope(
+                  fontSize: 14,
+                  color: const Color(0xFF0F172A),
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Center(
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF0F172A),
+                      elevation: 2,
+                      shadowColor: Colors.black.withValues(alpha: 0.08),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(32),
+                        side: BorderSide(
+                          color: const Color(
+                            0xFF1A73E8,
+                          ).withValues(alpha: 0.12),
+                          width: 1.0,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      'TUTUP',
+                      style: GoogleFonts.manrope(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: lightweightMode
+                ? dialogContent
+                : BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                    child: dialogContent,
+                  ),
+          ),
+        );
+      },
     );
   }
 
@@ -1354,59 +1599,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ],
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildNewAppCardDivider() {
-    return const Divider(height: 1, thickness: 1, color: Color(0xFFC4D7FF));
-  }
-
-  Widget _buildReminderReliabilityWarning() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEB),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFFDE68A), width: 1),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.info_outline_rounded,
-            color: Color(0xFFD97706),
-            size: 18,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Pengingat bisa tertunda jika aplikasi ditutup paksa atau dibatasi penghemat baterai.',
-                  style: GoogleFonts.manrope(
-                    fontSize: 11,
-                    fontWeight: FontWeight.normal,
-                    color: const Color(0xFF92400E),
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Di beberapa HP Vivo, aktifkan Autostart dan izinkan aktivitas latar belakang agar pengingat tetap muncul.',
-                  style: GoogleFonts.manrope(
-                    fontSize: 11,
-                    fontWeight: FontWeight.normal,
-                    color: const Color(0xFF92400E),
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1655,37 +1847,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     required bool lightweightMode,
     required double borderRadius,
     required Widget child,
+    bool isProfileCard = false,
   }) {
     final card = Container(
       width: double.infinity,
       decoration: BoxDecoration(
         color: lightweightMode
             ? const Color(0xFFEAF5FF)
-            : Colors.white.withValues(alpha: 0.34),
+            : Colors.white.withValues(alpha: 0.78),
         gradient: lightweightMode
             ? null
             : LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.white.withValues(alpha: 0.50),
-                  Colors.white.withValues(alpha: 0.20),
+                  Colors.white.withValues(alpha: 0.82),
+                  Colors.white.withValues(alpha: 0.58),
                 ],
               ),
         borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(
           color: lightweightMode
               ? const Color(0xFFD7EAFB)
-              : Colors.white.withValues(alpha: 0.6),
-          width: 1.2,
+              : Colors.white.withValues(alpha: 0.72),
+          width: isProfileCard ? 1.5 : 1.2,
         ),
         boxShadow: lightweightMode
             ? const []
             : [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 18,
-                  offset: const Offset(0, 6),
+                  offset: const Offset(6, 10),
                 ),
               ],
       ),
@@ -1715,31 +1908,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       decoration: BoxDecoration(
         color: lightweightMode
             ? Colors.white
-            : Colors.white.withValues(alpha: 0.34),
+            : Colors.white.withValues(alpha: 0.78),
         gradient: lightweightMode
             ? null
             : LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.white.withValues(alpha: 0.50),
-                  Colors.white.withValues(alpha: 0.20),
+                  Colors.white.withValues(alpha: 0.82),
+                  Colors.white.withValues(alpha: 0.58),
                 ],
               ),
         borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(
           color: lightweightMode
               ? const Color(0xFFE2E8F0)
-              : Colors.white.withValues(alpha: 0.6),
+              : Colors.white.withValues(alpha: 0.72),
           width: 1.2,
         ),
         boxShadow: lightweightMode
             ? const []
             : [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 18,
-                  offset: const Offset(0, 6),
+                  offset: const Offset(6, 10),
                 ),
               ],
       ),
@@ -1772,7 +1965,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Tampilan Ringan',
+                    'Minimalist',
                     style: GoogleFonts.manrope(
                       fontSize: 15,
                       fontWeight: FontWeight.normal,
@@ -1781,7 +1974,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Kurangi efek visual agar aplikasi lebih lancar khususnya di model low end.',
+                    'Tampilan sederhana tanpa efek visual berat, lebih ringan digunakan.',
                     style: GoogleFonts.manrope(
                       fontSize: 12,
                       color: kTextSecondary,

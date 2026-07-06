@@ -63,9 +63,9 @@ class _EducationScreenState extends ConsumerState<EducationScreen> {
         surfaceTintColor: Colors.transparent,
         centerTitle: false,
         titleSpacing: 24,
-        toolbarHeight: lightweightMode ? 80 : 100,
+        toolbarHeight: 100,
         title: Padding(
-          padding: const EdgeInsets.only(top: 10),
+          padding: EdgeInsets.only(top: lightweightMode ? 0 : 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -183,7 +183,9 @@ class _EducationScreenState extends ConsumerState<EducationScreen> {
           ),
           if (kHydrationArticles.isNotEmpty &&
               (filtered.isNotEmpty || lightweightMode))
-            const SliverToBoxAdapter(child: SizedBox(height: 96)),
+            SliverToBoxAdapter(
+              child: SizedBox(height: lightweightMode ? 16 : 80),
+            ),
         ],
       ),
     );
@@ -200,31 +202,31 @@ class _EducationScreenState extends ConsumerState<EducationScreen> {
       decoration: BoxDecoration(
         color: lightweightMode
             ? Colors.white
-            : Colors.white.withValues(alpha: 0.34),
+            : Colors.white.withValues(alpha: 0.78),
         gradient: lightweightMode
             ? null
             : LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.white.withValues(alpha: 0.50),
-                  Colors.white.withValues(alpha: 0.20),
+                  Colors.white.withValues(alpha: 0.82),
+                  Colors.white.withValues(alpha: 0.58),
                 ],
               ),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: lightweightMode
               ? const Color(0xFFE2E8F0)
-              : Colors.white.withValues(alpha: 0.6),
+              : Colors.white.withValues(alpha: 0.72),
           width: 1.2,
         ),
         boxShadow: lightweightMode
             ? const []
             : [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 18,
-                  offset: const Offset(0, 6),
+                  offset: const Offset(6, 10),
                 ),
               ],
       ),
@@ -304,8 +306,8 @@ class _EducationScreenState extends ConsumerState<EducationScreen> {
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
             color: isSelected
                 ? (lightweightMode
-                      ? const Color(0xFF1A73E8)
-                      : const Color(0xFF0D47A1))
+                      ? const Color.fromRGBO(26, 115, 232, 1)
+                      : const Color.fromRGBO(26, 115, 232, 1))
                 : Colors.black54,
           ),
         ),

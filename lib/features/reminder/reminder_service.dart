@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -15,6 +15,15 @@ import 'domain/reminder_logic.dart';
 const String _kChannelId = 'hydration_reminders';
 const String _kChannelName = 'Pengingat Minum Air';
 const String _kChannelDesc = 'Notifikasi pengingat minum air harian';
+const bool kInternalQaBuild = bool.fromEnvironment('INTERNAL_QA');
+final Int64List _kReminderVibrationPattern = Int64List.fromList([
+  0,
+  250,
+  120,
+  250,
+]);
+
+bool get _qaToolsEnabled => kDebugMode || kInternalQaBuild;
 
 /// Handles all local notification scheduling for the Reminder System (F-06).
 ///
@@ -188,23 +197,13 @@ class ReminderService {
         return;
       }
 
-      const androidDetails = AndroidNotificationDetails(
-        _kChannelId,
-        _kChannelName,
-        channelDescription: _kChannelDesc,
-        importance: Importance.high,
-        priority: Priority.high,
-        visibility: NotificationVisibility.public,
-      );
-      const notificationDetails = NotificationDetails(android: androidDetails);
-
       // Show immediately using ID 43 to avoid touching regular/test reminders.
       await flutterLocalNotificationsPlugin.show(
         id: NotificationIds.reEngagement,
         title: '💧 Mari kembali terhidrasi!',
         body:
             'Sudah 3 hari kamu tidak memantau hidrasimu. Yuk, mulai minum air lagi bersama teman kecilmu!',
-        notificationDetails: notificationDetails,
+        notificationDetails: _reminderNotificationDetails(),
       );
       debugPrint('[ReminderService] Re-engagement notification sent');
     } catch (e) {
@@ -217,24 +216,16 @@ class ReminderService {
   /// QA Debug: Firing local notification immediately (id: NotificationIds.test)
   /// with payload 'test_notification' and no action buttons.
   Future<void> fireTestNotificationNow() async {
+    if (!_qaToolsEnabled) return;
+
     try {
       await _createNotificationChannel();
-
-      const androidDetails = AndroidNotificationDetails(
-        _kChannelId,
-        _kChannelName,
-        channelDescription: _kChannelDesc,
-        importance: Importance.high,
-        priority: Priority.high,
-        visibility: NotificationVisibility.public,
-      );
-      const notificationDetails = NotificationDetails(android: androidDetails);
 
       await flutterLocalNotificationsPlugin.show(
         id: NotificationIds.test,
         title: 'Tes Notifikasi SEHATI',
         body: 'Notifikasi uji coba berhasil muncul.',
-        notificationDetails: notificationDetails,
+        notificationDetails: _reminderNotificationDetails(),
         payload: 'test_notification',
       );
       debugPrint('[ReminderService] Test notification fired immediately');
@@ -246,18 +237,10 @@ class ReminderService {
   /// QA Debug: Scheduling local notification 1 minute from now (id: NotificationIds.test)
   /// with payload 'test_notification' and no action buttons.
   Future<void> scheduleTestNotification1Min() async {
+    if (!_qaToolsEnabled) return;
+
     try {
       await _createNotificationChannel();
-
-      const androidDetails = AndroidNotificationDetails(
-        _kChannelId,
-        _kChannelName,
-        channelDescription: _kChannelDesc,
-        importance: Importance.high,
-        priority: Priority.high,
-        visibility: NotificationVisibility.public,
-      );
-      const notificationDetails = NotificationDetails(android: androidDetails);
 
       final scheduledTime = DateTime.now().add(const Duration(minutes: 1));
       final tzScheduledTime = tz.TZDateTime.from(scheduledTime, tz.local);
@@ -267,7 +250,7 @@ class ReminderService {
         title: 'Tes Notifikasi Terjadwal',
         body: 'Notifikasi uji coba 1 menit berhasil muncul.',
         scheduledDate: tzScheduledTime,
-        notificationDetails: notificationDetails,
+        notificationDetails: _reminderNotificationDetails(),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         payload: 'test_notification',
       );
@@ -280,6 +263,10 @@ class ReminderService {
   /// Debug-only inspection helper for QA.
   /// Returns a formatted summary of all pending local notifications.
   Future<String> debugDescribePendingNotifications() async {
+    if (!_qaToolsEnabled) {
+      return 'Notification diagnostics are only available in debug/internal QA mode.';
+    }
+
     final profile = await _profileRepo.getUserProfile();
     final now = DateTime.now();
     final prefs = await SharedPreferences.getInstance();
@@ -504,16 +491,6 @@ class ReminderService {
     required DateTime scheduledTime,
     required String userId,
   }) async {
-    const androidDetails = AndroidNotificationDetails(
-      _kChannelId,
-      _kChannelName,
-      channelDescription: _kChannelDesc,
-      importance: Importance.high,
-      priority: Priority.high,
-      visibility: NotificationVisibility.public,
-    );
-
-    const notificationDetails = NotificationDetails(android: androidDetails);
     final tzScheduledTime = tz.TZDateTime.from(scheduledTime, tz.local);
 
     await flutterLocalNotificationsPlugin.zonedSchedule(
@@ -521,7 +498,7 @@ class ReminderService {
       title: 'Waktunya Minum Air',
       body: 'Ambil jeda sebentar dan catat minummu di SEHATI.',
       scheduledDate: tzScheduledTime,
-      notificationDetails: notificationDetails,
+      notificationDetails: _reminderNotificationDetails(),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       payload: scheduledTime.toIso8601String(),
     );
@@ -614,6 +591,22 @@ class ReminderService {
                 NotificationIds.regularReminderMaxSlots;
   }
 
+  NotificationDetails _reminderNotificationDetails() {
+    final androidDetails = AndroidNotificationDetails(
+      _kChannelId,
+      _kChannelName,
+      channelDescription: _kChannelDesc,
+      importance: Importance.high,
+      priority: Priority.high,
+      visibility: NotificationVisibility.public,
+      playSound: true,
+      enableVibration: true,
+      vibrationPattern: _kReminderVibrationPattern,
+    );
+
+    return NotificationDetails(android: androidDetails);
+  }
+
   /// Upserts the DailySummary for [date], incrementing remindersSent by 1.
   ///
   /// FIX C-02: [date] is now the scheduledTime date, not necessarily today.
@@ -647,11 +640,14 @@ class ReminderService {
 
     if (androidImplementation == null) return;
 
-    const channel = AndroidNotificationChannel(
+    final channel = AndroidNotificationChannel(
       _kChannelId,
       _kChannelName,
       description: _kChannelDesc,
       importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+      vibrationPattern: _kReminderVibrationPattern,
     );
 
     await androidImplementation.createNotificationChannel(channel);

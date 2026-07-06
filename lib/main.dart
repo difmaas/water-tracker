@@ -99,8 +99,8 @@ Future<void> _queueOpenedAppResponse(NotificationResponse response) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Configure system UI to run in edge-to-edge (fullscreen drawing behind status & navigation bars)
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  // Configure system UI to run in immersive fullscreen (hides status & navigation bars)
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,

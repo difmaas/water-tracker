@@ -26,6 +26,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
   late DateTime _selectedLogDate;
   int _touchedBarIndex = -1;
   Timer? _tooltipTimer;
+  final Map<DateTime, GlobalKey<TooltipState>> _tooltipKeys = {};
 
   // Theme styling colors matching Splash/Onboarding/Settings
   static const Color kPrimary = Color(0xFF1A73E8);
@@ -139,13 +140,14 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
   }
 
   Widget _buildSectionTitle(String title) {
+    final lightweightMode = ref.read(appSettingsProvider).lightweightMode;
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 10),
       child: Text(
         title,
         style: GoogleFonts.manrope(
           fontSize: 18,
-          fontWeight: FontWeight.w700,
+          fontWeight: lightweightMode ? FontWeight.w700 : FontWeight.normal,
           color: Colors.black,
           letterSpacing: -0.2,
         ),
@@ -330,58 +332,81 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
         ? '${_getFormattedDate(date)}\n${_formatVolume(achievedMl)} / ${_formatVolume(targetMl)} ml'
         : '${_getFormattedDate(date)}\nBelum aktif';
 
-    final cell = Tooltip(
-      message: tooltipMessage,
-      triggerMode: TooltipTriggerMode.tap,
-      preferBelow: false,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.62),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.65),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      textStyle: GoogleFonts.manrope(
-        color: Colors.black,
-        fontWeight: FontWeight.normal,
-        fontSize: 12,
-        height: 1.35,
-      ),
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: decoration,
-        child: Center(
-          child: Text(
-            dateLabel,
-            style: GoogleFonts.manrope(
-              fontSize: 12,
-              fontWeight: FontWeight.normal,
-              color: textColor,
-            ),
+    final cellContent = AnimatedContainer(
+      duration: const Duration(milliseconds: 140),
+      curve: Curves.easeOutCubic,
+      width: 40,
+      height: 40,
+      decoration: decoration,
+      child: Center(
+        child: Text(
+          dateLabel,
+          style: GoogleFonts.manrope(
+            fontSize: 12,
+            fontWeight: FontWeight.normal,
+            color: textColor,
           ),
         ),
       ),
     );
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: isAvailable
-          ? () {
-              setState(() {
-                _selectedLogDate = date;
-              });
-            }
-          : null,
-      child: cell,
+    final tooltipKey = _tooltipKeys.putIfAbsent(
+      date,
+      () => GlobalKey<TooltipState>(),
+    );
+
+    return Tooltip(
+      key: tooltipKey,
+      message: tooltipMessage,
+      triggerMode: TooltipTriggerMode.tap,
+      preferBelow: false,
+      decoration: BoxDecoration(
+        color: lightweightMode
+            ? const Color(0xFF1E3A8A)
+            : Colors.white.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(lightweightMode ? 10 : 12),
+        border: lightweightMode
+            ? null
+            : Border.all(
+                color: Colors.white.withValues(alpha: 0.45),
+                width: 1.2,
+              ),
+        boxShadow: lightweightMode
+            ? const []
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+      ),
+      textStyle: GoogleFonts.manrope(
+        color: lightweightMode ? Colors.white : const Color(0xFF0F172A),
+        fontWeight: lightweightMode ? FontWeight.bold : FontWeight.normal,
+        fontSize: 12,
+        height: 1.35,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: isAvailable
+              ? () {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    tooltipKey.currentState?.ensureTooltipVisible();
+                  });
+
+                  if (_selectedLogDate != date) {
+                    setState(() {
+                      _selectedLogDate = date;
+                    });
+                  }
+                }
+              : null,
+          child: cellContent,
+        ),
+      ),
     );
   }
 
@@ -444,7 +469,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
               final double availableWidth = constraints.maxWidth - 40;
               final double cellWidth = (availableWidth - (gridSpacing * 6)) / 7;
               final double gridHeight = (cellWidth * 6) + (gridSpacing * 5);
-              final double calendarHeight = 52.0 + 20.0 + 32.0 + gridHeight;
+              final double calendarHeight = 82.0 + gridHeight;
 
               return Padding(
                 padding: const EdgeInsets.fromLTRB(20, 28, 20, 22),
@@ -554,7 +579,9 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                                                 day,
                                                 style: GoogleFonts.manrope(
                                                   fontSize: 10,
-                                                  fontWeight: FontWeight.w600,
+                                                  fontWeight: lightweightMode
+                                                      ? FontWeight.w600
+                                                      : FontWeight.normal,
                                                   color: dayHeaderColor,
                                                 ),
                                               ),
@@ -624,7 +651,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                         },
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 4),
                     _buildHistoryStatRow(
                       'Total minum',
                       '${_formatVolume(monthlyTotal)} ml',
@@ -687,21 +714,26 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                       maxY: maxY,
                       barTouchData: BarTouchData(
                         touchTooltipData: BarTouchTooltipData(
-                          getTooltipColor: (_) =>
-                              Colors.black.withValues(alpha: 0.8),
-                          tooltipBorderRadius: BorderRadius.circular(8),
+                          getTooltipColor: (_) => lightweightMode
+                              ? const Color(0xFF1E3A8A)
+                              : Colors.white.withValues(alpha: 0.88),
+                          tooltipBorderRadius: BorderRadius.circular(lightweightMode ? 10 : 12),
                           tooltipPadding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
+                            horizontal: 10,
+                            vertical: 6,
                           ),
                           getTooltipItem: (group, groupIndex, rod, rodIndex) {
                             final ml = rod.toY.round();
                             return BarTooltipItem(
                               '$ml ml',
                               GoogleFonts.manrope(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.normal,
+                                color: lightweightMode
+                                    ? Colors.white
+                                    : const Color(0xFF0F172A),
+                                fontSize: 12,
+                                fontWeight: lightweightMode
+                                    ? FontWeight.w700
+                                    : FontWeight.normal,
                               ),
                             );
                           },
@@ -762,9 +794,11 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                                   label,
                                   style: GoogleFonts.manrope(
                                     fontSize: 16,
-                                    fontWeight: isToday
-                                        ? FontWeight.w700
-                                        : FontWeight.w600,
+                                    fontWeight: lightweightMode
+                                        ? (isToday
+                                              ? FontWeight.w700
+                                              : FontWeight.w600)
+                                        : FontWeight.normal,
                                     color: Colors.black,
                                   ),
                                 ),
@@ -806,7 +840,9 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                                   ? const Color(0xFFEAF2FF)
                                   : (_touchedBarIndex == index
                                         ? kPrimary
-                                        : const Color(0xFF5AA7F2)),
+                                        : (_touchedBarIndex >= 0
+                                            ? const Color(0xFF5AA7F2).withValues(alpha: 0.72)
+                                            : const Color(0xFF5AA7F2))),
                               width: 36,
                               borderRadius: BorderRadius.circular(18),
                               borderSide: BorderSide.none,
@@ -911,7 +947,9 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                   '${_formatVolume(hydrationState.currentMl)} / ${_formatVolume(hydrationState.targetMl)} ml',
                   style: GoogleFonts.manrope(
                     fontSize: 16,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: lightweightMode
+                        ? FontWeight.w700
+                        : FontWeight.normal,
                     color: Colors.black,
                     letterSpacing: -0.2,
                   ),
@@ -1015,7 +1053,9 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
               Text(
                 'Gagal memuat data riwayat',
                 style: GoogleFonts.manrope(
-                  fontWeight: FontWeight.bold,
+                  fontWeight: lightweightMode
+                      ? FontWeight.bold
+                      : FontWeight.normal,
                   color: kTextDark,
                 ),
               ),
@@ -1111,7 +1151,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
             _buildBarChartSection(stats),
             const SizedBox(height: 24),
             _buildCalendarSection(profile, summaries),
-            SizedBox(height: lightweightMode ? 16 : 120),
+            SizedBox(height: lightweightMode ? 16 : 80),
           ],
         ),
       ),
@@ -1129,31 +1169,31 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
       decoration: BoxDecoration(
         color: lightweightMode
             ? (lightweightBgColor ?? const Color(0xFFD7E5FF))
-            : Colors.white.withValues(alpha: 0.34),
+            : Colors.white.withValues(alpha: 0.78),
         gradient: lightweightMode
             ? null
             : LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.white.withValues(alpha: 0.50),
-                  Colors.white.withValues(alpha: 0.20),
+                  Colors.white.withValues(alpha: 0.82),
+                  Colors.white.withValues(alpha: 0.58),
                 ],
               ),
         borderRadius: BorderRadius.circular(borderRadius),
         border: lightweightMode
             ? null
             : Border.all(
-                color: Colors.white.withValues(alpha: 0.6),
+                color: Colors.white.withValues(alpha: 0.72),
                 width: 1.2,
               ),
         boxShadow: lightweightMode
             ? const []
             : [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 18,
-                  offset: const Offset(0, 6),
+                  offset: const Offset(6, 10),
                 ),
               ],
       ),

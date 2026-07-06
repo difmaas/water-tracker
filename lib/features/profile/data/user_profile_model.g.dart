@@ -74,58 +74,63 @@ const UserProfileSchema = CollectionSchema(
       name: r'notificationPermissionGranted',
       type: IsarType.bool,
     ),
-    r'reminderInterval': PropertySchema(
+    r'participantId': PropertySchema(
       id: 13,
+      name: r'participantId',
+      type: IsarType.string,
+    ),
+    r'reminderInterval': PropertySchema(
+      id: 14,
       name: r'reminderInterval',
       type: IsarType.long,
     ),
     r'reminderSystemActive': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'reminderSystemActive',
       type: IsarType.bool,
     ),
     r'reminderType': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'reminderType',
       type: IsarType.string,
     ),
     r'reminderWindowEnd': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'reminderWindowEnd',
       type: IsarType.long,
     ),
     r'reminderWindowStart': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'reminderWindowStart',
       type: IsarType.long,
     ),
     r'riwayatPenyakit': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'riwayatPenyakit',
       type: IsarType.stringList,
     ),
     r'tanggalLahir': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'tanggalLahir',
       type: IsarType.dateTime,
     ),
     r'targetDiterima': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'targetDiterima',
       type: IsarType.bool,
     ),
     r'targetManualMl': PropertySchema(
-      id: 21,
+      id: 22,
       name: r'targetManualMl',
       type: IsarType.long,
     ),
     r'tinggiBadan': PropertySchema(
-      id: 22,
+      id: 23,
       name: r'tinggiBadan',
       type: IsarType.double,
     ),
-    r'unit': PropertySchema(id: 23, name: r'unit', type: IsarType.string),
-    r'userId': PropertySchema(id: 24, name: r'userId', type: IsarType.string),
+    r'unit': PropertySchema(id: 24, name: r'unit', type: IsarType.string),
+    r'userId': PropertySchema(id: 25, name: r'userId', type: IsarType.string),
   },
 
   estimateSize: _userProfileEstimateSize,
@@ -153,6 +158,7 @@ int _userProfileEstimateSize(
   bytesCount += 3 + object.letakGeografis.length * 3;
   bytesCount += 3 + object.levelAktivitas.length * 3;
   bytesCount += 3 + object.nama.length * 3;
+  bytesCount += 3 + object.participantId.length * 3;
   bytesCount += 3 + object.reminderType.length * 3;
   bytesCount += 3 + object.riwayatPenyakit.length * 3;
   {
@@ -185,18 +191,19 @@ void _userProfileSerialize(
   writer.writeString(offsets[10], object.levelAktivitas);
   writer.writeString(offsets[11], object.nama);
   writer.writeBool(offsets[12], object.notificationPermissionGranted);
-  writer.writeLong(offsets[13], object.reminderInterval);
-  writer.writeBool(offsets[14], object.reminderSystemActive);
-  writer.writeString(offsets[15], object.reminderType);
-  writer.writeLong(offsets[16], object.reminderWindowEnd);
-  writer.writeLong(offsets[17], object.reminderWindowStart);
-  writer.writeStringList(offsets[18], object.riwayatPenyakit);
-  writer.writeDateTime(offsets[19], object.tanggalLahir);
-  writer.writeBool(offsets[20], object.targetDiterima);
-  writer.writeLong(offsets[21], object.targetManualMl);
-  writer.writeDouble(offsets[22], object.tinggiBadan);
-  writer.writeString(offsets[23], object.unit);
-  writer.writeString(offsets[24], object.userId);
+  writer.writeString(offsets[13], object.participantId);
+  writer.writeLong(offsets[14], object.reminderInterval);
+  writer.writeBool(offsets[15], object.reminderSystemActive);
+  writer.writeString(offsets[16], object.reminderType);
+  writer.writeLong(offsets[17], object.reminderWindowEnd);
+  writer.writeLong(offsets[18], object.reminderWindowStart);
+  writer.writeStringList(offsets[19], object.riwayatPenyakit);
+  writer.writeDateTime(offsets[20], object.tanggalLahir);
+  writer.writeBool(offsets[21], object.targetDiterima);
+  writer.writeLong(offsets[22], object.targetManualMl);
+  writer.writeDouble(offsets[23], object.tinggiBadan);
+  writer.writeString(offsets[24], object.unit);
+  writer.writeString(offsets[25], object.userId);
 }
 
 UserProfile _userProfileDeserialize(
@@ -220,18 +227,19 @@ UserProfile _userProfileDeserialize(
   object.levelAktivitas = reader.readString(offsets[10]);
   object.nama = reader.readString(offsets[11]);
   object.notificationPermissionGranted = reader.readBool(offsets[12]);
-  object.reminderInterval = reader.readLong(offsets[13]);
-  object.reminderSystemActive = reader.readBool(offsets[14]);
-  object.reminderType = reader.readString(offsets[15]);
-  object.reminderWindowEnd = reader.readLong(offsets[16]);
-  object.reminderWindowStart = reader.readLong(offsets[17]);
-  object.riwayatPenyakit = reader.readStringList(offsets[18]) ?? [];
-  object.tanggalLahir = reader.readDateTime(offsets[19]);
-  object.targetDiterima = reader.readBool(offsets[20]);
-  object.targetManualMl = reader.readLongOrNull(offsets[21]);
-  object.tinggiBadan = reader.readDouble(offsets[22]);
-  object.unit = reader.readString(offsets[23]);
-  object.userId = reader.readString(offsets[24]);
+  object.participantId = reader.readString(offsets[13]);
+  object.reminderInterval = reader.readLong(offsets[14]);
+  object.reminderSystemActive = reader.readBool(offsets[15]);
+  object.reminderType = reader.readString(offsets[16]);
+  object.reminderWindowEnd = reader.readLong(offsets[17]);
+  object.reminderWindowStart = reader.readLong(offsets[18]);
+  object.riwayatPenyakit = reader.readStringList(offsets[19]) ?? [];
+  object.tanggalLahir = reader.readDateTime(offsets[20]);
+  object.targetDiterima = reader.readBool(offsets[21]);
+  object.targetManualMl = reader.readLongOrNull(offsets[22]);
+  object.tinggiBadan = reader.readDouble(offsets[23]);
+  object.unit = reader.readString(offsets[24]);
+  object.userId = reader.readString(offsets[25]);
   return object;
 }
 
@@ -269,28 +277,30 @@ P _userProfileDeserializeProp<P>(
     case 12:
       return (reader.readBool(offset)) as P;
     case 13:
-      return (reader.readLong(offset)) as P;
-    case 14:
-      return (reader.readBool(offset)) as P;
-    case 15:
       return (reader.readString(offset)) as P;
-    case 16:
+    case 14:
       return (reader.readLong(offset)) as P;
+    case 15:
+      return (reader.readBool(offset)) as P;
+    case 16:
+      return (reader.readString(offset)) as P;
     case 17:
       return (reader.readLong(offset)) as P;
     case 18:
-      return (reader.readStringList(offset) ?? []) as P;
+      return (reader.readLong(offset)) as P;
     case 19:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readStringList(offset) ?? []) as P;
     case 20:
-      return (reader.readBool(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 21:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 22:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 23:
-      return (reader.readString(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 24:
+      return (reader.readString(offset)) as P;
+    case 25:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1378,6 +1388,147 @@ extension UserProfileQueryFilter
           property: r'notificationPermissionGranted',
           value: value,
         ),
+      );
+    });
+  }
+
+  QueryBuilder<UserProfile, UserProfile, QAfterFilterCondition>
+  participantIdEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'participantId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<UserProfile, UserProfile, QAfterFilterCondition>
+  participantIdGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'participantId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<UserProfile, UserProfile, QAfterFilterCondition>
+  participantIdLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'participantId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<UserProfile, UserProfile, QAfterFilterCondition>
+  participantIdBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'participantId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<UserProfile, UserProfile, QAfterFilterCondition>
+  participantIdStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'participantId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<UserProfile, UserProfile, QAfterFilterCondition>
+  participantIdEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'participantId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<UserProfile, UserProfile, QAfterFilterCondition>
+  participantIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'participantId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<UserProfile, UserProfile, QAfterFilterCondition>
+  participantIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'participantId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<UserProfile, UserProfile, QAfterFilterCondition>
+  participantIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'participantId', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<UserProfile, UserProfile, QAfterFilterCondition>
+  participantIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'participantId', value: ''),
       );
     });
   }
@@ -2581,6 +2732,19 @@ extension UserProfileQuerySortBy
     });
   }
 
+  QueryBuilder<UserProfile, UserProfile, QAfterSortBy> sortByParticipantId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'participantId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<UserProfile, UserProfile, QAfterSortBy>
+  sortByParticipantIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'participantId', Sort.desc);
+    });
+  }
+
   QueryBuilder<UserProfile, UserProfile, QAfterSortBy>
   sortByReminderInterval() {
     return QueryBuilder.apply(this, (query) {
@@ -2906,6 +3070,19 @@ extension UserProfileQuerySortThenBy
     });
   }
 
+  QueryBuilder<UserProfile, UserProfile, QAfterSortBy> thenByParticipantId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'participantId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<UserProfile, UserProfile, QAfterSortBy>
+  thenByParticipantIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'participantId', Sort.desc);
+    });
+  }
+
   QueryBuilder<UserProfile, UserProfile, QAfterSortBy>
   thenByReminderInterval() {
     return QueryBuilder.apply(this, (query) {
@@ -3147,6 +3324,17 @@ extension UserProfileQueryWhereDistinct
     });
   }
 
+  QueryBuilder<UserProfile, UserProfile, QDistinct> distinctByParticipantId({
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(
+        r'participantId',
+        caseSensitive: caseSensitive,
+      );
+    });
+  }
+
   QueryBuilder<UserProfile, UserProfile, QDistinct>
   distinctByReminderInterval() {
     return QueryBuilder.apply(this, (query) {
@@ -3317,6 +3505,12 @@ extension UserProfileQueryProperty
   notificationPermissionGrantedProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'notificationPermissionGranted');
+    });
+  }
+
+  QueryBuilder<UserProfile, String, QQueryOperations> participantIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'participantId');
     });
   }
 
